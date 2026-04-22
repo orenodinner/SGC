@@ -181,6 +181,8 @@
 - 初期 preview panel では `全件 / warning / error` filter を切り替えられる
 - 初期 preview panel では warning を1件以上持つ row を上部に集約表示し、`row number / title / warning reason` を先に確認できる
 - 初期 preview panel では warning summary とは別に warning-only table を置き、warning を持つ row だけを `row / project / title / warning` 列で独立比較できる
+- 初期 preview panel では `action=update` row に限って差分比較を開ける
+- 差分比較は field ごとの before / after を inline 表示し、初期実装では canonical `Tasks` の主要編集列だけを対象にする
 - browser fallback では file picker から `.xlsx` を選んで preview を出し、そのまま current project へ commit できる
 - browser fallback の preview panel では `DependsOn` は preview/validation のみで apply 時は反映しないことを明示する
 - browser fallback の初期 import は SGC export が出す store-only workbook を主対象とする
@@ -246,6 +248,9 @@
 - 初期実装では前倒しは行わず、遅延方向の calendar-day shift のみを扱う
 - working day logic の初期適用範囲は dependency による自動後ろ倒しのみとする
 - 既定の working day は月〜金で、土日をまたぐ自動シフトは次の稼働日へ送る
+- reschedule scope dialog の keyboard 初期対応では、開いた時点で既定選択の `with_descendants` へ focus する
+- dialog 内では `ArrowLeft/ArrowRight` で scope 候補を移動し、`Enter` または `Space` で現在候補を確定する
+- `Escape` では reschedule scope dialog を閉じ、変更は適用しない
 
 ### Dependency Type
 - MVP は `finish_to_start` のみ
@@ -261,6 +266,7 @@
 - 初期 dependency editor では selected item を successor とする `finish_to_start` の追加を先に提供し、既存 dependency の削除は predecessor / successor のどちら側からでも行える
 - browser mode では dependency editor を read-only note に留める
 - 初期 keyboard timeline edit は focused bar / marker に対して `Alt+Left/Right` で移動、`Alt+Shift+Left/Right` で右端リサイズを提供する
+- focused timeline bar / marker では `ArrowUp/ArrowDown` で前後の visible timeline item へ focus を移動できる
 - milestone は keyboard move のみを対象とし、keyboard resize は task / group の bar に限定する
 
 ## 3.4 ロールアップ

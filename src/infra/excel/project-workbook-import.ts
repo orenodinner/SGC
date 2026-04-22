@@ -8,6 +8,7 @@ import {
   projectImportPreviewSchema,
   type ItemRecord,
   type ProjectImportPreview,
+  type ProjectImportPreviewChange,
   type ProjectImportPreviewIssue,
   type ProjectImportPreviewRow,
   type ProjectImportPreviewWarning,
@@ -203,6 +204,7 @@ function classifyImportRow(input: {
         message: "Update existing item",
         issues: [],
         warnings,
+        changes: collectUpdatePreviewChanges(row, existing),
       };
     }
 
@@ -243,6 +245,7 @@ function classifyImportRow(input: {
     message: "Create new item",
     issues: [],
     warnings: [],
+    changes: [],
   };
 }
 
@@ -261,6 +264,7 @@ function errorRow(
     message: formatIssueSummary(issues),
     issues,
     warnings: [],
+    changes: [],
   };
 }
 
@@ -277,6 +281,67 @@ function formatIssueSummary(issues: ProjectImportPreviewIssue[]): string {
     return `${issues[0].field}: ${issues[0].message}`;
   }
   return `${issues.length} validation issues`;
+}
+
+function collectUpdatePreviewChanges(
+  row: TasksSheetRow,
+  existing: ItemRecord
+): ProjectImportPreviewChange[] {
+  return [
+    comparePreviewField("Title", existing.title, row.Title.trim()),
+    comparePreviewField("ParentRecordId", existing.parentId ?? "", row.ParentRecordId.trim()),
+    comparePreviewField("ItemType", existing.type, row.ItemType.trim() || existing.type),
+    comparePreviewField("Status", existing.status, row.Status.trim() || existing.status),
+    comparePreviewField("Priority", existing.priority, row.Priority.trim() || existing.priority),
+    comparePreviewField("Assignee", existing.assigneeName, row.Assignee.trim()),
+    comparePreviewField("StartDate", existing.startDate ?? "", row.StartDate.trim()),
+    comparePreviewField("EndDate", existing.endDate ?? "", row.EndDate.trim()),
+    comparePreviewField("DueDate", existing.dueDate ?? "", row.DueDate.trim()),
+    comparePreviewField(
+      "DurationDays",
+      formatNumericPreviewValue(existing.durationDays),
+      row.DurationDays.trim() || formatNumericPreviewValue(existing.durationDays)
+    ),
+    comparePreviewField(
+      "PercentComplete",
+      formatNumericPreviewValue(existing.percentComplete),
+      row.PercentComplete.trim() || formatNumericPreviewValue(existing.percentComplete)
+    ),
+    comparePreviewField(
+      "EstimateHours",
+      formatNumericPreviewValue(existing.estimateHours),
+      row.EstimateHours.trim() || formatNumericPreviewValue(existing.estimateHours)
+    ),
+    comparePreviewField("Tags", formatPreviewTags(existing.tags), formatImportedPreviewTags(row.Tags)),
+    comparePreviewField("Note", existing.note, row.Note),
+  ].filter((change): change is ProjectImportPreviewChange => Boolean(change));
+}
+
+function comparePreviewField(
+  field: string,
+  before: string,
+  after: string
+): ProjectImportPreviewChange | null {
+  if (before === after) {
+    return null;
+  }
+  return { field, before, after };
+}
+
+function formatPreviewTags(tags: string[]): string {
+  return tags.join(", ");
+}
+
+function formatImportedPreviewTags(value: string): string {
+  return value
+    .split(/[,\s]+/u)
+    .map((tag) => tag.trim().replace(/^#/, ""))
+    .filter(Boolean)
+    .join(", ");
+}
+
+function formatNumericPreviewValue(value: number): string {
+  return Number.isInteger(value) ? String(value) : `${value}`;
 }
 
 function collectLastModifiedAtWarning(

@@ -549,6 +549,36 @@ textarea {
   gap: 6px;
 }
 
+.import-preview-compare-toggle {
+  margin-top: 2px;
+}
+
+.import-preview-compare {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(240, 238, 233, 0.9);
+  border: 1px solid rgba(83, 77, 69, 0.12);
+}
+
+.import-preview-compare-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.import-preview-compare-header {
+  font-weight: 700;
+  color: #534d45;
+}
+
+.import-preview-compare-field {
+  font-weight: 700;
+  color: #4f5c4d;
+}
+
 .import-preview-issue {
   display: inline-flex;
   align-items: center;

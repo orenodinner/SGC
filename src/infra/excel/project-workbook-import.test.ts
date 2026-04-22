@@ -189,6 +189,79 @@ describe("buildProjectImportPreview", () => {
     ]);
   });
 
+  it("collects before and after changes for update rows", () => {
+    const workbookBytes = exportWorkbookXlsx({
+      sheets: [
+        {
+          name: "Dashboard",
+          columns: ["Metric", "Value"],
+          rows: [],
+        },
+        {
+          name: "Tasks",
+          columns: EXCEL_TASKS_SHEET_COLUMNS,
+          rows: [
+            makeTaskRow({
+              RecordId: "itm-existing",
+              ProjectCode: "PRJ-A",
+              ProjectName: "案件A",
+              Title: "更新後タイトル",
+              StartDate: "2026-05-03",
+              EndDate: "2026-05-05",
+              PercentComplete: "75",
+              Tags: "#urgent review",
+            }),
+          ],
+        },
+        {
+          name: "Gantt_View",
+          columns: ["Title"],
+          rows: [],
+        },
+        {
+          name: "MasterData",
+          columns: ["Category", "Code", "Label"],
+          rows: [],
+        },
+      ],
+    });
+
+    const preview = buildProjectImportPreview({
+      project: makeProject(),
+      sourcePath: "C:/tmp/import-compare.xlsx",
+      workbookBytes,
+      items: [
+        {
+          ...makeItem(),
+          title: "既存タイトル",
+          startDate: "2026-05-01",
+          endDate: "2026-05-02",
+          dueDate: "2026-05-02",
+          percentComplete: 20,
+          isScheduled: true,
+          tags: ["ops"],
+        },
+      ],
+      projects: [makeProject()],
+      dependencies: [],
+    });
+
+    expect(preview.errorCount).toBe(0);
+    expect(preview.updateCount).toBe(1);
+    expect(preview.rows[0]).toEqual(
+      expect.objectContaining({
+        action: "update",
+        changes: expect.arrayContaining([
+          { field: "Title", before: "既存タイトル", after: "更新後タイトル" },
+          { field: "StartDate", before: "2026-05-01", after: "2026-05-03" },
+          { field: "EndDate", before: "2026-05-02", after: "2026-05-05" },
+          { field: "PercentComplete", before: "20", after: "75" },
+          { field: "Tags", before: "ops", after: "urgent, review" },
+        ]),
+      })
+    );
+  });
+
   it("collects multiple field-level issues for one error row", () => {
     const workbookBytes = exportWorkbookXlsx({
       sheets: [

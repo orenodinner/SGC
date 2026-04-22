@@ -1,5 +1,5 @@
 version: 1
-last_updated: 2026-04-22
+last_updated: 2026-04-23
 epics:
   - id: EPIC-00
     name: Repository bootstrap
@@ -142,7 +142,7 @@ epics:
   - id: EPIC-06
     name: Excel round-trip
     priority: P1
-    status: in_progress
+    status: done
     tasks:
       - id: TASK-0601
         title: Export workbook with four sheets
@@ -152,7 +152,7 @@ epics:
         status: done
       - id: TASK-0603
         title: Implement import commit and validation
-        status: in_progress
+        status: done
       - id: TASK-0604
         title: Add round-trip fixtures and tests
         status: done

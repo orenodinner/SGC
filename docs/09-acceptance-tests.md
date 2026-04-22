@@ -188,6 +188,23 @@
 - focus した bar が selected item と同期する
 - milestone marker では keyboard resize が発火しない
 
+### ACC-030 Timeline focus traversal
+**Given** Project Detail に scheduled item が2件以上あり、先頭の timeline bar または marker を focus している  
+**When** `ArrowDown` を押し、その後 `ArrowUp` を押す  
+**Then**
+- `ArrowDown` で次の visible timeline item へ focus が移る
+- `ArrowDown` 後は selected item も次の item に同期する
+- `ArrowUp` で直前の visible timeline item へ focus が戻る
+
+### ACC-031 Reschedule dialog keyboard
+**Given** 親子の scheduled item があり、親の timeline move で reschedule scope dialog が開いている  
+**When** `Escape` で閉じた後、再度 dialog を開いて `ArrowLeft` で `single` へ移動し `Enter` を押す  
+**Then**
+- 最初の dialog は閉じるだけで変更を適用しない
+- 再度開いた dialog では既定選択 `with_descendants` に focus がある
+- `ArrowLeft` 後は `single` が active/focus になる
+- `Enter` で `single` が適用され、親だけが移動して子の日付は変わらない
+
 ### ACC-016 Excel export workbook
 **Given** プロジェクトデータあり  
 **When** Project Detail から XLSX export を実行し、保存先を確定する  
@@ -217,6 +234,7 @@
 - 不正な `DependsOn` token row は error になる
 - workbook の `LastModifiedAt` が既存 item より古い update row では warning が見える
 - import 後の `DependsOn` が current project graph に cycle を作る update row では warning が見える
+- update row では `差分` を開くと field ごとの before / after が見える
 
 ### ACC-018 Excel round-trip
 **Given** export した workbook  
@@ -229,6 +247,14 @@
 - successor の `DependsOn` を空にした行は既存 dependency が外れる
 - `error` 行は反映されない
 - browser fallback の初期 commit では `DependsOn` を apply しない
+
+### ACC-029 Excel import compare preview
+**Given** current project に既存 item があり、workbook 側でタイトルまたは日付を変更している  
+**When** import preview で update row の `差分` を開く  
+**Then**
+- field ごとの before / after が見える
+- 初期実装では canonical `Tasks` の主要編集列だけを比較対象にする
+- new row と error row には compare toggle を出さない
 
 ## P2
 

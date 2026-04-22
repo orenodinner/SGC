@@ -294,3 +294,21 @@ decisions:
     status: accepted
     decision: timeline の keyboard 操作は初期 slice では focused bar / marker に限定し、`Alt+Left/Right` を move、`Alt+Shift+Left/Right` を right-edge resize とする。resize は task / group の bar のみを対象にし、milestone marker では move のみ許可する
     rationale: pointer 依存の timeline 編集に対する最小の accessibility 改善としては、selected item や drag state を複雑に広げず、focused bar に対する明示的なショートカットを追加するのが最も安全で検証範囲も小さいため。
+
+  - id: DEC-050
+    topic: Initial import compare preview scope
+    status: accepted
+    decision: import preview の差分比較は `action=update` row のみに出し、field / before / after の inline compare として panel 内で完結させる。初期実装の比較対象は canonical `Tasks` の主要編集列に限定し、new row / error row や差分比較専用画面は持たない
+    rationale: import preview の判断材料を一段上げつつ、別画面や commit ロジック変更を増やさずに小さな縦切りで実装できるため。
+
+  - id: DEC-051
+    topic: Initial timeline focus traversal scope
+    status: accepted
+    decision: timeline の focus traversal は初期 slice では visible な bar / marker だけを対象にし、`ArrowUp/ArrowDown` で DOM 順の前後 item へ focus を移す。focus 移動時は selected item を追従させるが、dialog や grid への traversal までは広げない
+    rationale: keyboard 編集の次に必要な accessibility 改善としては、visible timeline item 間の移動を先に閉じるのが最小で安全であり、pointer 操作や dialog のフォーカス管理を一度に広げずに Playwright で主経路を守れるため。
+
+  - id: DEC-052
+    topic: Initial reschedule dialog keyboard scope
+    status: accepted
+    decision: reschedule scope dialog の keyboard 初期対応は `ArrowLeft/ArrowRight` による候補移動、`Enter/Space` による確定、`Escape` によるキャンセルに限定する。dialog を開いた時点では既定選択の `with_descendants` に focus を置き、Tab 順や周辺画面への focus trap まではこの slice では扱わない
+    rationale: timeline keyboard 編集の次に必要なのは reschedule 分岐を pointer なしでも確定できることだが、完全な dialog focus trap まで一度に広げると scope が大きくなるため。候補選択と確定/キャンセルだけを先に閉じる方が安全で E2E でも守りやすい。

@@ -223,6 +223,12 @@ export const projectImportPreviewWarningSchema = z.object({
   message: z.string(),
 });
 
+export const projectImportPreviewChangeSchema = z.object({
+  field: z.string(),
+  before: z.string(),
+  after: z.string(),
+});
+
 export const projectImportPreviewRowSchema = z.object({
   rowNumber: z.number().int().nonnegative(),
   action: importPreviewActionSchema,
@@ -233,6 +239,7 @@ export const projectImportPreviewRowSchema = z.object({
   message: z.string(),
   issues: z.array(projectImportPreviewIssueSchema),
   warnings: z.array(projectImportPreviewWarningSchema),
+  changes: z.array(projectImportPreviewChangeSchema),
 });
 
 export const projectImportPreviewSchema = z.object({
@@ -274,6 +281,7 @@ export type ProjectImportCommitResult = z.infer<typeof projectImportCommitResult
 export type ImportPreviewAction = z.infer<typeof importPreviewActionSchema>;
 export type ProjectImportPreviewIssue = z.infer<typeof projectImportPreviewIssueSchema>;
 export type ProjectImportPreviewWarning = z.infer<typeof projectImportPreviewWarningSchema>;
+export type ProjectImportPreviewChange = z.infer<typeof projectImportPreviewChangeSchema>;
 export type ProjectImportPreviewRow = z.infer<typeof projectImportPreviewRowSchema>;
 export type ProjectImportPreview = z.infer<typeof projectImportPreviewSchema>;
 

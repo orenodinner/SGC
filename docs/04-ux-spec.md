@@ -54,6 +54,8 @@
 - `warning` では warning を1件以上持つ row、`error` では `action=error` row のみを表示する
 - 初期 preview panel の counts の下には dedicated warning summary を置き、warning がある row の `row number / title / warning` を先に一覧できるようにする
 - 初期 preview panel の warning summary の下には dedicated warning-only table を置き、warning 行だけを `row / project / title / warning` で本体 table とは別に比較できるようにする
+- 初期 preview table の update row には `差分` ボタンを置き、押下時に field / before / after の比較行を inline 展開する
+- 差分比較は warning / error 表示と同じ row 内で完結させ、new row と error row には compare toggle を出さない
 - browser fallback では `Import` 押下時に browser file picker を開き、preview 後は同じ panel から `適用` を実行できる
 - browser fallback の `適用` は preview 済み workbook を current project へ反映し、初期 slice では dependency import は行わない
 - browser fallback の preview panel には `DependsOn は適用されない` ことを示す informational note を置く
@@ -67,6 +69,7 @@
 - browser mode では dependency editor の代わりに `desktop only` の informational note を表示する
 - scheduled item の timeline bar / marker は focusable にし、focus 時に selected item と同期する
 - 初期 keyboard 操作は `Alt+←/→ = move`、`Alt+Shift+←/→ = right edge resize` を hint と aria-label で案内する
+- focused timeline item では `↑ / ↓` で前後の visible timeline item へ focus を移し、selected item も追従させる
 - keyboard resize は task / group の bar のみを対象にし、milestone marker では move のみ許可する
 
 ### Portfolio
@@ -120,7 +123,9 @@
 - Ctrl+Z: 直前の item 編集を取り消し
 - Ctrl+Shift+Z / Ctrl+Y: 取り消した item 編集をやり直し
 - Ctrl+[ / Ctrl+]: アウトデント / インデント
-- Alt+Shift+Left / Right: 1日単位で移動
+- Alt+Left / Right: 1日単位で移動
+- Alt+Shift+Left / Right: 右端を1日単位で調整
+- ArrowUp / ArrowDown: timeline focus を前後の visible item へ移動
 
 ### タイムライン操作
 - バー中央ドラッグ: 期間そのまま移動
@@ -140,6 +145,9 @@
 - dependency を持つ行では `後続もずらす` を選べる
 - 初期実装では後続の前倒しは行わず、必要最小限の後ろ倒しのみ行う
 - 自動後ろ倒しが土日に当たる場合は、次の営業日へスナップする
+- 初期 keyboard 補助では dialog を開いた時点で `子も一緒に` に focus を置く
+- `← / →` で候補を移動し、`Enter / Space` で確定する
+- `Escape` で dialog を閉じる
 
 ## 4.4 視覚ルール
 - 色は状態よりも可読性を優先

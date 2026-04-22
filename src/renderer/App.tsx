@@ -278,11 +278,49 @@ export default function App() {
     });
   };
 
+  const focusAdjacentTimelineItem = (
+    currentTarget: HTMLDivElement,
+    direction: -1 | 1
+  ) => {
+    const timelineViewport = currentTarget.closest(".timeline-body");
+    if (!(timelineViewport instanceof HTMLDivElement)) {
+      return;
+    }
+
+    const focusableTimelineItems = Array.from(
+      timelineViewport.querySelectorAll<HTMLElement>(".timeline-bar.interactive, .timeline-marker.interactive")
+    ).filter((element) => element.tabIndex >= 0);
+    const currentIndex = focusableTimelineItems.indexOf(currentTarget);
+    if (currentIndex < 0) {
+      return;
+    }
+
+    const nextTarget = focusableTimelineItems[currentIndex + direction];
+    if (!nextTarget) {
+      return;
+    }
+
+    nextTarget.focus();
+  };
+
   const handleTimelineBarKeyDown = (
     event: ReactKeyboardEvent<HTMLDivElement>,
     item: ItemRecord,
     isMilestone: boolean
   ) => {
+    if (
+      (event.key === "ArrowUp" || event.key === "ArrowDown") &&
+      !event.altKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.shiftKey
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      focusAdjacentTimelineItem(event.currentTarget, event.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+
     if (!event.altKey) {
       return;
     }
@@ -736,16 +774,16 @@ export default function App() {
                                 isDraggable
                                   ? `${item.title} ${formatDateRange(item)}。${
                                       previewLayout.isMilestone
-                                        ? "Alt+左右で移動"
-                                        : "Alt+左右で移動、Alt+Shift+左右で右端を調整"
+                                        ? "上下で前後の項目へ移動、Alt+左右で移動"
+                                        : "上下で前後の項目へ移動、Alt+左右で移動、Alt+Shift+左右で右端を調整"
                                     }`
                                   : undefined
                               }
                               aria-keyshortcuts={
                                 isDraggable
                                   ? previewLayout.isMilestone
-                                    ? "Alt+ArrowLeft Alt+ArrowRight"
-                                    : "Alt+ArrowLeft Alt+ArrowRight Alt+Shift+ArrowLeft Alt+Shift+ArrowRight"
+                                    ? "ArrowUp ArrowDown Alt+ArrowLeft Alt+ArrowRight"
+                                    : "ArrowUp ArrowDown Alt+ArrowLeft Alt+ArrowRight Alt+Shift+ArrowLeft Alt+Shift+ArrowRight"
                                   : undefined
                               }
                               onFocus={() => setSelectedItemId(item.id)}
@@ -944,6 +982,47 @@ function RescheduleScopeDialog(props: {
   onSelect: (scope: RescheduleScope) => void;
   onCancel: () => void;
 }) {
+  const scopeOptions: Array<{ scope: RescheduleScope; label: string }> = [
+    { scope: "single", label: "このタスクだけ" },
+    { scope: "with_descendants", label: "子も一緒に" },
+    { scope: "with_dependents", label: "後続もずらす" },
+  ];
+  const [activeIndex, setActiveIndex] = useState(1);
+  const scopeButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  useEffect(() => {
+    scopeButtonRefs.current[activeIndex]?.focus();
+  }, [activeIndex]);
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      props.onCancel();
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveIndex((current) => Math.max(current - 1, 0));
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveIndex((current) => Math.min(current + 1, scopeOptions.length - 1));
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      event.stopPropagation();
+      props.onSelect(scopeOptions[activeIndex].scope);
+    }
+  };
+
   return (
     <div className="reschedule-popover-backdrop" role="presentation" onClick={props.onCancel}>
       <section
@@ -951,6 +1030,7 @@ function RescheduleScopeDialog(props: {
         role="dialog"
         aria-modal="true"
         aria-labelledby="reschedule-scope-title"
+        onKeyDown={handleKeyDown}
         onClick={(event) => event.stopPropagation()}
       >
         <p className="sidebar-label">Reschedule Scope</p>
@@ -960,15 +1040,21 @@ function RescheduleScopeDialog(props: {
         </p>
         <p className="reschedule-popover-meta">対象子孫: {props.descendantCount} 件</p>
         <div className="reschedule-popover-actions">
-          <button type="button" className="nav-chip" onClick={() => props.onSelect("single")}>
-            このタスクだけ
-          </button>
-          <button type="button" className="nav-chip active" onClick={() => props.onSelect("with_descendants")}>
-            子も一緒に
-          </button>
-          <button type="button" className="nav-chip" onClick={() => props.onSelect("with_dependents")}>
-            後続もずらす
-          </button>
+          {scopeOptions.map((option, index) => (
+            <button
+              key={option.scope}
+              ref={(element) => {
+                scopeButtonRefs.current[index] = element;
+              }}
+              type="button"
+              className={index === activeIndex ? "nav-chip active" : "nav-chip"}
+              aria-pressed={index === activeIndex}
+              onFocus={() => setActiveIndex(index)}
+              onClick={() => props.onSelect(option.scope)}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
         <p className="reschedule-popover-hint">dependency が無い場合は通常の move と同じ結果になります。</p>
         <div className="reschedule-popover-footer">
@@ -1001,6 +1087,7 @@ function ImportPreviewPanel(props: {
   onClose: () => void;
 }) {
   const [filterMode, setFilterMode] = useState<"all" | "warning" | "error">("all");
+  const [expandedCompareKeys, setExpandedCompareKeys] = useState<Set<string>>(new Set());
   const canCommit = props.preview.newCount + props.preview.updateCount > 0;
   const warningRows = props.preview.rows.filter((row) => row.warnings.length > 0);
   const warningCount = warningRows.length;
@@ -1153,41 +1240,88 @@ function ImportPreviewPanel(props: {
             <span>Title</span>
             <span>Validation</span>
           </div>
-          {filteredRows.map((row) => (
-            <div key={`${row.rowNumber}-${row.recordId}-${row.title}`} className="import-preview-row">
-              <span>{row.rowNumber}</span>
-              <span className={`import-action-pill ${row.action}`}>{row.action}</span>
-              <span>{row.projectName || row.projectCode || "-"}</span>
-              <span>{row.title || "-"}</span>
-              <div className="import-preview-message">
-                <span>{row.message}</span>
-                {row.issues.length > 0 ? (
-                  <div className="import-preview-issues">
-                    {row.issues.map((issue) => (
-                      <span
-                        key={`${row.rowNumber}-${issue.field}-${issue.message}`}
-                        className="import-preview-issue"
+          {filteredRows.map((row) => {
+            const rowKey = `${row.rowNumber}-${row.recordId}-${row.title}`;
+            const canCompare = row.action === "update" && row.changes.length > 0;
+            const isCompareExpanded = expandedCompareKeys.has(rowKey);
+
+            return (
+              <div key={rowKey} className="import-preview-row">
+                <span>{row.rowNumber}</span>
+                <span className={`import-action-pill ${row.action}`}>{row.action}</span>
+                <span>{row.projectName || row.projectCode || "-"}</span>
+                <span>{row.title || "-"}</span>
+                <div className="import-preview-message">
+                  <span>{row.message}</span>
+                  {row.issues.length > 0 ? (
+                    <div className="import-preview-issues">
+                      {row.issues.map((issue) => (
+                        <span
+                          key={`${row.rowNumber}-${issue.field}-${issue.message}`}
+                          className="import-preview-issue"
+                        >
+                          {issue.field}: {issue.message}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {row.warnings.length > 0 ? (
+                    <div className="import-preview-warnings">
+                      {row.warnings.map((warning) => (
+                        <span
+                          key={`${row.rowNumber}-${warning.field}-${warning.message}`}
+                          className="import-preview-warning"
+                        >
+                          {warning.field}: {warning.message}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {canCompare ? (
+                    <div className="import-preview-compare-toggle">
+                      <button
+                        type="button"
+                        className="nav-chip"
+                        aria-expanded={isCompareExpanded}
+                        onClick={() =>
+                          setExpandedCompareKeys((current) => {
+                            const next = new Set(current);
+                            if (next.has(rowKey)) {
+                              next.delete(rowKey);
+                            } else {
+                              next.add(rowKey);
+                            }
+                            return next;
+                          })
+                        }
                       >
-                        {issue.field}: {issue.message}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                {row.warnings.length > 0 ? (
-                  <div className="import-preview-warnings">
-                    {row.warnings.map((warning) => (
-                      <span
-                        key={`${row.rowNumber}-${warning.field}-${warning.message}`}
-                        className="import-preview-warning"
-                      >
-                        {warning.field}: {warning.message}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
+                        {isCompareExpanded ? "差分を閉じる" : "差分"}
+                      </button>
+                    </div>
+                  ) : null}
+                  {canCompare && isCompareExpanded ? (
+                    <div className="import-preview-compare" aria-label={`Row ${row.rowNumber} compare`}>
+                      <div className="import-preview-compare-row import-preview-compare-header">
+                        <span>Field</span>
+                        <span>Before</span>
+                        <span>After</span>
+                      </div>
+                      {row.changes.map((change) => (
+                        <div
+                          key={`${rowKey}-${change.field}`}
+                          className="import-preview-compare-row"
+                        >
+                          <span className="import-preview-compare-field">{change.field}</span>
+                          <span>{change.before || "-"}</span>
+                          <span>{change.after || "-"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </section>

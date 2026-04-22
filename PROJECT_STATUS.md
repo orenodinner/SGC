@@ -1,14 +1,14 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-22 23:41 JST
+最終更新日時: 2026-04-23 00:28 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 49 / 50
-- 今回完了したサイクル: Timeline keyboard accessibility slice
+- 完了サイクル数: 50 / 50
+- 今回完了したサイクル: Reschedule dialog keyboard slice
 
 ## 現在フェーズ
-- Phase 6 in progress. Keyboard a11y slice done, compare UX next
+- Phase 8 in progress. Phase 6 closed, keyboard a11y follow-up next
 
 ## 直近で完了したもの
 - Electron + React + TypeScript + Vite の開発土台作成
@@ -154,6 +154,9 @@
 - import preview の warning-only 導線を compact list から dedicated table に更新した
 - warning row を `row / project / title / action / warning` 列で横比較できるようにした
 - desktop Playwright smoke を warning-only table 前提に更新した
+- import preview の update row に差分比較を追加した
+- field / before / after の inline compare を preview row 内で開けるようにした
+- desktop Playwright smoke と parser test で compare preview を固定した
 - detail drawer に dependency editor を追加した
 - selected item を successor とする先行タスク追加と linked dependency 削除を実装した
 - browser mode では dependency editor を出さず desktop only note を表示するようにした
@@ -162,12 +165,18 @@
 - focused timeline bar に対する `Alt+←/→` move と `Alt+Shift+←/→` right-edge resize を追加した
 - keyboard focus 時に selected item と同期し、focus ring を表示するようにした
 - desktop Playwright smoke で keyboard move / resize を確認した
+- focused timeline bar / marker に対する `ArrowUp/ArrowDown` focus traversal を追加した
+- visible な次 / 前の timeline item へ keyboard で移動できるようにした
+- desktop Playwright smoke を focus traversal 前提に更新し、既存 filter smoke も context 保持に合わせて安定化した
+- reschedule scope dialog の keyboard 操作を追加した
+- `ArrowLeft/ArrowRight` で scope 候補移動、`Enter/Space` で確定、`Escape` でキャンセルできるようにした
+- desktop Playwright smoke で `Escape` cancel と `single` 適用時の親子差分を確認した
 
 ## 今いちばん重要な次アクション
-1. import preview の差分比較 UI を追加する
-2. browser fallback の dependency import apply を後続で扱うかを docs で固定する
-3. timeline の focus traversal と dialog keyboard 補助を追加する
-4. dependency editor に type/layer 拡張が必要かを docs で固定する
+1. browser fallback の dependency import apply を後続で扱うかを docs で固定する
+2. dependency editor に type/layer 拡張が必要かを docs で固定する
+3. local backup / restore の first slice を切る
+4. large list rendering の virtualization 着手点を docs で固定する
 
 ## 現在の blocker
 - なし
@@ -193,10 +202,11 @@
 - import preview / commit は initial slice で、`.xlsx` canonical `Tasks` sheet と基本編集列まで。rollback は未実装
 - browser fallback の import は current project commit まで対応したが、初期対象は SGC export が出す store-only workbook で、`DependsOn` はまだ apply しない
 - import commit は current project と canonical `Tasks` の基本編集列に限定しており、dependency import / rollback / project 横断 apply は未実装
-- import error 表示は field-level issue list までで、差分比較 UI や修正 UI は未実装
-- import warning 表示は summary と warning-only table までで、差分比較 UI は未実装
+- import compare は update row の inline before / after までで、修正 UI や差分専用画面は未実装
+- import warning / error 表示は summary / warning-only table / inline compare までで、差分を横断集約する専用 compare view は未実装
 - round-trip fixture は `Tasks` canonical sheet を中心にした test helper で、Dashboard / Gantt_View / MasterData の表示 fidelity までは固定していない
 - workbook-local temporary `RecordId` は `tmp_*` prefix 前提で、duplicate temp ID は error になる
+- timeline keyboard edit は focused bar / marker と reschedule dialog の初期補助までで、dialog の完全な focus trap や周辺画面への traversal は未実装
 
 ## 次に見るべきドキュメント
 - `docs/08-implementation-plan.md`
@@ -270,7 +280,7 @@
 - [ ] Blocked
 
 ### 次にやるべき最小単位
-- import preview の差分比較 UI を追加する
+- browser fallback の dependency import apply を後続で扱うかを docs で固定する
 
 ### 残リスク
 - desktop E2E 未整備
