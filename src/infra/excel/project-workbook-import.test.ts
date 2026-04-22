@@ -425,4 +425,124 @@ describe("buildProjectImportPreview", () => {
       })
     );
   });
+
+  it("accepts workbook-local temporary RecordId references for new rows", () => {
+    const workbookBytes = exportWorkbookXlsx({
+      sheets: [
+        {
+          name: "Dashboard",
+          columns: ["Metric", "Value"],
+          rows: [],
+        },
+        {
+          name: "Tasks",
+          columns: EXCEL_TASKS_SHEET_COLUMNS,
+          rows: [
+            makeTaskRow({
+              RecordId: "tmp_pred",
+              Title: "新規先行",
+            }),
+            makeTaskRow({
+              RecordId: "tmp_succ",
+              Title: "新規後続",
+              DependsOn: "tmp_pred+2",
+            }),
+          ],
+        },
+        {
+          name: "Gantt_View",
+          columns: ["Title"],
+          rows: [],
+        },
+        {
+          name: "MasterData",
+          columns: ["Category", "Code", "Label"],
+          rows: [],
+        },
+      ],
+    });
+
+    const preview = buildProjectImportPreview({
+      project: makeProject(),
+      sourcePath: "C:/tmp/import-temp-ids.xlsx",
+      workbookBytes,
+      items: [],
+      projects: [makeProject()],
+      dependencies: [],
+    });
+
+    expect(preview.newCount).toBe(2);
+    expect(preview.errorCount).toBe(0);
+    expect(preview.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "new",
+          recordId: "tmp_pred",
+          title: "新規先行",
+          issues: [],
+        }),
+        expect.objectContaining({
+          action: "new",
+          recordId: "tmp_succ",
+          title: "新規後続",
+          issues: [],
+        }),
+      ])
+    );
+  });
+
+  it("rejects duplicate workbook-local temporary RecordId values", () => {
+    const workbookBytes = exportWorkbookXlsx({
+      sheets: [
+        {
+          name: "Dashboard",
+          columns: ["Metric", "Value"],
+          rows: [],
+        },
+        {
+          name: "Tasks",
+          columns: EXCEL_TASKS_SHEET_COLUMNS,
+          rows: [
+            makeTaskRow({
+              RecordId: "tmp_dup",
+              Title: "重複1",
+            }),
+            makeTaskRow({
+              RecordId: "tmp_dup",
+              Title: "重複2",
+            }),
+          ],
+        },
+        {
+          name: "Gantt_View",
+          columns: ["Title"],
+          rows: [],
+        },
+        {
+          name: "MasterData",
+          columns: ["Category", "Code", "Label"],
+          rows: [],
+        },
+      ],
+    });
+
+    const preview = buildProjectImportPreview({
+      project: makeProject(),
+      sourcePath: "C:/tmp/import-temp-duplicate.xlsx",
+      workbookBytes,
+      items: [],
+      projects: [makeProject()],
+      dependencies: [],
+    });
+
+    expect(preview.errorCount).toBe(2);
+    expect(preview.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "error",
+          issues: [{ field: "RecordId", message: "duplicate temporary id" }],
+        }),
+      ])
+    );
+  });
 });

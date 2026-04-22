@@ -42,6 +42,7 @@ export function buildProjectImportPreview(input: {
         return Boolean(recordId && item && item.projectId === input.project.id);
       })
   );
+  const workbookTemporaryIds = collectWorkbookTemporaryIds(rows, existingItems);
 
   const previewRows = rows.map((row, index) =>
     classifyImportRow({
@@ -53,6 +54,8 @@ export function buildProjectImportPreview(input: {
       projectsByName,
       currentProjectExistingIds,
       workbookRecordIds,
+      workbookTemporaryRecordIds: workbookTemporaryIds.availableIds,
+      duplicateWorkbookTemporaryRecordIds: workbookTemporaryIds.duplicateIds,
       currentProjectDependencies: input.dependencies,
     })
   );
@@ -75,6 +78,8 @@ function classifyImportRow(input: {
   projectsByName: Map<string, ProjectSummary>;
   currentProjectExistingIds: Set<string>;
   workbookRecordIds: Set<string>;
+  workbookTemporaryRecordIds: Set<string>;
+  duplicateWorkbookTemporaryRecordIds: Set<string>;
   currentProjectDependencies: DependencyRecord[];
 }): ProjectImportPreviewRow {
   const row = input.row;
@@ -87,9 +92,15 @@ function classifyImportRow(input: {
   const percentValue = row.PercentComplete.trim();
   const issues: ProjectImportPreviewIssue[] = [];
   const warnings: ProjectImportPreviewWarning[] = [];
+  const isTemporaryRecordId =
+    isWorkbookTemporaryRecordId(recordId) && !input.existingItems.has(recordId);
 
   if (!title) {
     issues.push(issue("Title", "required"));
+  }
+
+  if (recordId && isTemporaryRecordId && input.duplicateWorkbookTemporaryRecordIds.has(recordId)) {
+    issues.push(issue("RecordId", "duplicate temporary id"));
   }
 
   if (itemType && !itemTypeSchema.safeParse(itemType).success) {
@@ -131,6 +142,7 @@ function classifyImportRow(input: {
     dependsOn: row.DependsOn,
     currentRecordId: recordId || null,
     currentProjectExistingIds: input.currentProjectExistingIds,
+    workbookTemporaryRecordIds: input.workbookTemporaryRecordIds,
     existingItems: input.existingItems,
   });
   issues.push(...dependsOnValidation.issues);
@@ -141,57 +153,60 @@ function classifyImportRow(input: {
 
   if (recordId) {
     const existing = input.existingItems.get(recordId);
-    if (!existing) {
+    if (existing) {
+      if (existing.projectId !== input.project.id) {
+        return errorRow(input.rowNumber, row, [issue("RecordId", "belongs to another project")]);
+      }
+      const resolvedProject = resolveProjectForImportRow({
+        currentProject: input.project,
+        projectCode,
+        projectName,
+        projectsByCode: input.projectsByCode,
+        projectsByName: input.projectsByName,
+      });
+      if (!resolvedProject) {
+        return errorRow(input.rowNumber, row, [issue("ProjectCode/ProjectName", "invalid value")]);
+      }
+      if (resolvedProject.id !== input.project.id) {
+        return errorRow(input.rowNumber, row, [issue("ProjectCode/ProjectName", "mismatch for current import target")]);
+      }
+      if (parentRecordId === recordId) {
+        return errorRow(input.rowNumber, row, [issue("ParentRecordId", "cannot reference itself")]);
+      }
+      if (
+        parentRecordId &&
+        !input.currentProjectExistingIds.has(parentRecordId) &&
+        !input.workbookRecordIds.has(parentRecordId)
+      ) {
+        return errorRow(input.rowNumber, row, [issue("ParentRecordId", "not found")]);
+      }
+      const staleWarning = collectLastModifiedAtWarning(row.LastModifiedAt, existing.updatedAt);
+      if (staleWarning) {
+        warnings.push(staleWarning);
+      }
+      warnings.push(
+        ...collectDependsOnCycleWarnings({
+          currentProjectDependencies: input.currentProjectDependencies,
+          successorItemId: recordId,
+          desiredReferences: dependsOnValidation.references,
+        })
+      );
+      return {
+        rowNumber: input.rowNumber,
+        action: "update",
+        recordId,
+        projectCode: projectCode || input.project.code,
+        projectName: projectName || existing.projectName || input.project.name,
+        title,
+        message: "Update existing item",
+        issues: [],
+        warnings,
+      };
+    }
+
+    if (!input.workbookTemporaryRecordIds.has(recordId)) {
       return errorRow(input.rowNumber, row, [issue("RecordId", "not found")]);
     }
-    if (existing.projectId !== input.project.id) {
-      return errorRow(input.rowNumber, row, [issue("RecordId", "belongs to another project")]);
-    }
-    const resolvedProject = resolveProjectForImportRow({
-      currentProject: input.project,
-      projectCode,
-      projectName,
-      projectsByCode: input.projectsByCode,
-      projectsByName: input.projectsByName,
-    });
-    if (!resolvedProject) {
-      return errorRow(input.rowNumber, row, [issue("ProjectCode/ProjectName", "invalid value")]);
-    }
-    if (resolvedProject.id !== input.project.id) {
-      return errorRow(input.rowNumber, row, [issue("ProjectCode/ProjectName", "mismatch for current import target")]);
-    }
-    if (parentRecordId === recordId) {
-      return errorRow(input.rowNumber, row, [issue("ParentRecordId", "cannot reference itself")]);
-    }
-    if (
-      parentRecordId &&
-      !input.currentProjectExistingIds.has(parentRecordId) &&
-      !input.workbookRecordIds.has(parentRecordId)
-    ) {
-      return errorRow(input.rowNumber, row, [issue("ParentRecordId", "not found")]);
-    }
-    const staleWarning = collectLastModifiedAtWarning(row.LastModifiedAt, existing.updatedAt);
-    if (staleWarning) {
-      warnings.push(staleWarning);
-    }
-    warnings.push(
-      ...collectDependsOnCycleWarnings({
-        currentProjectDependencies: input.currentProjectDependencies,
-        successorItemId: recordId,
-        desiredReferences: dependsOnValidation.references,
-      })
-    );
-    return {
-      rowNumber: input.rowNumber,
-      action: "update",
-      recordId,
-      projectCode: projectCode || input.project.code,
-      projectName: projectName || existing.projectName || input.project.name,
-      title,
-      message: "Update existing item",
-      issues: [],
-      warnings,
-    };
   }
 
   const resolvedProject = resolveProjectForImportRow({
@@ -219,7 +234,7 @@ function classifyImportRow(input: {
   return {
     rowNumber: input.rowNumber,
     action: "new",
-    recordId: "",
+    recordId,
     projectCode: resolvedProject.code,
     projectName: resolvedProject.name,
     title,
@@ -294,7 +309,7 @@ function collectDependsOnCycleWarnings(input: {
   );
   const warnings: ProjectImportPreviewWarning[] = [];
 
-  for (const desiredReference of input.desiredReferences) {
+  for (const desiredReference of input.desiredReferences.filter((reference) => reference.source === "existing")) {
     if (
       nextDependencies.some(
         (dependency) =>
@@ -420,12 +435,14 @@ interface PreviewDependencyReference {
   token: string;
   recordId: string;
   lagDays: number;
+  source: "existing" | "temporary";
 }
 
 function validateDependsOn(input: {
   dependsOn: string;
   currentRecordId: string | null;
   currentProjectExistingIds: Set<string>;
+  workbookTemporaryRecordIds: Set<string>;
   existingItems: Map<string, ItemRecord>;
 }): {
   issues: ProjectImportPreviewIssue[];
@@ -439,7 +456,10 @@ function validateDependsOn(input: {
   const references: PreviewDependencyReference[] = [];
 
   for (const token of tokens) {
-    const reference = parseDependencyReferenceToken(token, input.currentProjectExistingIds);
+    const reference = parseDependencyReferenceToken(token, {
+      currentProjectExistingIds: input.currentProjectExistingIds,
+      workbookTemporaryRecordIds: input.workbookTemporaryRecordIds,
+    });
     if (reference) {
       if (input.currentRecordId && reference.recordId === input.currentRecordId) {
         issues.push(issue("DependsOn", `cannot reference itself: ${token}`));
@@ -448,6 +468,7 @@ function validateDependsOn(input: {
           token,
           recordId: reference.recordId,
           lagDays: reference.lagDays,
+          source: reference.source,
         });
       }
       continue;
@@ -473,12 +494,17 @@ function validateDependsOn(input: {
 
 function parseDependencyReferenceToken(
   token: string,
-  currentProjectExistingIds: Set<string>
-): { recordId: string; lagDays: number } | null {
-  if (currentProjectExistingIds.has(token)) {
+  allowedIds: {
+    currentProjectExistingIds: Set<string>;
+    workbookTemporaryRecordIds: Set<string>;
+  }
+): { recordId: string; lagDays: number; source: "existing" | "temporary" } | null {
+  const tokenSource = resolvePreviewDependencySource(token, allowedIds);
+  if (tokenSource) {
     return {
       recordId: token,
       lagDays: 0,
+      source: tokenSource,
     };
   }
 
@@ -489,14 +515,64 @@ function parseDependencyReferenceToken(
 
   const recordId = lagMatch[1];
   const lagDays = Number(lagMatch[2]);
-  if (!recordId || Number.isNaN(lagDays) || !currentProjectExistingIds.has(recordId)) {
+  const source = resolvePreviewDependencySource(recordId, allowedIds);
+  if (!recordId || Number.isNaN(lagDays) || !source) {
     return null;
   }
 
   return {
     recordId,
     lagDays,
+    source,
   };
+}
+
+function resolvePreviewDependencySource(
+  recordId: string,
+  allowedIds: {
+    currentProjectExistingIds: Set<string>;
+    workbookTemporaryRecordIds: Set<string>;
+  }
+): "existing" | "temporary" | null {
+  if (allowedIds.currentProjectExistingIds.has(recordId)) {
+    return "existing";
+  }
+  if (allowedIds.workbookTemporaryRecordIds.has(recordId)) {
+    return "temporary";
+  }
+  return null;
+}
+
+function collectWorkbookTemporaryIds(
+  rows: TasksSheetRow[],
+  existingItems: Map<string, ItemRecord>
+): {
+  availableIds: Set<string>;
+  duplicateIds: Set<string>;
+} {
+  const counts = new Map<string, number>();
+
+  for (const row of rows) {
+    const recordId = row.RecordId.trim();
+    if (!isWorkbookTemporaryRecordId(recordId) || existingItems.has(recordId)) {
+      continue;
+    }
+
+    counts.set(recordId, (counts.get(recordId) ?? 0) + 1);
+  }
+
+  return {
+    availableIds: new Set(
+      [...counts.entries()].filter(([, count]) => count === 1).map(([recordId]) => recordId)
+    ),
+    duplicateIds: new Set(
+      [...counts.entries()].filter(([, count]) => count > 1).map(([recordId]) => recordId)
+    ),
+  };
+}
+
+function isWorkbookTemporaryRecordId(recordId: string): boolean {
+  return /^tmp_[^,\s]+$/u.test(recordId);
 }
 
 function extractDependencyRecordIdCandidate(token: string): string {

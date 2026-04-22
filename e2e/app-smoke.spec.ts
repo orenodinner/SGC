@@ -4,6 +4,7 @@ import path from "node:path";
 import { test, expect } from "@playwright/test";
 import electronPackage from "electron";
 import { _electron as electron } from "playwright";
+import { buildRoundTripWorkbookFixture } from "../src/test/excel-roundtrip-fixtures";
 
 const electronExecutable = electronPackage as unknown as string;
 
@@ -133,6 +134,154 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: overdueTaskTitle }).first()).toBeVisible();
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: futureTitle })).toHaveCount(0);
     await expect(page.locator(".roadmap-bar").first()).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test("desktop shell filters import preview rows by warning and error", async () => {
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+  });
+
+  try {
+    const page = await app.firstWindow();
+    const exportPath = path.join(os.tmpdir(), `sgc-import-filter-${Date.now()}.xlsx`);
+    const timestamp = Date.now();
+    const projectName = `E2E Import Filter ${timestamp}`;
+    const taskATitle = `Cycle Source ${timestamp}`;
+    const taskBTitle = `Error Target ${timestamp}`;
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByLabel("プロジェクト名").fill(projectName);
+    await page.getByRole("button", { name: "プロジェクト作成" }).click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "ルート行を追加" }).click();
+    const firstRow = page.locator(".table-body .table-row").first();
+    await firstRow.locator('input[value="新しいタスク"]').first().fill(taskATitle);
+    await firstRow.locator('input[value="新しいタスク"]').first().press("Tab");
+
+    await page.getByRole("button", { name: "ルート行を追加" }).click();
+    const secondRow = page.locator(".table-body .table-row").last();
+    await secondRow.locator('input[value="新しいタスク"]').first().fill(taskBTitle);
+    await secondRow.locator('input[value="新しいタスク"]').first().press("Tab");
+
+    const ids = await page.evaluate(async ({ targetProjectName, targetTaskATitle, targetTaskBTitle }) => {
+      if (!window.sgc) {
+        throw new Error("Renderer API unavailable");
+      }
+      const projects = await window.sgc.projects.list();
+      const project = projects.find((entry) => entry.name === targetProjectName);
+      if (!project) {
+        throw new Error("Project not found in renderer context");
+      }
+      const detail = await window.sgc.projects.get(project.id);
+      const taskA = detail.items.find((item) => item.title === targetTaskATitle);
+      const taskB = detail.items.find((item) => item.title === targetTaskBTitle);
+      if (!taskA || !taskB) {
+        throw new Error("Tasks not found in renderer context");
+      }
+      return { projectId: project.id, taskAId: taskA.id, taskBId: taskB.id };
+    }, { targetProjectName: projectName, targetTaskATitle: taskATitle, targetTaskBTitle: taskBTitle });
+
+    await page.evaluate(async ({ taskAId, taskBId }) => {
+      if (!window.sgc) {
+        throw new Error("Renderer API unavailable");
+      }
+      await window.sgc.dependencies.create({
+        predecessorItemId: taskAId,
+        successorItemId: taskBId,
+        type: "finish_to_start",
+        lagDays: 0,
+      });
+    }, ids);
+
+    await app.evaluate(
+      async ({ dialog }, filePath) => {
+        dialog.showSaveDialog = async () => ({
+          canceled: false,
+          filePath,
+        });
+      },
+      exportPath
+    );
+    await page.getByRole("button", { name: "Excel Export" }).click();
+    await expect.poll(() => fs.existsSync(exportPath)).toBe(true);
+
+    const mutatedWorkbook = buildRoundTripWorkbookFixture({
+      exportedWorkbookBytes: fs.readFileSync(exportPath),
+      mutateRows: (rows) =>
+        rows.map((row) => {
+          if (row.RecordId === ids.taskAId) {
+            return {
+              ...row,
+              DependsOn: ids.taskBId,
+            };
+          }
+          if (row.RecordId === ids.taskBId) {
+            return {
+              ...row,
+              ParentRecordId: "itm-missing-parent",
+            };
+          }
+          return row;
+        }),
+    });
+    fs.writeFileSync(exportPath, Buffer.from(mutatedWorkbook));
+
+    await app.evaluate(
+      async ({ dialog }, filePath) => {
+        dialog.showOpenDialog = async () => ({
+          canceled: false,
+          filePaths: [filePath],
+        });
+      },
+      exportPath
+    );
+    await page.getByRole("button", { name: "Excel Import" }).click();
+    await expect(page.getByText("Excel Import Preview")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Warning" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Error" })).toBeVisible();
+    await expect(page.getByText("Warning Summary")).toBeVisible();
+    await expect(page.getByText("Warning-only List")).toBeVisible();
+    await expect(
+      page.locator(".import-preview-warning-summary-row").filter({ hasText: taskATitle }).first()
+    ).toBeVisible();
+    await expect(
+      page
+        .locator(".import-preview-warning-summary-row")
+        .filter({ hasText: taskATitle })
+        .locator(".import-preview-warning")
+        .filter({ hasText: "DependsOn: would create dependency cycle on apply" })
+    ).toBeVisible();
+    const warningOnlyList = page.locator('[aria-label="Warning-only List"]');
+    await expect(
+      warningOnlyList.locator(".import-preview-warning-only-row").filter({ hasText: taskATitle }).first()
+    ).toBeVisible();
+    await expect(
+      warningOnlyList.locator(".import-preview-warning-only-row").filter({ hasText: taskBTitle })
+    ).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Warning" }).click();
+    const warningRow = page.locator(".import-preview-row").filter({ hasText: taskATitle }).first();
+    await expect(warningRow).toBeVisible();
+    await expect(page.locator(".import-preview-row").filter({ hasText: taskBTitle })).toHaveCount(0);
+    await expect(
+      warningRow.locator(".import-preview-warning").filter({ hasText: "DependsOn: would create dependency cycle on apply" })
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Error" }).click();
+    await expect(page.locator(".import-preview-row").filter({ hasText: taskBTitle }).first()).toBeVisible();
+    await expect(page.locator(".import-preview-row").filter({ hasText: taskATitle })).toHaveCount(0);
+    await expect(
+      page
+        .locator(".import-preview-row")
+        .filter({ hasText: taskBTitle })
+        .locator(".import-preview-issue")
+        .filter({ hasText: "ParentRecordId: not found" })
+    ).toBeVisible();
   } finally {
     await app.close();
   }

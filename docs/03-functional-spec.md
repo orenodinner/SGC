@@ -177,14 +177,22 @@
 - error row は列単位の validation issue を複数件保持できる
 - update row では workbook の `LastModifiedAt` が既存 item の `updatedAt` より古い場合に warning を表示する
 - 初期 preview panel では `全件 / warning / error` filter を切り替えられる
+- 初期 preview panel では warning を1件以上持つ row を上部に集約表示し、`row number / title / warning reason` を先に確認できる
+- 初期 preview panel では warning summary とは別に warning-only list を置き、warning を持つ row だけを独立した一覧でも確認できる
+- browser fallback では file picker から `.xlsx` を選んで preview を出し、そのまま current project へ commit できる
+- browser fallback の初期 import は SGC export が出す store-only workbook を主対象とする
+- browser fallback の初期 commit は preview 済み workbook を browser memory 上の current project へ apply する
+- browser fallback の初期 commit は canonical `Tasks` の基本編集列と `Tags / ParentRecordId` までを対象とし、`DependsOn` は apply しない
 - 初期 commit は Project Detail で開いている current project に対してのみ適用する
 - current project import では `ProjectCode / ProjectName` が現在の import target と一致しない row を error として隔離する
 - 初期 preview では `DependsOn` の token 形式と参照先妥当性だけを検証し、current project 外参照 / 自己参照 / 不明 ID を error として隔離する
 - 初期 preview では `DependsOn` の token が current project graph に対して cycle を作る場合、error にはせず warning を表示する
+- workbook 内の new row 同士を `DependsOn` で結びたい場合は、new row の `RecordId` に `tmp_` で始まる workbook-local temporary ID を入れてよい
+- `DependsOn` は current project の既知 item ID に加えて、同一 workbook 内で一意な `tmp_*` temporary ID も参照できる
 - 初期 commit は preview 済み workbook の `new / update` 行だけを適用し、`error` 行は skip する
 - 初期 commit の更新対象は canonical `Tasks` の基本編集列 (`Title / ItemType / Status / Priority / Assignee / StartDate / EndDate / DueDate / DurationDays / PercentComplete / EstimateHours / Note / Tags`) とする
 - 初期 commit は `DependsOn` について、current project の既知 predecessor を参照する finish-to-start edge だけを successor 単位で置き換える
-- `DependsOn` の new row 同士の参照は後続 slice とする
+- 初期 commit は workbook 内の `tmp_*` temporary ID を、同じ import で新規作成された item の実 ID へ解決してから `DependsOn` を保存する
 - 初期 commit の新規行は root 直下または既存 parent 指定までを扱い、dependency / rollback / project 横断 import は後続 slice とする
 
 #### Export

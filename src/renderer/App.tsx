@@ -928,9 +928,25 @@ function ImportPreviewPanel(props: {
   onCommit: () => void;
   onClose: () => void;
 }) {
-  const canCommit =
-    Boolean(props.preview.sourcePath) &&
-    props.preview.newCount + props.preview.updateCount > 0;
+  const [filterMode, setFilterMode] = useState<"all" | "warning" | "error">("all");
+  const canCommit = props.preview.newCount + props.preview.updateCount > 0;
+  const warningRows = props.preview.rows.filter((row) => row.warnings.length > 0);
+  const warningCount = warningRows.length;
+  const filteredRows = props.preview.rows.filter((row) => {
+    if (filterMode === "warning") {
+      return row.warnings.length > 0;
+    }
+    if (filterMode === "error") {
+      return row.action === "error";
+    }
+    return true;
+  });
+  const emptyMessage =
+    filterMode === "warning"
+      ? "warning に一致する行はありません"
+      : filterMode === "error"
+        ? "error に一致する行はありません"
+        : "preview 対象の行はありません";
 
   return (
     <section className="import-preview-panel">
@@ -951,10 +967,99 @@ function ImportPreviewPanel(props: {
       <div className="import-preview-counts">
         <MetricCard label="New" value={String(props.preview.newCount)} />
         <MetricCard label="Update" value={String(props.preview.updateCount)} />
+        <MetricCard label="Warning" value={String(warningCount)} />
         <MetricCard label="Error" value={String(props.preview.errorCount)} />
       </div>
-      {props.preview.rows.length === 0 ? (
-        <div className="empty-table">preview 対象の行はありません</div>
+      {warningRows.length > 0 ? (
+        <section className="import-preview-warning-summary" aria-label="Warning Summary">
+          <div className="section-heading import-preview-warning-summary-heading">
+            <div>
+              <strong>Warning Summary</strong>
+              <p>適用前に確認したい warning 行を先にまとめています。</p>
+            </div>
+          </div>
+          <div className="import-preview-warning-summary-list">
+            {warningRows.map((row) => (
+              <article
+                key={`summary-${row.rowNumber}-${row.recordId}-${row.title}`}
+                className="import-preview-warning-summary-row"
+              >
+                <div className="import-preview-warning-summary-meta">
+                  <span className="import-preview-warning-summary-row-number">Row {row.rowNumber}</span>
+                  <strong>{row.title || row.recordId || "-"}</strong>
+                  <span>{row.projectName || row.projectCode || "-"}</span>
+                </div>
+                <div className="import-preview-warnings">
+                  {row.warnings.map((warning) => (
+                    <span
+                      key={`summary-${row.rowNumber}-${warning.field}-${warning.message}`}
+                      className="import-preview-warning"
+                    >
+                      {warning.field}: {warning.message}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {warningRows.length > 0 ? (
+        <section className="import-preview-warning-only" aria-label="Warning-only List">
+          <div className="section-heading import-preview-warning-summary-heading">
+            <div>
+              <strong>Warning-only List</strong>
+              <p>warning を持つ row だけを独立一覧で続けて確認できます。</p>
+            </div>
+          </div>
+          <div className="import-preview-warning-only-list">
+            {warningRows.map((row) => (
+              <article
+                key={`warning-only-${row.rowNumber}-${row.recordId}-${row.title}`}
+                className="import-preview-warning-only-row"
+              >
+                <div className="import-preview-warning-only-header">
+                  <span className="import-preview-warning-summary-row-number">Row {row.rowNumber}</span>
+                  <div className="import-preview-warning-only-meta">
+                    <strong>{row.title || row.recordId || "-"}</strong>
+                    <span>{row.projectName || row.projectCode || "-"}</span>
+                  </div>
+                  <span className={`import-action-pill ${row.action}`}>{row.action}</span>
+                </div>
+                <p className="import-preview-warning-only-message">{row.message}</p>
+                <div className="import-preview-warnings">
+                  {row.warnings.map((warning) => (
+                    <span
+                      key={`warning-only-${row.rowNumber}-${warning.field}-${warning.message}`}
+                      className="import-preview-warning"
+                    >
+                      {warning.field}: {warning.message}
+                    </span>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      <div className="import-preview-filters">
+        {[
+          { id: "all", label: "全件" },
+          { id: "warning", label: "Warning" },
+          { id: "error", label: "Error" },
+        ].map((filter) => (
+          <button
+            key={filter.id}
+            type="button"
+            className={`nav-chip ${filterMode === filter.id ? "active" : ""}`}
+            onClick={() => setFilterMode(filter.id as "all" | "warning" | "error")}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+      {filteredRows.length === 0 ? (
+        <div className="empty-table">{emptyMessage}</div>
       ) : (
         <div className="import-preview-table">
           <div className="import-preview-row import-preview-header">
@@ -964,7 +1069,7 @@ function ImportPreviewPanel(props: {
             <span>Title</span>
             <span>Validation</span>
           </div>
-          {props.preview.rows.map((row) => (
+          {filteredRows.map((row) => (
             <div key={`${row.rowNumber}-${row.recordId}-${row.title}`} className="import-preview-row">
               <span>{row.rowNumber}</span>
               <span className={`import-action-pill ${row.action}`}>{row.action}</span>

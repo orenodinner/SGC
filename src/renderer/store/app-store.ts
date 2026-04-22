@@ -416,13 +416,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async commitProjectImport() {
     const { selectedProjectId, importPreview } = get();
-    if (!selectedProjectId || !importPreview?.sourcePath) {
+    if (!selectedProjectId || !importPreview) {
       return null;
     }
 
     set({ loading: true, error: null });
     try {
-      const result = await api.projects.commitImport(selectedProjectId, importPreview.sourcePath);
+      const result = await api.projects.commitImport(selectedProjectId, importPreview.sourcePath ?? "");
       const [projects, projectDetail, homeSummary, portfolioSummary] = await Promise.all([
         api.projects.list(),
         api.projects.get(selectedProjectId),

@@ -1,5 +1,3 @@
-import { inflateRawSync } from "node:zlib";
-
 export function readZipEntries(zipBytes: Uint8Array): Map<string, Uint8Array> {
   const entries = new Map<string, Uint8Array>();
   const decoder = new TextDecoder();
@@ -36,9 +34,34 @@ function decompressZipEntry(data: Uint8Array, compressionMethod: number): Uint8A
   }
 
   if (compressionMethod === 8) {
+    const inflateRawSync = loadNodeInflateRawSync();
+    if (!inflateRawSync) {
+      throw new Error("Deflate-compressed ZIP entries are not supported in browser mode");
+    }
     const inflated = inflateRawSync(data);
     return new Uint8Array(inflated.buffer, inflated.byteOffset, inflated.byteLength);
   }
 
   throw new Error(`Unsupported ZIP compression method: ${compressionMethod}`);
+}
+
+type InflateRawSync = (data: Uint8Array) => Uint8Array | Buffer;
+
+let cachedInflateRawSync: InflateRawSync | null | undefined;
+
+function loadNodeInflateRawSync(): InflateRawSync | null {
+  if (cachedInflateRawSync !== undefined) {
+    return cachedInflateRawSync;
+  }
+
+  try {
+    const dynamicRequire = new Function(
+      "return typeof require !== 'undefined' ? require : null;"
+    )() as ((id: string) => { inflateRawSync: InflateRawSync }) | null;
+    cachedInflateRawSync = dynamicRequire?.("node:zlib").inflateRawSync ?? null;
+  } catch {
+    cachedInflateRawSync = null;
+  }
+
+  return cachedInflateRawSync;
 }

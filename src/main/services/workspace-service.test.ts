@@ -1007,6 +1007,109 @@ describe("WorkspaceService quick capture", () => {
     ).toBe(false);
   });
 
+  it("applies DependsOn import commit for workbook-local temporary RecordId rows", () => {
+    const project = service.createProject({
+      name: "Fixture新規依存反映",
+      code: "PRJ-TMP-DEP",
+    });
+    const templateTask = service.createItem({
+      projectId: project.id,
+      title: "テンプレート",
+      type: "task",
+    });
+
+    const exportedWorkbook = service.exportProjectWorkbook(project.id);
+    const temporaryDependencyWorkbook = buildRoundTripWorkbookFixture({
+      exportedWorkbookBytes: exportedWorkbook,
+      mutateRows: (rows) => [
+        ...rows.filter((row) => row.RecordId !== templateTask.id),
+        {
+          ...rows[0],
+          RecordId: "tmp_pred",
+          ParentRecordId: "",
+          WbsCode: "1",
+          ItemType: "task",
+          Title: "新規先行tmp",
+          Status: "not_started",
+          Priority: "medium",
+          Assignee: "",
+          StartDate: "2026-07-01",
+          EndDate: "2026-07-02",
+          DueDate: "2026-07-02",
+          DurationDays: "2",
+          PercentComplete: "0",
+          DependsOn: "",
+          Tags: "",
+          EstimateHours: "0",
+          ActualHours: "0",
+          Note: "",
+          SortOrder: "1",
+          IsArchived: "FALSE",
+        },
+        {
+          ...rows[0],
+          RecordId: "tmp_succ",
+          ParentRecordId: "",
+          WbsCode: "2",
+          ItemType: "task",
+          Title: "新規後続tmp",
+          Status: "not_started",
+          Priority: "medium",
+          Assignee: "",
+          StartDate: "2026-07-03",
+          EndDate: "2026-07-04",
+          DueDate: "2026-07-04",
+          DurationDays: "2",
+          PercentComplete: "0",
+          DependsOn: "tmp_pred+1",
+          Tags: "",
+          EstimateHours: "0",
+          ActualHours: "0",
+          Note: "",
+          SortOrder: "2",
+          IsArchived: "FALSE",
+        },
+      ],
+    });
+
+    const preview = service.previewProjectImport({
+      projectId: project.id,
+      sourcePath: "C:/tmp/fixture-temp-dependency-commit.xlsx",
+      workbookBytes: temporaryDependencyWorkbook,
+    });
+    const result = service.commitProjectImport({
+      projectId: project.id,
+      sourcePath: "C:/tmp/fixture-temp-dependency-commit.xlsx",
+      workbookBytes: temporaryDependencyWorkbook,
+    });
+    const detail = service.getProjectDetail(project.id);
+    const predecessor = detail.items.find((item) => item.title === "新規先行tmp");
+    const successor = detail.items.find((item) => item.title === "新規後続tmp");
+    const dependencies = service.listDependenciesByProject(project.id);
+
+    expect(preview).toMatchObject({
+      newCount: 2,
+      updateCount: 0,
+      errorCount: 0,
+    });
+    expect(result).toMatchObject({
+      createdCount: 2,
+      updatedCount: 0,
+      skippedCount: 0,
+    });
+    expect(predecessor).toBeTruthy();
+    expect(successor).toBeTruthy();
+    expect(dependencies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          predecessorItemId: predecessor?.id,
+          successorItemId: successor?.id,
+          lagDays: 1,
+        }),
+      ])
+    );
+  });
+
   it("builds portfolio summary with overdue, next milestone, recent changes, and risk", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-04-21T09:00:00+09:00"));

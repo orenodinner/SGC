@@ -273,10 +273,12 @@ export class WorkspaceService {
     const currentProjectItems = items.filter((item) => item.projectId === project.id);
     const itemsById = new Map(currentProjectItems.map((item) => [item.id, item]));
     const currentProjectExistingIds = new Set(currentProjectItems.map((item) => item.id));
+    const workbookTemporaryRecordIdToItemId = new Map<string, string>();
     const desiredDependenciesBySuccessor = new Map<
       string,
       Array<{ predecessorItemId: string; lagDays: number }>
     >();
+    const importedDependsOnBySuccessor = new Map<string, string>();
     const now = new Date().toISOString();
     let createdCount = 0;
     let updatedCount = 0;
@@ -307,10 +309,7 @@ export class WorkspaceService {
           this.items.updateEditable(nextItem);
           this.tags.attachNamesToItem(existing.id, parseImportedTagNames(row.Tags), now);
           itemsById.set(existing.id, nextItem);
-          desiredDependenciesBySuccessor.set(
-            existing.id,
-            parseImportedDependsOn(row.DependsOn, currentProjectExistingIds)
-          );
+          importedDependsOnBySuccessor.set(existing.id, row.DependsOn);
           updatedCount += 1;
           continue;
         }
@@ -329,11 +328,23 @@ export class WorkspaceService {
         });
         this.items.insert(inserted);
         this.tags.attachNamesToItem(itemId, parseImportedTagNames(row.Tags), now);
-        desiredDependenciesBySuccessor.set(
-          itemId,
-          parseImportedDependsOn(row.DependsOn, currentProjectExistingIds)
-        );
+        importedDependsOnBySuccessor.set(itemId, row.DependsOn);
+        if (isWorkbookTemporaryRecordId(row.RecordId.trim())) {
+          workbookTemporaryRecordIdToItemId.set(row.RecordId.trim(), itemId);
+        }
         createdCount += 1;
+      }
+
+      for (const [successorItemId, dependsOnValue] of importedDependsOnBySuccessor.entries()) {
+        desiredDependenciesBySuccessor.set(
+          successorItemId,
+          parseImportedDependsOn(dependsOnValue, (recordId) => {
+            if (currentProjectExistingIds.has(recordId)) {
+              return recordId;
+            }
+            return workbookTemporaryRecordIdToItemId.get(recordId) ?? null;
+          })
+        );
       }
 
       replaceImportedDependencies({
@@ -901,23 +912,24 @@ function parseImportedTagNames(value: string): string[] {
 
 function parseImportedDependsOn(
   value: string,
-  currentProjectExistingIds: Set<string>
+  resolveRecordId: (recordId: string) => string | null
 ): Array<{ predecessorItemId: string; lagDays: number }> {
   return value
     .split(",")
     .map((token) => token.trim())
     .filter(Boolean)
-    .map((token) => parseImportedDependencyToken(token, currentProjectExistingIds))
+    .map((token) => parseImportedDependencyToken(token, resolveRecordId))
     .filter((reference): reference is { predecessorItemId: string; lagDays: number } => Boolean(reference));
 }
 
 function parseImportedDependencyToken(
   token: string,
-  currentProjectExistingIds: Set<string>
+  resolveRecordId: (recordId: string) => string | null
 ): { predecessorItemId: string; lagDays: number } | null {
-  if (currentProjectExistingIds.has(token)) {
+  const directRecordId = resolveRecordId(token);
+  if (directRecordId) {
     return {
-      predecessorItemId: token,
+      predecessorItemId: directRecordId,
       lagDays: 0,
     };
   }
@@ -927,9 +939,10 @@ function parseImportedDependencyToken(
     return null;
   }
 
-  const predecessorItemId = lagMatch[1];
+  const predecessorRecordId = lagMatch[1];
   const lagDays = Number(lagMatch[2]);
-  if (!currentProjectExistingIds.has(predecessorItemId) || Number.isNaN(lagDays)) {
+  const predecessorItemId = resolveRecordId(predecessorRecordId);
+  if (!predecessorItemId || Number.isNaN(lagDays)) {
     return null;
   }
 
@@ -937,6 +950,10 @@ function parseImportedDependencyToken(
     predecessorItemId,
     lagDays,
   };
+}
+
+function isWorkbookTemporaryRecordId(recordId: string): boolean {
+  return /^tmp_[^,\s]+$/u.test(recordId);
 }
 
 function replaceImportedDependencies(input: {

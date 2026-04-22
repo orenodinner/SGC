@@ -1,14 +1,14 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-22 20:09 JST
+最終更新日時: 2026-04-22 21:35 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 39 / 50
-- 今回完了したサイクル: DependsOn cycle preview warning
+- 完了サイクル数: 45 / 50
+- 今回完了したサイクル: Dedicated warning-only list
 
 ## 現在フェーズ
-- Phase 6 in progress. Import preview warning/error filter next
+- Phase 6 in progress. Browser fallback dependency import policy next
 
 ## 直近で完了したもの
 - Electron + React + TypeScript + Vite の開発土台作成
@@ -130,12 +130,30 @@
 - current project の existing dependency graph を import preview へ渡すようにした
 - `DependsOn` が import 後 graph に cycle を作る update row へ warning を表示するようにした
 - parser test と fixture-based service test で cycle warning を固定した
+- import preview panel に `全件 / warning / error` filter を追加した
+- warning 件数 card を追加し、warning row と error row を切り替えて確認できるようにした
+- desktop Playwright smoke で warning/error filter の切替を確認した
+- workbook-local temporary `RecordId` として `tmp_*` を import で許可した
+- new row 同士の `DependsOn` が `tmp_*` temporary ID を経由して preview / commit で解決されるようにした
+- parser test と fixture-based service test で new-row dependency import を固定した
+- import preview panel に dedicated warning summary を追加した
+- warning を持つ row の `row number / title / warning reason` を preview 上部で先に確認できるようにした
+- desktop Playwright smoke で warning summary と warning/error filter の併用を確認した
+- browser fallback で file picker から `.xlsx` を選んで import preview を開けるようにした
+- browser mode では preview contract を desktop と揃えつつ、初期 slice では `適用` を disabled のまま維持した
+- browserApi unit test で file picker preview と cancel を固定した
+- browser fallback で preview 済み workbook を current project へ commit できるようにした
+- browser mode の commit は canonical `Tasks` の基本編集列と `Tags / ParentRecordId` を apply し、`DependsOn` はまだ apply しない
+- browserApi unit test で browser fallback import commit の update / new apply を固定した
+- import preview panel に dedicated warning-only list を追加した
+- warning 行だけを table 本体とは別の独立一覧で続けて確認できるようにした
+- desktop Playwright smoke で warning-only list に warning row だけが出ることを確認した
 
 ## 今いちばん重要な次アクション
-1. import preview に warning / error filter を追加する
+1. browser fallback の dependency import 方針を docs と code に反映する
 2. detail drawer に dependency 編集 UI を追加する
 3. timeline drag の keyboard / accessibility 補助を追加する
-4. `DependsOn` の new row 同士の dependency import 解決を追加する
+4. import preview の warning 集約表示に warning-only 専用 table を追加する
 
 ## 現在の blocker
 - なし
@@ -158,12 +176,12 @@
 - workbook writer は minimal OpenXML / store-only ZIP で、書式・列幅・印刷最適化は未実装
 - browser fallback の export は download 開始までで、Electron のような保存先パス通知は返さない
 - import preview / commit は initial slice で、`.xlsx` canonical `Tasks` sheet と基本編集列まで。rollback は未実装
-- browser fallback の import preview は未対応
+- browser fallback の import は current project commit まで対応したが、初期対象は SGC export が出す store-only workbook で、`DependsOn` はまだ apply しない
 - import commit は current project と canonical `Tasks` の基本編集列に限定しており、dependency import / rollback / project 横断 apply は未実装
 - import error 表示は field-level issue list までで、独立した validation table や修正 UI は未実装
+- import warning 表示は summary と warning-only list までで、差分比較 UI や warning-only の専用 table は未実装
 - round-trip fixture は `Tasks` canonical sheet を中心にした test helper で、Dashboard / Gantt_View / MasterData の表示 fidelity までは固定していない
-- `DependsOn` commit は current project の既知 predecessor に限定しており、new row 同士の dependency 解決は未実装
-- import preview の warning は row 内表示までで、warning/error filter と dedicated 集約表示は未実装
+- workbook-local temporary `RecordId` は `tmp_*` prefix 前提で、duplicate temp ID は error になる
 
 ## 次に見るべきドキュメント
 - `docs/08-implementation-plan.md`
@@ -237,7 +255,7 @@
 - [ ] Blocked
 
 ### 次にやるべき最小単位
-- import preview に warning / error filter を追加する
+- browser fallback の dependency import 方針を docs と code に反映する
 
 ### 残リスク
 - desktop E2E 未整備

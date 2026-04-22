@@ -246,3 +246,27 @@ decisions:
     status: accepted
     decision: import preview panel の最初の絞り込みは `all / warning / error` の3つに限定し、filter は renderer 内の local state で扱う。`warning` は warnings を1件以上持つ row、`error` は `action=error` row のみを表示する
     rationale: preview contract を増やさずに validation の見通しを上げる最短手であり、Phase 6 の dry-run 体験を小さい差分で改善できるため。
+
+  - id: DEC-042
+    topic: Workbook-local temporary RecordId for import
+    status: accepted
+    decision: new row 同士の dependency import では `tmp_` で始まる workbook-local temporary `RecordId` を許可し、preview では current project の既知 item ID と同列の参照対象として扱う。commit 時は同じ import で作成した item の実 ID へ解決してから dependency を保存する
+    rationale: current project 既知 ID だけに限定すると workbook 内で新規追加した行同士を 1 回の import で接続できず、Excel round-trip の実用性が落ちるため。prefix を固定すると update row との誤判定も避けやすい。
+
+  - id: DEC-043
+    topic: Initial import warning summary
+    status: accepted
+    decision: import preview panel の最初の warning 集約は renderer 内の local aggregation に限定し、既存 preview row contract はそのまま使う。summary では warning を持つ row の `row number / title / warning reason` を上部へ一覧表示し、row table と filter は併存させる
+    rationale: backend contract を広げずに stale workbook や dependency cycle の注意点を先に拾えるようにする最短手であり、Phase 6 の import 体験を小さな差分で改善できるため。
+
+  - id: DEC-044
+    topic: Initial browser fallback import preview
+    status: accepted
+    decision: browser fallback の最初の import 対応は file picker からの preview と current project への commit までに限定し、preview contract は desktop と同じものを使う。初期対象 workbook は SGC export が出す store-only ZIP を主対象とし、browser fallback commit では canonical `Tasks` の基本編集列と `Tags / ParentRecordId` だけを apply し、`DependsOn` は扱わない
+    rationale: browser mode でも dry-run 後に current project へ戻せないと round-trip の価値が薄いため。一方で dependency import まで含めると browser fallback 固有の state 管理が広がるので、まず item 編集列だけを apply して scope を小さく保つ方が安全なため。
+
+  - id: DEC-045
+    topic: Initial import warning-only list
+    status: accepted
+    decision: import preview panel では warning summary に加えて dedicated warning-only list を置き、warning を持つ row だけを独立一覧で確認できるようにする。初期実装では renderer 側の local aggregation で組み立て、追加 contract や専用 backend query は持たない
+    rationale: warning summary は注意行の存在把握には十分だが、preview row table に戻らず warning 行だけを続けて確認したい場面があるため。renderer 内の既存 preview data を再利用すれば、scope を広げずに確認導線を一段改善できる。

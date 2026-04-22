@@ -8,6 +8,11 @@ import {
   startOfDay,
   startOfWeek,
 } from "date-fns";
+import {
+  buildProjectImportPreview,
+  parseProjectImportTasksRows,
+} from "../../infra/excel/project-workbook-import";
+import { itemStatusSchema, itemTypeSchema, prioritySchema } from "../../shared/contracts";
 import { exportProjectWorkbookXlsx } from "../../infra/excel/project-workbook-export";
 import { normalizeProjectItems } from "../../domain/project-tree";
 import { parseQuickCapture } from "../../domain/quick-capture";
@@ -40,6 +45,7 @@ const memory = {
   projects: [] as ProjectSummary[],
   items: [] as ItemRecord[],
 };
+const browserImportSessions = new Map<string, BrowserImportSession>();
 
 export const browserApi: RendererApi = {
   home: {
@@ -216,16 +222,108 @@ export const browserApi: RendererApi = {
       };
     },
     async previewImport(projectId: string): Promise<ProjectImportPreview | null> {
-      void projectId;
-      throw new Error("Import preview is not available in browser mode");
+      const project = requireProject(projectId);
+      const selection = await pickBrowserWorkbookFile();
+      if (!selection) {
+        browserImportSessions.delete(projectId);
+        return null;
+      }
+
+      browserImportSessions.set(projectId, {
+        workbookBytes: selection.workbookBytes,
+      });
+
+      return buildProjectImportPreview({
+        project,
+        sourcePath: null,
+        workbookBytes: selection.workbookBytes,
+        items: memory.items.filter((item) => !item.archived),
+        projects: memory.projects.filter((entry) => !entry.archived),
+        dependencies: [],
+      });
     },
     async commitImport(
       projectId: string,
       sourcePath: string
     ): Promise<ProjectImportCommitResult> {
-      void projectId;
       void sourcePath;
-      throw new Error("Import commit is not available in browser mode");
+      const project = requireProject(projectId);
+      const session = browserImportSessions.get(projectId);
+      if (!session) {
+        throw new Error("Import preview session is required before commit");
+      }
+
+      const preview = buildProjectImportPreview({
+        project,
+        sourcePath: null,
+        workbookBytes: session.workbookBytes,
+        items: memory.items.filter((item) => !item.archived),
+        projects: memory.projects.filter((entry) => !entry.archived),
+        dependencies: [],
+      });
+      const rows = parseProjectImportTasksRows(session.workbookBytes);
+      const previewRowsByNumber = new Map(preview.rows.map((row) => [row.rowNumber, row]));
+      const projectItems = memory.items.filter((item) => item.projectId === projectId && !item.archived);
+      const itemsById = new Map(projectItems.map((item) => [item.id, item]));
+      const now = new Date().toISOString();
+      let createdCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      for (const [index, row] of rows.entries()) {
+        const rowNumber = index + 2;
+        const previewRow = previewRowsByNumber.get(rowNumber);
+        if (!previewRow || previewRow.action === "error") {
+          skippedCount += 1;
+          continue;
+        }
+
+        if (previewRow.action === "update") {
+          const existing = itemsById.get(row.RecordId.trim());
+          if (!existing) {
+            skippedCount += 1;
+            continue;
+          }
+
+          const nextItem = buildBrowserImportedExistingItem({
+            existing,
+            row,
+            now,
+            itemsById,
+          });
+          Object.assign(existing, nextItem);
+          existing.tags = parseImportedTagNames(row.Tags);
+          itemsById.set(existing.id, existing);
+          updatedCount += 1;
+          continue;
+        }
+
+        const parentId = resolveImportedParentId(row.ParentRecordId, itemsById);
+        const inserted = buildBrowserImportedNewItem({
+          itemId: crypto.randomUUID(),
+          projectId,
+          projectName: project.name,
+          row,
+          now,
+          itemsById,
+          nextSortOrder: nextSiblingSortOrder(Array.from(itemsById.values()), parentId),
+        });
+        memory.items.push(inserted);
+        itemsById.set(inserted.id, inserted);
+        createdCount += 1;
+      }
+
+      if (createdCount > 0 || updatedCount > 0) {
+        rebalanceProject(projectId);
+      }
+      browserImportSessions.delete(projectId);
+
+      return {
+        sourcePath: null,
+        createdCount,
+        updatedCount,
+        skippedCount,
+      };
     },
     async exportWorkbook(projectId: string): Promise<ProjectExportResult> {
       const project = requireProject(projectId);
@@ -501,6 +599,264 @@ function sanitizeFileName(value: string): string {
     })
     .join("")
     .trim() || "project";
+}
+
+interface BrowserWorkbookSelection {
+  workbookBytes: Uint8Array;
+}
+
+interface BrowserImportSession {
+  workbookBytes: Uint8Array;
+}
+
+interface BrowserFileHandleLike {
+  getFile: () => Promise<File>;
+}
+
+interface BrowserFilePickerWindow extends Window {
+  showOpenFilePicker?: (options?: {
+    multiple?: boolean;
+    types?: Array<{
+      description?: string;
+      accept: Record<string, string[]>;
+    }>;
+  }) => Promise<BrowserFileHandleLike[]>;
+}
+
+async function pickBrowserWorkbookFile(): Promise<BrowserWorkbookSelection | null> {
+  const browserWindow =
+    typeof window === "undefined" ? null : (window as BrowserFilePickerWindow);
+
+  if (browserWindow?.showOpenFilePicker) {
+    try {
+      const [fileHandle] = await browserWindow.showOpenFilePicker({
+        multiple: false,
+        types: [
+          {
+            description: "Excel Workbook",
+            accept: {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+            },
+          },
+        ],
+      });
+      if (!fileHandle) {
+        return null;
+      }
+
+      const file = await fileHandle.getFile();
+      return {
+        workbookBytes: new Uint8Array(await file.arrayBuffer()),
+      };
+    } catch (error) {
+      if (isFilePickerAbort(error)) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  if (typeof document === "undefined") {
+    throw new Error("Import preview is not available in browser mode");
+  }
+
+  return new Promise<BrowserWorkbookSelection | null>((resolve, reject) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    input.style.display = "none";
+
+    const cleanup = () => {
+      input.removeEventListener("change", handleChange);
+      input.removeEventListener("cancel", handleCancel as EventListener);
+      input.remove();
+    };
+
+    const handleCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const handleChange = () => {
+      const file = input.files?.[0];
+      if (!file) {
+        cleanup();
+        resolve(null);
+        return;
+      }
+
+      void file
+        .arrayBuffer()
+        .then((arrayBuffer) => {
+          cleanup();
+          resolve({
+            workbookBytes: new Uint8Array(arrayBuffer),
+          });
+        })
+        .catch((error: unknown) => {
+          cleanup();
+          reject(error);
+        });
+    };
+
+    input.addEventListener("change", handleChange, { once: true });
+    input.addEventListener("cancel", handleCancel as EventListener, { once: true });
+    document.body?.appendChild(input);
+    input.click();
+  });
+}
+
+function isFilePickerAbort(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+function buildBrowserImportedExistingItem(input: {
+  existing: ItemRecord;
+  row: {
+    Title: string;
+    ItemType: string;
+    Status: string;
+    Priority: string;
+    Assignee: string;
+    StartDate: string;
+    EndDate: string;
+    DueDate: string;
+    DurationDays: string;
+    PercentComplete: string;
+    EstimateHours: string;
+    Note: string;
+    ParentRecordId: string;
+  };
+  now: string;
+  itemsById: Map<string, ItemRecord>;
+}): ItemRecord {
+  const startDate = normalizeImportedDate(input.row.StartDate);
+  const endDate = normalizeImportedDate(input.row.EndDate);
+  const dueDate =
+    normalizeImportedDate(input.row.DueDate) ?? endDate ?? startDate ?? null;
+  const nextStatus = itemStatusSchema.parse(input.row.Status.trim() || input.existing.status);
+
+  return {
+    ...input.existing,
+    parentId: resolveImportedParentId(input.row.ParentRecordId, input.itemsById),
+    title: input.row.Title.trim(),
+    type: itemTypeSchema.parse(input.row.ItemType.trim() || input.existing.type),
+    status: nextStatus,
+    priority: prioritySchema.parse(input.row.Priority.trim() || input.existing.priority),
+    assigneeName: input.row.Assignee.trim(),
+    startDate,
+    endDate,
+    dueDate,
+    durationDays: parseImportedInteger(input.row.DurationDays, input.existing.durationDays),
+    percentComplete: parseImportedNumber(input.row.PercentComplete, input.existing.percentComplete),
+    estimateHours: parseImportedNumber(input.row.EstimateHours, input.existing.estimateHours),
+    note: input.row.Note,
+    isScheduled: Boolean(startDate && endDate),
+    updatedAt: input.now,
+    completedAt: nextStatus === "done" ? input.existing.completedAt ?? input.now : null,
+  };
+}
+
+function buildBrowserImportedNewItem(input: {
+  itemId: string;
+  projectId: string;
+  projectName: string;
+  row: {
+    Title: string;
+    ItemType: string;
+    Status: string;
+    Priority: string;
+    Assignee: string;
+    StartDate: string;
+    EndDate: string;
+    DueDate: string;
+    DurationDays: string;
+    PercentComplete: string;
+    EstimateHours: string;
+    Note: string;
+    ParentRecordId: string;
+    Tags: string;
+  };
+  now: string;
+  itemsById: Map<string, ItemRecord>;
+  nextSortOrder: number;
+}): ItemRecord {
+  const startDate = normalizeImportedDate(input.row.StartDate);
+  const endDate = normalizeImportedDate(input.row.EndDate);
+  const dueDate =
+    normalizeImportedDate(input.row.DueDate) ?? endDate ?? startDate ?? null;
+  const nextStatus = itemStatusSchema.parse(input.row.Status.trim() || "not_started");
+
+  return {
+    id: input.itemId,
+    workspaceId: "browser",
+    projectId: input.projectId,
+    projectName: input.projectName,
+    parentId: resolveImportedParentId(input.row.ParentRecordId, input.itemsById),
+    wbsCode: "",
+    title: input.row.Title.trim(),
+    type: itemTypeSchema.parse(input.row.ItemType.trim() || "task"),
+    note: input.row.Note,
+    status: nextStatus,
+    priority: prioritySchema.parse(input.row.Priority.trim() || "medium"),
+    assigneeName: input.row.Assignee.trim(),
+    startDate,
+    endDate,
+    dueDate,
+    durationDays: parseImportedInteger(input.row.DurationDays, deriveDurationDays(startDate, endDate)),
+    percentComplete: parseImportedNumber(input.row.PercentComplete, 0),
+    estimateHours: parseImportedNumber(input.row.EstimateHours, 0),
+    actualHours: 0,
+    sortOrder: input.nextSortOrder,
+    isScheduled: Boolean(startDate && endDate),
+    isRecurring: false,
+    archived: false,
+    createdAt: input.now,
+    updatedAt: input.now,
+    completedAt: nextStatus === "done" ? input.now : null,
+    tags: parseImportedTagNames(input.row.Tags),
+  };
+}
+
+function normalizeImportedDate(value: string): string | null {
+  const normalized = value.trim();
+  return normalized || null;
+}
+
+function parseImportedInteger(value: string, fallback: number): number {
+  const normalized = value.trim();
+  if (!normalized) {
+    return fallback;
+  }
+  const parsed = Number(normalized);
+  return Number.isInteger(parsed) ? parsed : fallback;
+}
+
+function parseImportedNumber(value: string, fallback: number): number {
+  const normalized = value.trim();
+  if (!normalized) {
+    return fallback;
+  }
+  const parsed = Number(normalized);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function parseImportedTagNames(value: string): string[] {
+  return value
+    .split(/[,\s]+/u)
+    .map((tag) => tag.trim().replace(/^#/, ""))
+    .filter(Boolean);
+}
+
+function resolveImportedParentId(
+  parentRecordId: string,
+  itemsById: Map<string, ItemRecord>
+): string | null {
+  const normalized = parentRecordId.trim();
+  if (!normalized) {
+    return null;
+  }
+  return itemsById.has(normalized) ? normalized : null;
 }
 
 function ensureInboxProject(): ProjectSummary {

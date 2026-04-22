@@ -188,6 +188,10 @@
 - commit 前に中身確認できる
 - preview row ごとに action とタイトルが見える
 - `全件 / warning / error` filter で preview row を絞り込める
+- warning を持つ row は panel 上部の warning summary にも `row number / title / warning reason` 付きで見える
+- warning を持つ row は dedicated warning-only list にも見え、error row はその一覧に含まれない
+- browser fallback でも file picker から preview を開ける
+- browser fallback でも preview 済み workbook を current project へ apply できる
 - error row では invalid field と理由が見える
 - current project と一致しない `ProjectCode / ProjectName` row は error になる
 - 不正な `ParentRecordId` row は error になる
@@ -202,8 +206,10 @@
 - 対応する item が更新される
 - ID が無い新規行は追加される
 - valid な `DependsOn` は finish-to-start dependency として反映される
+- `tmp_*` temporary ID を使った new row 同士の `DependsOn` も finish-to-start dependency として反映される
 - successor の `DependsOn` を空にした行は既存 dependency が外れる
 - `error` 行は反映されない
+- browser fallback の初期 commit では `DependsOn` を apply しない
 
 ## P2
 

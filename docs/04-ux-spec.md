@@ -52,6 +52,10 @@
 - 初期 preview panel には `適用` と `閉じる` を置く
 - 初期 preview panel には `全件 / warning / error` filter chip を置く
 - `warning` では warning を1件以上持つ row、`error` では `action=error` row のみを表示する
+- 初期 preview panel の counts の下には dedicated warning summary を置き、warning がある row の `row number / title / warning` を先に一覧できるようにする
+- 初期 preview panel の warning summary の下には dedicated warning-only list を置き、warning 行だけを table 本体とは別の独立一覧として確認できるようにする
+- browser fallback では `Import` 押下時に browser file picker を開き、preview 後は同じ panel から `適用` を実行できる
+- browser fallback の `適用` は preview 済み workbook を current project へ反映し、初期 slice では dependency import は行わない
 - `適用` は current project に対して `new / update` 行だけを反映し、`error` 行はそのまま skip する
 - 適用成功時は短い通知を出し、Project Detail と Home / Portfolio 集計を再読込する
 - error row では summary message に加えて、`列名: 理由` の issue list を同じ row 内に表示する
