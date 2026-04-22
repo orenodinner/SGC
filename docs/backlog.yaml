@@ -1,0 +1,188 @@
+version: 1
+last_updated: 2026-04-22
+epics:
+  - id: EPIC-00
+    name: Repository bootstrap
+    priority: P0
+    status: done
+    tasks:
+      - id: TASK-0001
+        title: Scaffold Electron + React + TypeScript + Vite app
+        status: done
+        done_when:
+          - app window opens
+          - renderer loads starter route
+      - id: TASK-0002
+        title: Add lint, typecheck, unit test, e2e commands
+        status: done
+      - id: TASK-0003
+        title: Create SQLite connection and migration runner
+        status: done
+
+  - id: EPIC-01
+    name: Core domain model
+    priority: P0
+    status: done
+    tasks:
+      - id: TASK-0101
+        title: Create project and item tables
+        status: done
+      - id: TASK-0102
+        title: Implement repositories for project and item
+        status: done
+      - id: TASK-0103
+        title: Implement WBS ordering and renumbering
+        status: done
+      - id: TASK-0104
+        title: Implement parent progress/date roll-up
+        status: done
+
+  - id: EPIC-02
+    name: Quick capture and home
+    priority: P0
+    status: done
+    tasks:
+      - id: TASK-0201
+        title: Implement quick capture parser for title, date, time, tags, assignee
+        status: done
+      - id: TASK-0202
+        title: Build Home/Today view
+        status: done
+      - id: TASK-0203
+        title: Build Inbox view and unscheduled flow
+        status: done
+      - id: TASK-0204
+        title: Implement overdue bulk postpone
+        status: done
+      - id: TASK-0205
+        title: Add Inbox project assign action
+        status: done
+      - id: TASK-0206
+        title: Add Inbox date add action
+        status: done
+      - id: TASK-0207
+        title: Add Inbox tag add action
+        status: done
+
+  - id: EPIC-03
+    name: Project detail and gantt
+    priority: P0
+    status: done
+    tasks:
+      - id: TASK-0301
+        title: Build WBS tree grid
+        status: done
+      - id: TASK-0302
+        title: Build day/week/month timeline
+        status: done
+      - id: TASK-0303
+        title: Implement drag move and resize
+        status: done
+      - id: TASK-0304
+        title: Add detail drawer
+        status: done
+      - id: TASK-0305
+        title: Add undo/redo for item edits
+        status: done
+
+  - id: EPIC-04
+    name: Portfolio and roadmap
+    priority: P0
+    status: done
+    tasks:
+      - id: TASK-0401
+        title: Implement portfolio summary query
+        status: done
+      - id: TASK-0402
+        title: Build portfolio view
+        status: done
+      - id: TASK-0403
+        title: Add expandable phase rows
+        status: done
+      - id: TASK-0404
+        title: Build year/fy roadmap timeline
+        status: done
+      - id: TASK-0405
+        title: Add month/quarter bucket renderer
+        status: done
+      - id: TASK-0406
+        title: Add roadmap filters
+        status: done
+      - id: TASK-0407
+        title: Add portfolio filters
+        status: done
+      - id: TASK-0408
+        title: Add roadmap deeper task expansion
+        status: done
+
+  - id: EPIC-05
+    name: Dependencies and scheduler
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-0501
+        title: Add dependency table and validation
+        status: done
+      - id: TASK-0502
+        title: Implement cycle detection
+        status: done
+      - id: TASK-0503
+        title: Implement reschedule scope selection
+        status: done
+      - id: TASK-0504
+        title: Shift descendants and dependents
+        status: done
+      - id: TASK-0505
+        title: Respect working days
+        status: done
+
+  - id: EPIC-06
+    name: Excel round-trip
+    priority: P1
+    status: in_progress
+    tasks:
+      - id: TASK-0601
+        title: Export workbook with four sheets
+        status: done
+      - id: TASK-0602
+        title: Implement import preview
+        status: done
+      - id: TASK-0603
+        title: Implement import commit and validation
+        status: in_progress
+      - id: TASK-0604
+        title: Add round-trip fixtures and tests
+        status: done
+
+  - id: EPIC-07
+    name: Templates and recurrence
+    priority: P2
+    status: todo
+    tasks:
+      - id: TASK-0701
+        title: Add recurrence rule model
+        status: todo
+      - id: TASK-0702
+        title: Generate recurring tasks
+        status: todo
+      - id: TASK-0703
+        title: Save and apply WBS template
+        status: todo
+
+  - id: EPIC-08
+    name: Hardening
+    priority: P2
+    status: todo
+    tasks:
+      - id: TASK-0801
+        title: Implement local backup and restore
+        status: todo
+      - id: TASK-0802
+        title: Optimize large list rendering
+        status: todo
+      - id: TASK-0803
+        title: Improve accessibility and keyboard control
+        status: todo
+      - id: TASK-0804
+        title: Add installer pipeline
+        status: todo

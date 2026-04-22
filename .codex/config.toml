@@ -1,0 +1,15 @@
+# Project-scoped Codex configuration for this repository.
+# This file is read when the project is trusted.
+
+model = "gpt-5.4"
+review_model = "gpt-5.4"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+web_search = "cached"
+
+[sandbox_workspace_write]
+network_access = false
+
+[windows]
+sandbox = "elevated"
+sandbox_private_desktop = true

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Continue Roadmap"
+  short_description: "Resumes the highest-priority unfinished roadmap work."
+  default_prompt: "Continue the roadmap from the current repo state with minimal questions."
+policy:
+  allow_implicit_invocation: false

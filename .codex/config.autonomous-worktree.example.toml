@@ -1,0 +1,15 @@
+# Example config for a trusted worktree session when you want fewer prompts.
+# Copy relevant keys into .codex/config.toml only when you understand the trade-off.
+
+model = "gpt-5.4"
+review_model = "gpt-5.4"
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+web_search = "cached"
+
+[sandbox_workspace_write]
+network_access = false
+
+[windows]
+sandbox = "elevated"
+sandbox_private_desktop = true

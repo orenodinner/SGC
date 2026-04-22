@@ -1,0 +1,248 @@
+version: 1
+last_updated: 2026-04-22
+decisions:
+  - id: DEC-001
+    topic: Desktop stack
+    status: accepted
+    decision: Use Electron + React + TypeScript + Vite
+    rationale: Best balance for Windows desktop delivery, local-first implementation, Excel support, and long-running agent implementation.
+
+  - id: DEC-002
+    topic: Persistence
+    status: accepted
+    decision: Use SQLite as sole persistence layer in MVP
+    rationale: Simple local-first storage with strong query capability for WBS, portfolio summaries, and roadmap range queries.
+
+  - id: DEC-003
+    topic: Dependency types
+    status: accepted
+    decision: MVP supports only finish-to-start dependencies with lag days
+    rationale: Keeps scheduling logic manageable while covering the most common practical need.
+
+  - id: DEC-004
+    topic: Planning granularity
+    status: accepted
+    decision: Support day/week/month/quarter/year/FY views
+    rationale: Product must cover both daily operation and long-term planning.
+
+  - id: DEC-005
+    topic: Fiscal year default
+    status: accepted
+    decision: Default FY start month is April
+    rationale: Target user context is Japanese business planning.
+
+  - id: DEC-006
+    topic: Excel contract
+    status: accepted
+    decision: Tasks sheet is canonical for round-trip
+    rationale: Minimizes ambiguity between human-friendly and machine-friendly sheets.
+
+  - id: DEC-007
+    topic: Collaboration scope
+    status: accepted
+    decision: MVP is single-user local-first only
+    rationale: Reduces implementation complexity and user friction.
+
+  - id: DEC-008
+    topic: UI default language
+    status: accepted
+    decision: Japanese-first UI, but keep architecture i18n-ready
+    rationale: Matches target user while avoiding future lock-in.
+
+  - id: DEC-009
+    topic: SQLite bootstrap implementation
+    status: accepted
+    decision: Phase 0/1 では SQL.js を同期 SQLite API として使い、main process からファイル永続化する
+    rationale: ネイティブ addon 再ビルドを避けつつ、ローカル SQLite 互換ファイルと同期 API の要件を満たして着手速度を優先する。
+
+  - id: DEC-010
+    topic: Inbox persistence model
+    status: accepted
+    decision: Inbox は専用の system project `_INBOX` として保存し、通常の project list からは隠す
+    rationale: `item.project_id` を nullable にせず既存スキーマを保ったまま、未計画タスクの保存と Home/Inbox 集計を実装できる。
+
+  - id: DEC-011
+    topic: Timeline drag target
+    status: accepted
+    decision: Phase 3 の timeline drag move / resize は startDate と endDate を持つ scheduled item のみに適用する
+    rationale: due-only item まで同じ操作で動かすと scheduled 判定と dueDate の意味が曖昧になるため、まず ACC-006 / ACC-007 を満たす安全な対象に限定する。
+
+  - id: DEC-012
+    topic: Detail drawer scope
+    status: accepted
+    decision: Phase 3 の detail drawer は note / tags の編集を先に実装し、dependency / recurrence / history は placeholder を出して Phase 5 以降へ送る
+    rationale: dependency モデルが未実装の段階でも drawer 自体の価値を先に出せ、Project Detail の編集導線を分割して安全に進められる。
+
+  - id: DEC-013
+    topic: Undo redo scope
+    status: accepted
+    decision: Phase 3 の undo/redo は `updateItem` 経由の field edit のみを対象にし、create / archive / hierarchy move は含めない
+    rationale: Project Detail の主要編集ループを先に安定化しつつ、構造変更まで巻き戻す設計は後続の command 層導入時にまとめて扱う方が安全なため。
+
+  - id: DEC-014
+    topic: Electron production asset loading
+    status: accepted
+    decision: Electron production build の renderer asset は Vite `base: "./"` を使って相対パスで出力する
+    rationale: `loadFile()` で開く `file://` 配下では `/assets/...` の絶対パスが壊れるため、desktop Playwright smoke と実運用の両方で相対 asset path を既定にする。
+
+  - id: DEC-015
+    topic: Inbox project assign behavior
+    status: accepted
+    decision: Inbox から project を割り当てた item は target project の root 直下へ移動し、末尾 sort order を採用する
+    rationale: 未整理タスクは親階層を持たない前提で最小導線を優先し、割当時に既存 WBS 構造を壊さず project detail へ安全に載せるため。
+
+  - id: DEC-016
+    topic: Inbox date add behavior
+    status: accepted
+    decision: Inbox の日付追加は単日 picker で受け、選択日を `startDate` と `endDate` の両方へ保存して1日タスク化し、scheduled item は `_INBOX` に残ったままでも Home の Today / Overdue 集計へ含める
+    rationale: due-only と range 入力を同時に持ち込むよりも最小編集導線を優先し、project 未割当のままでも計画済み item が Home から見えなくならないよう既存 `updateItem` と Home 集計の責務で一貫させるため。
+
+  - id: DEC-017
+    topic: Inbox tag add behavior
+    status: accepted
+    decision: Inbox のタグ追加は inline text field で受け、スペースまたはカンマ区切りの複数タグを `parseTagInput` と同じ正規化規則で保存する
+    rationale: Project Detail の tag 編集と同じ入力規則へ寄せることで学習コストを増やさず、service API を増やさずに最小導線を追加できるため。
+
+  - id: DEC-018
+    topic: Portfolio summary risk calculation
+    status: accepted
+    decision: Phase 4 の portfolio summary query は `riskLevel` を project table の cached 値ではなく query 時に算出する
+    rationale: Phase 4 の最初の縦切りでは portfolio UI と service 集計を先に成立させ、project 派生列の保存最適化は必要になった時点で後追いする方が安全なため。
+
+  - id: DEC-019
+    topic: Portfolio phase row default
+    status: accepted
+    decision: Portfolio expand の `主要 Phase` は project 直下の root-level `group` item を対象とし、task / milestone の root 行は phase row に含めない
+    rationale: WBS の見出し用途と Portfolio の phase 概念を最小コストで一致させ、Phase 4 では明確な階層だけを expand 対象にして UI と query を単純に保つため。
+
+  - id: DEC-020
+    topic: Year and FY roadmap anchor semantics
+    status: accepted
+    decision: Year roadmap は選択年の 1月-12月を表示し、FY roadmap は表示年を fiscal year の開始年として扱う。既定の FY 開始月=4 では `FY2026` は `2026-04` から `2027-03` を意味する
+    rationale: 年表示と FY 表示の month bucket domain を先に固定し、後続の header / layout / filter 実装で年ラベルの解釈がぶれないようにするため。
+
+  - id: DEC-021
+    topic: Initial roadmap renderer scope
+    status: accepted
+    decision: Phase 4 の最初の roadmap renderer は project row と root-level の dated item を month bucket 上へ表示し、quarter header / filter / deeper task expansion は後続スライスへ送る
+    rationale: Year / FY view を早く開ける状態にしつつ、既存の project summary と project detail だけで安全に描画できる範囲へ絞って Phase 4 を縦切りで進めるため。
+
+  - id: DEC-022
+    topic: Roadmap quarter header semantics
+    status: accepted
+    decision: roadmap の quarter header は表示中の 12か月 bucket を 3か月ずつ区切った `Q1-Q4` を使う。Year view は暦年基準、FY view は fiscal year 開始月基準で quarter を割り当てる
+    rationale: quarter renderer と month bucket renderer の責務を揃え、Year と FY で同じ UI 部品を使いながら quarter の意味だけを明確に切り替えられるようにするため。
+
+  - id: DEC-023
+    topic: Initial roadmap filter set
+    status: accepted
+    decision: roadmap の初期 filter は `all / overdue / milestone` の3つとし、`overdue` と `milestone` では条件に合う child row がある project row を文脈維持のため残す
+    rationale: Phase 4 では最小の実用フィルタを先に提供し、project context を完全に失わずに roadmap 上で危険箇所や milestone だけへ素早く絞り込めるようにするため。
+
+  - id: DEC-024
+    topic: Initial portfolio filter set
+    status: accepted
+    decision: Portfolio の初期 filter は `all / overdue / week_milestone` の3つとし、`overdue` は `overdueCount >= 1`、`week_milestone` は `nextMilestoneDate` が今週内の project に絞る
+    rationale: Phase 4 の portfolio table を危険案件確認と今週の節目確認の2用途へ最小コストで寄せ、追加 query を増やさず既存 summary contract だけで実用的な絞り込みを成立させるため。
+
+  - id: DEC-025
+    topic: Initial roadmap deeper expansion scope
+    status: accepted
+    decision: Roadmap の deeper task expansion は root-level `group` row から始め、同一 project detail に既に載っている descendant を再利用して inline 展開する。初期状態は collapsed とし、dated descendant とそれをつなぐ context group だけを表示対象にする
+    rationale: Phase 4 の長期表示を崩さずに詳細確認導線を足すには、追加 query や virtualization より先に既存 detail data を使った最小 expand を入れる方が安全で、行数増加も明示操作時だけに限定できるため。
+
+  - id: DEC-026
+    topic: Initial dependency validation scope
+    status: accepted
+    decision: TASK-0501 では dependency persistence と基本 validation を先に入れ、同一 project 制約、自己参照禁止、archived item 禁止、重複 edge 禁止までを扱う。cycle detection と dependent shift は後続 task へ送る
+    rationale: scheduler の本体ロジックを入れる前に DB 契約と service 境界を先に固定すると、detail drawer や import/export から再利用しやすく、validation の責務も小さく保てるため。
+
+  - id: DEC-027
+    topic: Dependency cycle detection scope
+    status: accepted
+    decision: TASK-0502 では dependency 作成時に同一 project の既存 dependency graph をたどり、successor から predecessor へ到達可能なら direct / indirect を問わず保存を拒否する。自動再スケジュールや UI 表示はこの slice では扱わない
+    rationale: cycle を persistence 境界で防ぐと後続の dependent shift や Excel import が不正 graph を前提にしなくて済み、scheduler 本体より前に安全性を固定できるため。
+
+  - id: DEC-028
+    topic: Initial reschedule scope behavior
+    status: accepted
+    decision: TASK-0503 では reschedule scope を item update API に追加し、子孫を持つ item の timeline move で `single / with_descendants / with_dependents` のポップオーバーを出す。実動は `single` と `with_descendants` までとし、`with_dependents` は disabled 表示で次タスクへ送る
+    rationale: scope selection を user-facing に先に見せつつ、複雑な dependency propagation を切り離して ACC-014 の descendants shift を小さな縦切りで成立させるため。
+
+  - id: DEC-029
+    topic: Initial dependent shift semantics
+    status: accepted
+    decision: TASK-0504 では `with_dependents` のときに編集中 item の subtree を同じ差分で保ったうえで、finish-to-start dependency を満たす最小の後ろ倒しだけを行い、`successor.startDate >= predecessor.endDate + lagDays + 1日` を calendar day で満たすように successor とその子孫を移動する。前倒しと working day 補正は扱わない
+    rationale: dependency propagation を usable にしつつ、working day や bidirectional reschedule を後続タスクへ分離することで scheduler の初回実装を安全に保てるため。
+
+  - id: DEC-030
+    topic: Initial working day scope
+    status: accepted
+    decision: TASK-0505 では working day logic の適用範囲を dependency による自動後ろ倒しのみに限定し、既定の working day は `月〜金` とする。finish-to-start の earliest start 計算は `lagDays + 1` 営業日を使い、manual drag や direct date edit はこの slice では営業日補正しない
+    rationale: scheduler の自動調整だけを先に営業日化すると、ユーザーが意図的に置いた週末日付を壊さずに ACC-013 の実務要件を満たせるため。
+
+  - id: DEC-031
+    topic: Initial Excel export contract scope
+    status: accepted
+    decision: Phase 6 の最初の slice では `.xlsx` writer より先に workbook contract を pure TypeScript で固定し、sheet 順序、`Tasks` 列順序、`DependsOn` のシリアライズ規則を test で守る。portfolio entity が未実装の間は `PortfolioCode` と `PortfolioName` を空文字で export する
+    rationale: Excel round-trip は列契約の後戻りコストが高いため、writer 実装前に canonical contract を先に固定する方が安全で、既存データモデルに無い portfolio 列も暫定既定を明示して export 仕様をぶらさず進められるため。
+
+  - id: DEC-032
+    topic: Initial workbook writer scope
+    status: accepted
+    decision: TASK-0601 の最初の writer は project 単位の `.xlsx` を backend で生成し、`Tasks` を canonical data sheet として完全出力する。`Dashboard`、`Gantt_View`、`MasterData` は first slice では軽量な scaffold 内容に留め、凝った書式や印刷最適化は後続 slice へ送る
+    rationale: 4-sheet workbook を早く実ファイルとして成立させるには、round-trip に必要な canonical sheet と最低限の人間向け sheet を先に出す方が安全で、非 canonical sheet の見た目最適化を同時に抱えない方が進行リスクが低いため。
+
+  - id: DEC-033
+    topic: Initial export trigger UX
+    status: accepted
+    decision: 初期 export 導線は Project Detail toolbar の `Excel Export` ボタンとし、押下時に OS の保存ダイアログを開く。既定ファイル名は project code を優先し、キャンセル時は state を変えない
+    rationale: Excel export を最小スコープでユーザー操作へ接続するには、既に project context を持つ Project Detail から始めるのが最も自然で、保存先確認も OS 標準ダイアログに寄せる方が学習コストと実装リスクが低いため。
+
+  - id: DEC-034
+    topic: Initial import preview scope
+    status: accepted
+    decision: TASK-0602 の最初の slice では Project Detail toolbar の `Excel Import` から `.xlsx` を選び、canonical `Tasks` シートの dry-run preview を表示する。初期 preview は `new / update / error` 件数と行一覧までに限定し、commit と詳細 validation table は後続 slice へ送る
+    rationale: import は commit を伴うため、まず preview のみを先に成立させて workbook 読み取りと既存データ照合を安全に固定した方が、Phase 6 の進行リスクを抑えつつ受け入れ試験の主経路を早く満たせるため。
+
+  - id: DEC-035
+    topic: Initial import commit scope
+    status: accepted
+    decision: TASK-0603 の最初の slice では preview 済み workbook を current project に対して apply し、`new / update` 行のみを反映する。`error` 行は skip し、更新対象は canonical `Tasks` の基本編集列に限定する。dependency import、rollback、project 横断 apply は後続 slice へ送る
+    rationale: import commit を最小の安全な単位で成立させるには、preview と同じ project context の中で title/date/status/tag などの主要編集列だけを反映する方が実装と検証のリスクが低く、Excel round-trip の主要受け入れ試験もこの範囲で先に満たせるため。
+
+  - id: DEC-036
+    topic: Initial import validation detail shape
+    status: accepted
+    decision: validation table の最初の slice では preview row に field-level issue list を持たせ、error row で `列名: 理由` を複数表示する。grid 全体の別テーブル化や修正 UI は後続 slice へ送る
+    rationale: import validation を実用化する最短手は、既存 preview row の中に invalid field をぶら下げて表示する形であり、layout を大きく増やさずに commit 前の判断材料を一段上げられるため。
+
+  - id: DEC-037
+    topic: Initial DependsOn import preview validation
+    status: accepted
+    decision: `DependsOn` の初期 import 対応は preview validation のみに留め、token は current project の既知 `RecordId` を参照している場合だけ有効とする。new row 同士の依存、dependency commit、cycle check 連携は後続 slice へ送る
+    rationale: dependency import を一気に commit まで通すより、まず preview 時点で不正参照と構文揺れを止める方が安全で、既存 export 契約を崩さずに Phase 6 の validation 範囲を段階的に広げられるため。
+
+  - id: DEC-038
+    topic: Initial DependsOn import commit scope
+    status: accepted
+    decision: `DependsOn` の初期 commit は preview を通過した current project 内の既知 predecessor だけを successor 単位で置き換えて保存する。new row 同士の dependency 解決、preview 時点の cycle 警告、`LastModifiedAt` warning は後続 slice とする
+    rationale: Excel round-trip の実用性を上げるには、まず export 済み dependency を workbook から戻せることが重要であり、current project の既知 predecessor に限定すれば edge 置換を小さな差分で安全に導入できるため。
+
+  - id: DEC-039
+    topic: Initial LastModifiedAt preview warning
+    status: accepted
+    decision: `LastModifiedAt` の初期対応は preview row の warning 表示に限定し、`action` は変えず apply も止めない。workbook 側 timestamp が既存 item の `updatedAt` より古い update row にだけ warning chip を出す
+    rationale: 競合の存在を先に見せつつ commit フローは止めない方が現行の local-first 運用と相性がよく、preview contract と UI に小さな warning 配列を足すだけで安全に段階導入できるため。
+
+  - id: DEC-040
+    topic: Initial DependsOn cycle preview warning
+    status: accepted
+    decision: `DependsOn` の初期 cycle 対応は import preview の warning に限定し、row を error へ落とさず apply も直接は止めない。current project の既存 dependency graph に import row の predecessor 集合を当て込んで cycle になる update row に warning chip を出す
+    rationale: 既存の commit 側 cycle 防止を壊さずに、apply 前の気付きだけを小さい差分で追加できるため。warning と error を分けることで token 不正と graph リスクの責務も明確に保てる。
+
+  - id: DEC-041
+    topic: Initial import preview filter set
+    status: accepted
+    decision: import preview panel の最初の絞り込みは `all / warning / error` の3つに限定し、filter は renderer 内の local state で扱う。`warning` は warnings を1件以上持つ row、`error` は `action=error` row のみを表示する
+    rationale: preview contract を増やさずに validation の見通しを上げる最短手であり、Phase 6 の dry-run 体験を小さい差分で改善できるため。

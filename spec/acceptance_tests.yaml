@@ -1,0 +1,135 @@
+version: 1
+tests:
+  - id: ACC-001
+    priority: P0
+    title: Quick Capture basic parsing
+    expected:
+      - create task
+      - parse title
+      - parse date
+      - parse tag
+      - parse assignee
+
+  - id: ACC-002
+    priority: P0
+    title: Unscheduled task goes to Inbox
+    expected:
+      - scheduled false
+      - visible in inbox
+
+  - id: ACC-003
+    priority: P0
+    title: Overdue bulk postpone
+    expected:
+      - overdue tasks moved
+      - autosaved
+
+  - id: ACC-004
+    priority: P0
+    title: WBS hierarchy create and collapse
+    expected:
+      - nested items persist
+      - wbs codes recalculated
+
+  - id: ACC-005
+    priority: P0
+    title: Parent progress roll-up
+    expected:
+      - weighted average computed
+
+  - id: ACC-006
+    priority: P0
+    title: Drag move task in gantt
+    expected:
+      - date range shifts by delta
+
+  - id: ACC-007
+    priority: P0
+    title: Drag resize task in gantt
+    expected:
+      - end date and duration update
+
+  - id: ACC-008
+    priority: P0
+    title: Persistence after restart
+    expected:
+      - projects and items remain
+
+  - id: ACC-009
+    priority: P0
+    title: Portfolio summary view
+    expected:
+      - progress shown
+      - overdue count shown
+      - next milestone shown
+
+  - id: ACC-010
+    priority: P0
+    title: Portfolio phase expansion
+    expected:
+      - phase rows appear
+
+  - id: ACC-011
+    priority: P0
+    title: Year roadmap
+    expected:
+      - month bucket rendering
+      - milestone symbol rendering
+
+  - id: ACC-012
+    priority: P0
+    title: FY roadmap starts from configured month
+    expected:
+      - timeline header honors fy start month
+
+  - id: ACC-013
+    priority: P1
+    title: Finish-to-start dependency shift
+    expected:
+      - successor shifts as needed
+
+  - id: ACC-014
+    priority: P1
+    title: Reschedule with descendants
+    expected:
+      - children move with parent
+
+  - id: ACC-015
+    priority: P1
+    title: Prevent dependency cycle
+    expected:
+      - save blocked with error
+
+  - id: ACC-016
+    priority: P1
+    title: Excel export workbook structure
+    expected:
+      - dashboard sheet
+      - tasks sheet
+      - gantt_view sheet
+      - masterdata sheet
+
+  - id: ACC-017
+    priority: P1
+    title: Excel import preview
+    expected:
+      - new update error counts
+
+  - id: ACC-018
+    priority: P1
+    title: Excel round-trip
+    expected:
+      - existing items updated by id
+      - new rows created
+
+  - id: ACC-019
+    priority: P2
+    title: Weekly recurrence generation
+    expected:
+      - next occurrence created
+
+  - id: ACC-020
+    priority: P2
+    title: Backup and restore path
+    expected:
+      - recovery guidance available
