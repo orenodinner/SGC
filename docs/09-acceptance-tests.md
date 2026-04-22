@@ -170,6 +170,24 @@
 - 同一 edge の重複登録は保存できない
 - A -> A の自己参照は保存できない
 
+### ACC-027 Detail drawer dependency editor
+**Given** Project Detail に A と B があり、B を selected item にしている  
+**When** Detail drawer から A を先行タスクとして追加し、その後 dependency を削除する  
+**Then**
+- B の dependency 一覧に `A -> B` が見える
+- `lagDays` が表示される
+- 削除後は dependency 一覧から消える
+- browser mode では editor の代わりに unavailable note が見える
+
+### ACC-028 Timeline keyboard edit
+**Given** Project Detail に scheduled task があり、timeline bar を focus している  
+**When** `Alt+→` を押し、その後 `Alt+Shift+→` を押す  
+**Then**
+- `Alt+→` で開始日と終了日が1単位右へ移動する
+- `Alt+Shift+→` で終了日だけが1単位伸びる
+- focus した bar が selected item と同期する
+- milestone marker では keyboard resize が発火しない
+
 ### ACC-016 Excel export workbook
 **Given** プロジェクトデータあり  
 **When** Project Detail から XLSX export を実行し、保存先を確定する  
@@ -189,8 +207,9 @@
 - preview row ごとに action とタイトルが見える
 - `全件 / warning / error` filter で preview row を絞り込める
 - warning を持つ row は panel 上部の warning summary にも `row number / title / warning reason` 付きで見える
-- warning を持つ row は dedicated warning-only list にも見え、error row はその一覧に含まれない
+- warning を持つ row は dedicated warning-only table にも見え、error row はその表に含まれない
 - browser fallback でも file picker から preview を開ける
+- browser fallback の preview panel では `DependsOn` が apply 時に skip されることが見える
 - browser fallback でも preview 済み workbook を current project へ apply できる
 - error row では invalid field と理由が見える
 - current project と一致しない `ProjectCode / ProjectName` row は error になる

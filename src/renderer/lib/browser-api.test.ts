@@ -40,6 +40,7 @@ describe("browserApi import preview fallback", () => {
     expect(showOpenFilePicker).toHaveBeenCalledTimes(1);
     expect(preview).not.toBeNull();
     expect(preview?.sourcePath).toBeNull();
+    expect(preview?.supportsDependencyImport).toBe(false);
     expect(preview?.updateCount).toBeGreaterThan(0);
     expect(
       preview?.rows.some((row) => row.recordId === createdItem.id && row.action === "update")

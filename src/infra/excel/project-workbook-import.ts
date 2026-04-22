@@ -20,6 +20,7 @@ type TasksSheetRow = Record<(typeof EXCEL_TASKS_SHEET_COLUMNS)[number], string>;
 export function buildProjectImportPreview(input: {
   project: ProjectSummary;
   sourcePath: string | null;
+  supportsDependencyImport?: boolean;
   workbookBytes: Uint8Array;
   items: ItemRecord[];
   projects: ProjectSummary[];
@@ -62,6 +63,7 @@ export function buildProjectImportPreview(input: {
 
   return projectImportPreviewSchema.parse({
     sourcePath: input.sourcePath,
+    supportsDependencyImport: input.supportsDependencyImport ?? true,
     newCount: previewRows.filter((row) => row.action === "new").length,
     updateCount: previewRows.filter((row) => row.action === "update").length,
     errorCount: previewRows.filter((row) => row.action === "error").length,

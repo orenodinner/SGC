@@ -245,7 +245,7 @@ test("desktop shell filters import preview rows by warning and error", async () 
     await expect(page.getByRole("button", { name: "Warning" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Error" })).toBeVisible();
     await expect(page.getByText("Warning Summary")).toBeVisible();
-    await expect(page.getByText("Warning-only List")).toBeVisible();
+    await expect(page.getByText("Warning-only Table")).toBeVisible();
     await expect(
       page.locator(".import-preview-warning-summary-row").filter({ hasText: taskATitle }).first()
     ).toBeVisible();
@@ -256,12 +256,12 @@ test("desktop shell filters import preview rows by warning and error", async () 
         .locator(".import-preview-warning")
         .filter({ hasText: "DependsOn: would create dependency cycle on apply" })
     ).toBeVisible();
-    const warningOnlyList = page.locator('[aria-label="Warning-only List"]');
+    const warningOnlyList = page.locator('[aria-label="Warning-only Table"]');
     await expect(
-      warningOnlyList.locator(".import-preview-warning-only-row").filter({ hasText: taskATitle }).first()
+      warningOnlyList.locator(".import-preview-warning-table-row").filter({ hasText: taskATitle }).first()
     ).toBeVisible();
     await expect(
-      warningOnlyList.locator(".import-preview-warning-only-row").filter({ hasText: taskBTitle })
+      warningOnlyList.locator(".import-preview-warning-table-row").filter({ hasText: taskBTitle })
     ).toHaveCount(0);
 
     await page.getByRole("button", { name: "Warning" }).click();
@@ -282,6 +282,117 @@ test("desktop shell filters import preview rows by warning and error", async () 
         .locator(".import-preview-issue")
         .filter({ hasText: "ParentRecordId: not found" })
     ).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test("detail drawer dependency editor adds and removes predecessor links", async () => {
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+  });
+
+  try {
+    const page = await app.firstWindow();
+    const timestamp = Date.now();
+    const projectName = `E2E Dependency Editor ${timestamp}`;
+    const predecessorTitle = `Dependency Source ${timestamp}`;
+    const successorTitle = `Dependency Target ${timestamp}`;
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByLabel("プロジェクト名").fill(projectName);
+    await page.getByRole("button", { name: "プロジェクト作成" }).click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "ルート行を追加" }).click();
+    const firstRow = page.locator(".table-body .table-row").first();
+    const firstTitleInput = firstRow.locator('input[value="新しいタスク"]').first();
+    await firstTitleInput.fill(predecessorTitle);
+    await firstTitleInput.press("Tab");
+
+    await page.getByRole("button", { name: "ルート行を追加" }).click();
+    const secondRow = page.locator(".table-body .table-row").last();
+    const secondTitleInput = secondRow.locator('input[value="新しいタスク"]').first();
+    await secondTitleInput.fill(successorTitle);
+    await secondTitleInput.press("Tab");
+
+    await secondRow.getByRole("button", { name: "詳細" }).click();
+    await expect(page.locator(".detail-drawer")).toContainText(successorTitle);
+
+    await page.getByLabel("先行タスク").selectOption({ index: 0 });
+    await page.getByLabel("Lag Days").fill("2");
+    await page.getByRole("button", { name: "先行を追加" }).click();
+
+    const dependencyRow = page.locator(".dependency-row").filter({ hasText: predecessorTitle }).first();
+    await expect(dependencyRow).toContainText(successorTitle);
+    await expect(dependencyRow).toContainText("lag 2");
+
+    await dependencyRow.getByRole("button", { name: /を削除$/ }).click();
+    await expect(page.locator(".dependency-row").filter({ hasText: predecessorTitle })).toHaveCount(0);
+    await expect(page.locator(".detail-placeholder").filter({ hasText: "linked dependency はありません。" })).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test("timeline bar supports keyboard move and resize", async () => {
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+  });
+
+  try {
+    const page = await app.firstWindow();
+    const timestamp = Date.now();
+    const projectName = `E2E Timeline Keyboard ${timestamp}`;
+    const taskTitle = `Keyboard Timeline ${timestamp}`;
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByLabel("プロジェクト名").fill(projectName);
+    await page.getByRole("button", { name: "プロジェクト作成" }).click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+    await page.evaluate(async ({ targetProjectName, targetTaskTitle }) => {
+      if (!window.sgc) {
+        throw new Error("Renderer API unavailable");
+      }
+      const projects = await window.sgc.projects.list();
+      const project = projects.find((entry) => entry.name === targetProjectName);
+      if (!project) {
+        throw new Error("Project not found");
+      }
+      const createdItem = await window.sgc.items.create({
+        projectId: project.id,
+        title: targetTaskTitle,
+        type: "task",
+        parentId: null,
+      });
+      await window.sgc.items.update({
+        id: createdItem.id,
+        title: targetTaskTitle,
+        startDate: "2026-04-10",
+        endDate: "2026-04-14",
+      });
+    }, { targetProjectName: projectName, targetTaskTitle: taskTitle });
+
+    await page.locator(".project-card").filter({ hasText: projectName }).click();
+    await expect(page.locator(`input[value="${taskTitle}"]`).first()).toBeVisible();
+    const row = page.locator(".table-body .table-row").first();
+
+    const timelineBar = page.locator(".timeline-bar").first();
+    await expect(timelineBar).toBeVisible();
+    await timelineBar.focus();
+    await page.keyboard.press("Alt+ArrowRight");
+
+    await expect(row.locator('input[type="date"]').nth(0)).toHaveValue("2026-04-11");
+    await expect(row.locator('input[type="date"]').nth(1)).toHaveValue("2026-04-15");
+
+    await timelineBar.focus();
+    await page.keyboard.press("Alt+Shift+ArrowRight");
+
+    await expect(row.locator('input[type="date"]').nth(0)).toHaveValue("2026-04-11");
+    await expect(row.locator('input[type="date"]').nth(1)).toHaveValue("2026-04-16");
+    await expect(page.locator(".detail-drawer")).toContainText(taskTitle);
   } finally {
     await app.close();
   }

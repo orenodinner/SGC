@@ -245,6 +245,7 @@ export class WorkspaceService {
     return buildProjectImportPreview({
       project,
       sourcePath: input.sourcePath,
+      supportsDependencyImport: true,
       workbookBytes: input.workbookBytes,
       items: this.items.listForDashboard(),
       projects: this.projects.list(),
@@ -263,6 +264,7 @@ export class WorkspaceService {
     const preview = buildProjectImportPreview({
       project,
       sourcePath: input.sourcePath,
+      supportsDependencyImport: true,
       workbookBytes: input.workbookBytes,
       items,
       projects,

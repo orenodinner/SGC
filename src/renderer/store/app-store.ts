@@ -422,6 +422,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
+      const supportsDependencyImport = importPreview.supportsDependencyImport;
       const result = await api.projects.commitImport(selectedProjectId, importPreview.sourcePath ?? "");
       const [projects, projectDetail, homeSummary, portfolioSummary] = await Promise.all([
         api.projects.list(),
@@ -436,7 +437,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         portfolioSummary,
         importPreview: null,
         loading: false,
-        notice: `Excel import applied: +${result.createdCount} new / ${result.updatedCount} updated / ${result.skippedCount} skipped`,
+        notice: supportsDependencyImport
+          ? `Excel import applied: +${result.createdCount} new / ${result.updatedCount} updated / ${result.skippedCount} skipped`
+          : `Excel import applied: +${result.createdCount} new / ${result.updatedCount} updated / ${result.skippedCount} skipped / DependsOn skipped in browser mode`,
       });
       return result;
     } catch (error) {

@@ -1,8 +1,10 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type MutableRefObject,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -25,6 +27,7 @@ import {
   type TimelineScale,
 } from "../domain/timeline";
 import type {
+  DependencyRecord,
   HierarchyMoveDirection,
   HomeSummary,
   ItemRecord,
@@ -139,6 +142,51 @@ export default function App() {
     void updateItem({ id: item.id, ...patch });
   };
 
+  const applyTimelineAdjustment = useCallback((
+    item: ItemRecord,
+    scale: TimelineScale,
+    mode: TimelineInteractionMode,
+    deltaUnits: number
+  ) => {
+    if (deltaUnits === 0) {
+      return;
+    }
+
+    const nextDates = applyTimelineInteraction(item, scale, mode, deltaUnits);
+    if (
+      !nextDates ||
+      (nextDates.startDate === item.startDate && nextDates.endDate === item.endDate)
+    ) {
+      return;
+    }
+
+    if (
+      shouldPromptReschedule(
+        item,
+        {
+          startDate: nextDates.startDate,
+          endDate: nextDates.endDate,
+        },
+        projectDetail?.items ?? []
+      )
+    ) {
+      setPendingRescheduleChange({
+        item,
+        patch: {
+          startDate: nextDates.startDate,
+          endDate: nextDates.endDate,
+        },
+      });
+      return;
+    }
+
+    void updateItem({
+      id: item.id,
+      startDate: nextDates.startDate,
+      endDate: nextDates.endDate,
+    });
+  }, [projectDetail?.items, updateItem]);
+
   useEffect(() => {
     if (!activeTimelineEdit) {
       return;
@@ -163,49 +211,10 @@ export default function App() {
       setActiveTimelineEdit(null);
       const deltaUnits =
         clientX === undefined ? current.deltaUnits : calculateDeltaUnits(clientX, current);
-      if (!shouldCommit || deltaUnits === 0) {
+      if (!shouldCommit) {
         return;
       }
-
-      const nextDates = applyTimelineInteraction(
-        current.item,
-        current.scale,
-        current.mode,
-        deltaUnits
-      );
-
-      if (
-        !nextDates ||
-        (nextDates.startDate === current.item.startDate && nextDates.endDate === current.item.endDate)
-      ) {
-        return;
-      }
-
-      if (
-        shouldPromptReschedule(
-          current.item,
-          {
-            startDate: nextDates.startDate,
-            endDate: nextDates.endDate,
-          },
-          projectDetail?.items ?? []
-        )
-      ) {
-        setPendingRescheduleChange({
-          item: current.item,
-          patch: {
-            startDate: nextDates.startDate,
-            endDate: nextDates.endDate,
-          },
-        });
-        return;
-      }
-
-      void updateItem({
-        id: current.item.id,
-        startDate: nextDates.startDate,
-        endDate: nextDates.endDate,
-      });
+      applyTimelineAdjustment(current.item, current.scale, current.mode, deltaUnits);
     };
 
     const handlePointerMove = (event: PointerEvent) => {
@@ -238,7 +247,7 @@ export default function App() {
       window.removeEventListener("pointerup", handlePointerUp);
       window.removeEventListener("pointercancel", handlePointerCancel);
     };
-  }, [activeTimelineEdit, projectDetail?.items, updateItem]);
+  }, [activeTimelineEdit, applyTimelineAdjustment]);
 
   const beginTimelineEdit = (
     event: ReactPointerEvent<HTMLDivElement>,
@@ -267,6 +276,39 @@ export default function App() {
       columnWidth: Math.max(row.getBoundingClientRect().width / timelineColumns.length, 1),
       deltaUnits: 0,
     });
+  };
+
+  const handleTimelineBarKeyDown = (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+    item: ItemRecord,
+    isMilestone: boolean
+  ) => {
+    if (!event.altKey) {
+      return;
+    }
+
+    let mode: TimelineInteractionMode | null = null;
+    let deltaUnits = 0;
+    if (event.key === "ArrowLeft") {
+      mode = event.shiftKey ? "resize_end" : "move";
+      deltaUnits = -1;
+    } else if (event.key === "ArrowRight") {
+      mode = event.shiftKey ? "resize_end" : "move";
+      deltaUnits = 1;
+    }
+
+    if (!mode || deltaUnits === 0) {
+      return;
+    }
+
+    if (isMilestone && mode === "resize_end") {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedItemId(item.id);
+    applyTimelineAdjustment(item, timelineScale, mode, deltaUnits);
   };
 
   useEffect(() => {
@@ -514,6 +556,7 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+                <p className="timeline-keyboard-hint">Alt+←/→ で移動、Alt+Shift+←/→ で右端を調整できます。</p>
               </div>
             </header>
 
@@ -674,10 +717,12 @@ export default function App() {
                             <div
                               className={
                                 previewLayout.isMilestone
-                                  ? `timeline-marker${isDraggable ? " interactive" : ""}`
+                                  ? `timeline-marker${isDraggable ? " interactive" : ""}${
+                                      selectedItem?.id === item.id ? " selected" : ""
+                                    }`
                                   : `timeline-bar ${item.type}${isDraggable ? " interactive" : ""}${
                                       activeTimelineEdit?.itemId === item.id ? " dragging" : ""
-                                    }`
+                                    }${selectedItem?.id === item.id ? " selected" : ""}`
                               }
                               style={{
                                 gridColumn: `${previewLayout.startColumn + 1} / ${
@@ -685,6 +730,32 @@ export default function App() {
                                 }`,
                               }}
                               title={`${item.title} ${formatDateRange(item)}`}
+                              tabIndex={isDraggable ? 0 : -1}
+                              role={isDraggable ? "button" : undefined}
+                              aria-label={
+                                isDraggable
+                                  ? `${item.title} ${formatDateRange(item)}。${
+                                      previewLayout.isMilestone
+                                        ? "Alt+左右で移動"
+                                        : "Alt+左右で移動、Alt+Shift+左右で右端を調整"
+                                    }`
+                                  : undefined
+                              }
+                              aria-keyshortcuts={
+                                isDraggable
+                                  ? previewLayout.isMilestone
+                                    ? "Alt+ArrowLeft Alt+ArrowRight"
+                                    : "Alt+ArrowLeft Alt+ArrowRight Alt+Shift+ArrowLeft Alt+Shift+ArrowRight"
+                                  : undefined
+                              }
+                              onFocus={() => setSelectedItemId(item.id)}
+                              onClick={() => setSelectedItemId(item.id)}
+                              onKeyDown={
+                                isDraggable
+                                  ? (event) =>
+                                      handleTimelineBarKeyDown(event, item, previewLayout.isMilestone)
+                                  : undefined
+                              }
                               onPointerDown={
                                 isDraggable
                                   ? (event) => beginTimelineEdit(event, item, "move")
@@ -712,6 +783,7 @@ export default function App() {
 
             <DetailDrawer
               item={selectedItem}
+              projectItems={projectDetail.items}
               onSelectItem={(itemId) => setSelectedItemId(itemId)}
               onUpdateItem={(patch) =>
                 selectedItem ? requestProjectItemUpdate(selectedItem, patch) : undefined
@@ -970,6 +1042,11 @@ function ImportPreviewPanel(props: {
         <MetricCard label="Warning" value={String(warningCount)} />
         <MetricCard label="Error" value={String(props.preview.errorCount)} />
       </div>
+      {!props.preview.supportsDependencyImport ? (
+        <div className="import-preview-policy-note">
+          Browser fallback では DependsOn は preview / validation のみで、適用時には反映しません。
+        </div>
+      ) : null}
       {warningRows.length > 0 ? (
         <section className="import-preview-warning-summary" aria-label="Warning Summary">
           <div className="section-heading import-preview-warning-summary-heading">
@@ -1005,28 +1082,35 @@ function ImportPreviewPanel(props: {
         </section>
       ) : null}
       {warningRows.length > 0 ? (
-        <section className="import-preview-warning-only" aria-label="Warning-only List">
+        <section className="import-preview-warning-only" aria-label="Warning-only Table">
           <div className="section-heading import-preview-warning-summary-heading">
             <div>
-              <strong>Warning-only List</strong>
-              <p>warning を持つ row だけを独立一覧で続けて確認できます。</p>
+              <strong>Warning-only Table</strong>
+              <p>warning を持つ row だけを横並びで比較できます。</p>
             </div>
           </div>
-          <div className="import-preview-warning-only-list">
+          <div className="import-preview-warning-table">
+            <div className="import-preview-warning-table-row import-preview-warning-table-header">
+              <span>Row</span>
+              <span>Project</span>
+              <span>Title</span>
+              <span>Action</span>
+              <span>Warning</span>
+            </div>
             {warningRows.map((row) => (
-              <article
+              <div
                 key={`warning-only-${row.rowNumber}-${row.recordId}-${row.title}`}
-                className="import-preview-warning-only-row"
+                className="import-preview-warning-table-row"
               >
-                <div className="import-preview-warning-only-header">
+                <span>
                   <span className="import-preview-warning-summary-row-number">Row {row.rowNumber}</span>
-                  <div className="import-preview-warning-only-meta">
-                    <strong>{row.title || row.recordId || "-"}</strong>
-                    <span>{row.projectName || row.projectCode || "-"}</span>
-                  </div>
-                  <span className={`import-action-pill ${row.action}`}>{row.action}</span>
+                </span>
+                <span>{row.projectName || row.projectCode || "-"}</span>
+                <div className="import-preview-warning-table-title">
+                  <strong>{row.title || row.recordId || "-"}</strong>
+                  <span>{row.message}</span>
                 </div>
-                <p className="import-preview-warning-only-message">{row.message}</p>
+                <span className={`import-action-pill ${row.action}`}>{row.action}</span>
                 <div className="import-preview-warnings">
                   {row.warnings.map((warning) => (
                     <span
@@ -1037,7 +1121,7 @@ function ImportPreviewPanel(props: {
                     </span>
                   ))}
                 </div>
-              </article>
+              </div>
             ))}
           </div>
         </section>
@@ -2000,10 +2084,86 @@ function ItemRow(props: {
 
 function DetailDrawer(props: {
   item: ItemRecord | null;
+  projectItems: ItemRecord[];
   onSelectItem: (itemId: string) => void;
   onUpdateItem: (patch: Partial<Pick<ItemRecord, "note" | "tags">>) => void;
 }) {
-  const { item, onSelectItem, onUpdateItem } = props;
+  const { item, projectItems, onSelectItem, onUpdateItem } = props;
+  const dependencyApi = typeof window === "undefined" ? null : window.sgc?.dependencies ?? null;
+  const [dependencies, setDependencies] = useState<DependencyRecord[]>([]);
+  const [dependenciesLoading, setDependenciesLoading] = useState(false);
+  const [dependencyError, setDependencyError] = useState<string | null>(null);
+  const [selectedPredecessorId, setSelectedPredecessorId] = useState("");
+  const [lagDaysInput, setLagDaysInput] = useState("0");
+  const itemId = item?.id ?? null;
+  const projectId = item?.projectId ?? null;
+
+  useEffect(() => {
+    if (!dependencyApi || !projectId) {
+      return;
+    }
+
+    let active = true;
+    void dependencyApi
+      .listByProject(projectId)
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+        setDependencies(result);
+        setDependencyError(null);
+      })
+      .catch((error) => {
+        if (!active) {
+          return;
+        }
+        setDependencyError(error instanceof Error ? error.message : "Failed to load dependencies");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dependencyApi, itemId, projectId]);
+
+  const itemsById = useMemo(
+    () => new Map(projectItems.map((projectItem) => [projectItem.id, projectItem])),
+    [projectItems]
+  );
+  const linkedDependencies = useMemo(
+    () =>
+      itemId
+        ? dependencies.filter(
+            (dependency) => dependency.predecessorItemId === itemId || dependency.successorItemId === itemId
+          )
+        : [],
+    [dependencies, itemId]
+  );
+  const availablePredecessors = useMemo(() => {
+    if (!itemId) {
+      return [];
+    }
+
+    return projectItems
+      .filter(
+        (projectItem) =>
+          !projectItem.archived &&
+          projectItem.id !== itemId &&
+          !dependencies.some(
+            (dependency) =>
+              dependency.predecessorItemId === projectItem.id && dependency.successorItemId === itemId
+          )
+      )
+      .sort((left, right) => {
+        const leftKey = `${left.wbsCode}|${left.title}`;
+        const rightKey = `${right.wbsCode}|${right.title}`;
+        return leftKey.localeCompare(rightKey);
+      });
+  }, [dependencies, itemId, projectItems]);
+  const effectiveSelectedPredecessorId = availablePredecessors.some(
+    (projectItem) => projectItem.id === selectedPredecessorId
+  )
+    ? selectedPredecessorId
+    : availablePredecessors[0]?.id ?? "";
 
   if (!item) {
     return (
@@ -2011,11 +2171,63 @@ function DetailDrawer(props: {
         <div>
           <p className="sidebar-label">Detail Drawer</p>
           <h3>行を選ぶと詳細を編集できます</h3>
-          <p>note と tags はここで整理し、依存関係は Phase 5 で追加します。</p>
+          <p>note と tags と dependency はここで整理します。</p>
         </div>
-      </section>
-    );
-  }
+        </section>
+      );
+    }
+
+  const handleAddDependency = async () => {
+    if (!dependencyApi || !effectiveSelectedPredecessorId) {
+      return;
+    }
+
+    const lagDays = Number(lagDaysInput);
+    if (!Number.isInteger(lagDays)) {
+      setDependencyError("Lag Days must be an integer");
+      return;
+    }
+
+      setDependenciesLoading(true);
+      try {
+        const created = await dependencyApi.create({
+          predecessorItemId: effectiveSelectedPredecessorId,
+          successorItemId: item.id,
+          type: "finish_to_start",
+          lagDays,
+        });
+      setDependencies((current) => [...current, created]);
+      setDependencyError(null);
+      setLagDaysInput("0");
+    } catch (error) {
+      setDependencyError(
+        error instanceof Error ? error.message : "Failed to create dependency"
+      );
+    } finally {
+      setDependenciesLoading(false);
+    }
+  };
+
+  const handleDeleteDependency = async (dependencyId: string) => {
+    if (!dependencyApi) {
+      return;
+    }
+
+    setDependenciesLoading(true);
+    try {
+      await dependencyApi.delete(dependencyId);
+      setDependencies((current) =>
+        current.filter((dependency) => dependency.id !== dependencyId)
+      );
+      setDependencyError(null);
+    } catch (error) {
+      setDependencyError(
+        error instanceof Error ? error.message : "Failed to delete dependency"
+      );
+    } finally {
+      setDependenciesLoading(false);
+    }
+  };
 
   return (
     <section className="detail-drawer">
@@ -2080,13 +2292,123 @@ function DetailDrawer(props: {
 
         <div className="detail-field detail-field-wide">
           <span>依存関係</span>
-          <div className="detail-placeholder">
-            Phase 5 で finish-to-start dependency と reschedule scope をここへ追加します。
-          </div>
+          {!dependencyApi ? (
+            <div className="detail-placeholder">
+              dependency editor は desktop only です。browser mode では表示のみです。
+            </div>
+          ) : (
+            <div className="dependency-editor">
+              <div className="dependency-editor-create">
+                <label className="detail-field">
+                  <span>先行タスク</span>
+                  <select
+                      aria-label="先行タスク"
+                      value={effectiveSelectedPredecessorId}
+                      onChange={(event) => setSelectedPredecessorId(event.target.value)}
+                      disabled={availablePredecessors.length === 0 || dependenciesLoading}
+                  >
+                    {availablePredecessors.length === 0 ? (
+                      <option value="">追加可能な先行タスクはありません</option>
+                    ) : (
+                      availablePredecessors.map((projectItem) => (
+                        <option key={projectItem.id} value={projectItem.id}>
+                          {formatDependencyItemLabel(projectItem)}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </label>
+                <label className="detail-field">
+                  <span>Lag Days</span>
+                  <input
+                    aria-label="Lag Days"
+                    type="number"
+                    step="1"
+                    value={lagDaysInput}
+                    onChange={(event) => setLagDaysInput(event.target.value)}
+                    disabled={dependenciesLoading}
+                  />
+                </label>
+                <div className="dependency-editor-actions">
+                  <button
+                      type="button"
+                      onClick={() => void handleAddDependency()}
+                      disabled={!effectiveSelectedPredecessorId || dependenciesLoading}
+                    >
+                    先行を追加
+                  </button>
+                </div>
+              </div>
+              {dependencyError ? <div className="detail-inline-error">{dependencyError}</div> : null}
+                {linkedDependencies.length === 0 ? (
+                  <div className="detail-placeholder">linked dependency はありません。</div>
+                ) : (
+                <div className="dependency-list">
+                  {linkedDependencies.map((dependency) => {
+                    const predecessor = itemsById.get(dependency.predecessorItemId);
+                    const successor = itemsById.get(dependency.successorItemId);
+                    const relatedItem =
+                      dependency.predecessorItemId === item.id ? successor : predecessor;
+
+                    return (
+                      <div key={dependency.id} className="dependency-row">
+                        <div className="dependency-row-main">
+                          <strong>
+                            {formatDependencyEdgeLabel(predecessor, successor, dependency)}
+                          </strong>
+                          <span>
+                            {dependency.predecessorItemId === item.id ? "後続" : "先行"} / lag {dependency.lagDays}
+                          </span>
+                        </div>
+                        <div className="dependency-row-actions">
+                          {relatedItem ? (
+                            <button
+                              type="button"
+                              className="nav-chip"
+                              onClick={() => onSelectItem(relatedItem.id)}
+                            >
+                              {relatedItem.title} を開く
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="nav-chip"
+                            onClick={() => void handleDeleteDependency(dependency.id)}
+                            aria-label={`${formatDependencyEdgeLabel(
+                              predecessor,
+                              successor,
+                              dependency
+                            )} を削除`}
+                            disabled={dependenciesLoading}
+                          >
+                            削除
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
+}
+
+function formatDependencyItemLabel(item: ItemRecord): string {
+  return `${item.wbsCode || "-"} ${item.title}`;
+}
+
+function formatDependencyEdgeLabel(
+  predecessor: ItemRecord | undefined,
+  successor: ItemRecord | undefined,
+  dependency: DependencyRecord
+): string {
+  const predecessorLabel = predecessor ? formatDependencyItemLabel(predecessor) : dependency.predecessorItemId;
+  const successorLabel = successor ? formatDependencyItemLabel(successor) : dependency.successorItemId;
+  return `${predecessorLabel} -> ${successorLabel}`;
 }
 
 function formatDateRange(item: ItemRecord): string {

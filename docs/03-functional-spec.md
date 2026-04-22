@@ -81,7 +81,9 @@
 - 展開 / 折りたたみ
 - 進捗編集
 - ドラッグで日程変更
+- focused timeline bar に対する keyboard での日程変更
 - 右クリックの最小コンテキストメニュー
+- detail drawer から selected item の dependency を追加 / 削除
 
 ### FS-004 Portfolio
 目的: 複数大規模案件の横断把握
@@ -178,8 +180,9 @@
 - update row では workbook の `LastModifiedAt` が既存 item の `updatedAt` より古い場合に warning を表示する
 - 初期 preview panel では `全件 / warning / error` filter を切り替えられる
 - 初期 preview panel では warning を1件以上持つ row を上部に集約表示し、`row number / title / warning reason` を先に確認できる
-- 初期 preview panel では warning summary とは別に warning-only list を置き、warning を持つ row だけを独立した一覧でも確認できる
+- 初期 preview panel では warning summary とは別に warning-only table を置き、warning を持つ row だけを `row / project / title / warning` 列で独立比較できる
 - browser fallback では file picker から `.xlsx` を選んで preview を出し、そのまま current project へ commit できる
+- browser fallback の preview panel では `DependsOn` は preview/validation のみで apply 時は反映しないことを明示する
 - browser fallback の初期 import は SGC export が出す store-only workbook を主対象とする
 - browser fallback の初期 commit は preview 済み workbook を browser memory 上の current project へ apply する
 - browser fallback の初期 commit は canonical `Tasks` の基本編集列と `Tags / ParentRecordId` までを対象とし、`DependsOn` は apply しない
@@ -255,6 +258,10 @@
 - direct cycle だけでなく indirect cycle も保存前に拒否する
 - `finish_to_start` の営業日対応後は `successor.startDate` を predecessor 終了日から `lagDays + 1` 営業日後以上へ調整する
 - scheduled でない successor はこの slice では自動シフトしない
+- 初期 dependency editor では selected item を successor とする `finish_to_start` の追加を先に提供し、既存 dependency の削除は predecessor / successor のどちら側からでも行える
+- browser mode では dependency editor を read-only note に留める
+- 初期 keyboard timeline edit は focused bar / marker に対して `Alt+Left/Right` で移動、`Alt+Shift+Left/Right` で右端リサイズを提供する
+- milestone は keyboard move のみを対象とし、keyboard resize は task / group の bar に限定する
 
 ## 3.4 ロールアップ
 

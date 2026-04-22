@@ -1,14 +1,14 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-22 21:35 JST
+最終更新日時: 2026-04-22 23:41 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 45 / 50
-- 今回完了したサイクル: Dedicated warning-only list
+- 完了サイクル数: 49 / 50
+- 今回完了したサイクル: Timeline keyboard accessibility slice
 
 ## 現在フェーズ
-- Phase 6 in progress. Browser fallback dependency import policy next
+- Phase 6 in progress. Keyboard a11y slice done, compare UX next
 
 ## 直近で完了したもの
 - Electron + React + TypeScript + Vite の開発土台作成
@@ -148,12 +148,26 @@
 - import preview panel に dedicated warning-only list を追加した
 - warning 行だけを table 本体とは別の独立一覧で続けて確認できるようにした
 - desktop Playwright smoke で warning-only list に warning row だけが出ることを確認した
+- import preview contract に browser fallback の dependency import capability flag を追加した
+- browser fallback の preview panel で `DependsOn` が apply 時に skip されることを informational note で明示した
+- browser fallback commit 後の notice に `DependsOn skipped in browser mode` を含めるようにした
+- import preview の warning-only 導線を compact list から dedicated table に更新した
+- warning row を `row / project / title / action / warning` 列で横比較できるようにした
+- desktop Playwright smoke を warning-only table 前提に更新した
+- detail drawer に dependency editor を追加した
+- selected item を successor とする先行タスク追加と linked dependency 削除を実装した
+- browser mode では dependency editor を出さず desktop only note を表示するようにした
+- desktop Playwright smoke で dependency add / delete を確認した
+- timeline bar / marker を focusable にした
+- focused timeline bar に対する `Alt+←/→` move と `Alt+Shift+←/→` right-edge resize を追加した
+- keyboard focus 時に selected item と同期し、focus ring を表示するようにした
+- desktop Playwright smoke で keyboard move / resize を確認した
 
 ## 今いちばん重要な次アクション
-1. browser fallback の dependency import 方針を docs と code に反映する
-2. detail drawer に dependency 編集 UI を追加する
-3. timeline drag の keyboard / accessibility 補助を追加する
-4. import preview の warning 集約表示に warning-only 専用 table を追加する
+1. import preview の差分比較 UI を追加する
+2. browser fallback の dependency import apply を後続で扱うかを docs で固定する
+3. timeline の focus traversal と dialog keyboard 補助を追加する
+4. dependency editor に type/layer 拡張が必要かを docs で固定する
 
 ## 現在の blocker
 - なし
@@ -164,13 +178,14 @@
 - roadmap view は deeper task expansion までで、row virtualization は未着手
 - Quick Capture の recurrence / project 名一般解釈は最小実装で、複雑な自然文は未対応
 - WBS の並び替えはインデント / アウトデントまでで、drag reorder は未着手
-- timeline drag edit は scheduled item のみ対応で、dependency 連動は未接続
-- detail drawer の dependency UI / recurrence / history は未着手で、dependency 編集 UI は Phase 5 の後続 slice で着手予定
+- timeline edit は scheduled item の pointer と keyboard 初期対応までで、dependency 連動は未接続
+- detail drawer は dependency editor まで入ったが、dependency type 拡張 / recurrence / history は未着手
 - undo/redo は create / archive / hierarchy move をまだ対象にしていない
 - 年間ビューは行数増加時に virtualized timeline が必要
 - Excel round-trip は列契約を先に固定しないと後戻りコストが高い
 - 依存関係の自動シフトは working day と組み合わさるため、適用順の固定が必要
 - 現在の reschedule scope popup は timeline move 経路のみで、date input 直接編集にはまだ出ない
+- timeline keyboard edit は focused bar / marker への初期対応で、focus traversal や dialog keyboard 補助はまだ薄い
 - dependency shift は月〜金の既定営業日に対応したが、カスタム稼働日設定と predecessor 前倒しにはまだ未対応
 - recentChangeCount7d は現状 item.updatedAt ベースで、同一 project の rollup 再計算に引っ張られて粗めに増える
 - workbook writer は minimal OpenXML / store-only ZIP で、書式・列幅・印刷最適化は未実装
@@ -178,8 +193,8 @@
 - import preview / commit は initial slice で、`.xlsx` canonical `Tasks` sheet と基本編集列まで。rollback は未実装
 - browser fallback の import は current project commit まで対応したが、初期対象は SGC export が出す store-only workbook で、`DependsOn` はまだ apply しない
 - import commit は current project と canonical `Tasks` の基本編集列に限定しており、dependency import / rollback / project 横断 apply は未実装
-- import error 表示は field-level issue list までで、独立した validation table や修正 UI は未実装
-- import warning 表示は summary と warning-only list までで、差分比較 UI や warning-only の専用 table は未実装
+- import error 表示は field-level issue list までで、差分比較 UI や修正 UI は未実装
+- import warning 表示は summary と warning-only table までで、差分比較 UI は未実装
 - round-trip fixture は `Tasks` canonical sheet を中心にした test helper で、Dashboard / Gantt_View / MasterData の表示 fidelity までは固定していない
 - workbook-local temporary `RecordId` は `tmp_*` prefix 前提で、duplicate temp ID は error になる
 
@@ -255,7 +270,7 @@
 - [ ] Blocked
 
 ### 次にやるべき最小単位
-- browser fallback の dependency import 方針を docs と code に反映する
+- import preview の差分比較 UI を追加する
 
 ### 残リスク
 - desktop E2E 未整備

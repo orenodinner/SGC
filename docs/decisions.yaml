@@ -270,3 +270,27 @@ decisions:
     status: accepted
     decision: import preview panel では warning summary に加えて dedicated warning-only list を置き、warning を持つ row だけを独立一覧で確認できるようにする。初期実装では renderer 側の local aggregation で組み立て、追加 contract や専用 backend query は持たない
     rationale: warning summary は注意行の存在把握には十分だが、preview row table に戻らず warning 行だけを続けて確認したい場面があるため。renderer 内の既存 preview data を再利用すれば、scope を広げずに確認導線を一段改善できる。
+
+  - id: DEC-046
+    topic: Browser fallback dependency import disclosure
+    status: accepted
+    decision: browser fallback の import preview では `DependsOn` を preview/validation の対象として残しつつ、apply 時には反映しないことを panel 上で明示する。初期実装では preview contract に capability flag を持たせ、preview panel と commit notice の文言だけで方針を伝える
+    rationale: browser fallback では item 編集列だけを安全に apply する方針が既にある一方、現状は UI からその差分が見えず誤解しやすい。capability flag を一つ追加して表示するだけなら scope を広げずに期待値を揃えられるため。
+
+  - id: DEC-047
+    topic: Initial warning-only table shape
+    status: accepted
+    decision: import preview の warning-only 導線は compact list ではなく dedicated table を採用し、`row / project / title / warning` を横比較できる形にする。warning summary は注意行の先読み用途として残し、warning-only table は本体 preview table より軽い比較面として併存させる
+    rationale: warning 行だけを複数件続けて確認したい場面では、list より列構造を持つ table の方が見落としが少なく、filter で本体 table を切り替える前の確認効率も高いため。
+
+  - id: DEC-048
+    topic: Initial detail drawer dependency editor scope
+    status: accepted
+    decision: detail drawer の最初の dependency editor は selected item を successor とする `finish_to_start` 追加と、linked dependency の削除に限定する。先行タスク候補は同一 project の非 archived item から選び、browser mode では editor を出さず unavailable note のみを表示する
+    rationale: dependency UI を最小の実務価値で先に成立させるには、selected item へ先行タスクを付ける導線から始めるのが最も分かりやすく、双方向の full editor を一度に抱えるより実装と検証のリスクが低いため。
+
+  - id: DEC-049
+    topic: Initial timeline keyboard edit scope
+    status: accepted
+    decision: timeline の keyboard 操作は初期 slice では focused bar / marker に限定し、`Alt+Left/Right` を move、`Alt+Shift+Left/Right` を right-edge resize とする。resize は task / group の bar のみを対象にし、milestone marker では move のみ許可する
+    rationale: pointer 依存の timeline 編集に対する最小の accessibility 改善としては、selected item や drag state を複雑に広げず、focused bar に対する明示的なショートカットを追加するのが最も安全で検証範囲も小さいため。

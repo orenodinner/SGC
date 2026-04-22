@@ -135,6 +135,9 @@ epics:
       - id: TASK-0505
         title: Respect working days
         status: done
+      - id: TASK-0506
+        title: Add detail drawer dependency editor
+        status: done
 
   - id: EPIC-06
     name: Excel round-trip
@@ -172,7 +175,7 @@ epics:
   - id: EPIC-08
     name: Hardening
     priority: P2
-    status: todo
+    status: in_progress
     tasks:
       - id: TASK-0801
         title: Implement local backup and restore
@@ -182,7 +185,7 @@ epics:
         status: todo
       - id: TASK-0803
         title: Improve accessibility and keyboard control
-        status: todo
+        status: in_progress
       - id: TASK-0804
         title: Add installer pipeline
         status: todo

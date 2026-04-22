@@ -237,6 +237,7 @@ export const projectImportPreviewRowSchema = z.object({
 
 export const projectImportPreviewSchema = z.object({
   sourcePath: z.string().nullable(),
+  supportsDependencyImport: z.boolean(),
   newCount: z.number().int().nonnegative(),
   updateCount: z.number().int().nonnegative(),
   errorCount: z.number().int().nonnegative(),

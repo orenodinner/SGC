@@ -236,6 +236,7 @@ export const browserApi: RendererApi = {
       return buildProjectImportPreview({
         project,
         sourcePath: null,
+        supportsDependencyImport: false,
         workbookBytes: selection.workbookBytes,
         items: memory.items.filter((item) => !item.archived),
         projects: memory.projects.filter((entry) => !entry.archived),
@@ -256,6 +257,7 @@ export const browserApi: RendererApi = {
       const preview = buildProjectImportPreview({
         project,
         sourcePath: null,
+        supportsDependencyImport: false,
         workbookBytes: session.workbookBytes,
         items: memory.items.filter((item) => !item.archived),
         projects: memory.projects.filter((entry) => !entry.archived),

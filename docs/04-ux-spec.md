@@ -53,13 +53,21 @@
 - 初期 preview panel には `全件 / warning / error` filter chip を置く
 - `warning` では warning を1件以上持つ row、`error` では `action=error` row のみを表示する
 - 初期 preview panel の counts の下には dedicated warning summary を置き、warning がある row の `row number / title / warning` を先に一覧できるようにする
-- 初期 preview panel の warning summary の下には dedicated warning-only list を置き、warning 行だけを table 本体とは別の独立一覧として確認できるようにする
+- 初期 preview panel の warning summary の下には dedicated warning-only table を置き、warning 行だけを `row / project / title / warning` で本体 table とは別に比較できるようにする
 - browser fallback では `Import` 押下時に browser file picker を開き、preview 後は同じ panel から `適用` を実行できる
 - browser fallback の `適用` は preview 済み workbook を current project へ反映し、初期 slice では dependency import は行わない
+- browser fallback の preview panel には `DependsOn は適用されない` ことを示す informational note を置く
 - `適用` は current project に対して `new / update` 行だけを反映し、`error` 行はそのまま skip する
 - 適用成功時は短い通知を出し、Project Detail と Home / Portfolio 集計を再読込する
 - error row では summary message に加えて、`列名: 理由` の issue list を同じ row 内に表示する
 - warning row では warning chip を同じ row 内に表示する
+- detail drawer の dependency セクションには `先行タスク追加` と `既存 dependency 一覧` を置く
+- 初期 dependency editor では selected item を successor とする先行タスクだけを追加できる
+- linked dependency 一覧では predecessor / successor の向きを示し、各 row から削除できる
+- browser mode では dependency editor の代わりに `desktop only` の informational note を表示する
+- scheduled item の timeline bar / marker は focusable にし、focus 時に selected item と同期する
+- 初期 keyboard 操作は `Alt+←/→ = move`、`Alt+Shift+←/→ = right edge resize` を hint と aria-label で案内する
+- keyboard resize は task / group の bar のみを対象にし、milestone marker では move のみ許可する
 
 ### Portfolio
 ```text
