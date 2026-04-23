@@ -10,14 +10,30 @@ import {
   startOfWeek,
 } from "date-fns";
 import { wouldCreateDependencyCycle } from "../../domain/dependency-graph";
+import {
+  advanceRecurrenceNextOccurrenceAt,
+  deriveRecurringOccurrenceEndDate,
+} from "../../domain/recurrence";
+import { buildProjectTemplateBody } from "../../domain/project-template";
 import { buildVisibleRows, normalizeProjectItems } from "../../domain/project-tree";
 import { parseQuickCapture } from "../../domain/quick-capture";
+import {
+  buildTemplateApplyNodes,
+  buildWbsTemplateApplyNodes,
+  buildWbsTemplateBody,
+} from "../../domain/wbs-template";
 import { addWorkingDays } from "../../domain/working-days";
 import {
+  backupAutoResultSchema,
+  backupEntrySchema,
+  backupPreviewSchema,
+  backupRestoreResultSchema,
   bulkPostponeInputSchema,
   createDependencyInputSchema,
   createItemInputSchema,
   createProjectInputSchema,
+  applyProjectTemplateInputSchema,
+  applyWbsTemplateInputSchema,
   itemStatusSchema,
   itemTypeSchema,
   dependencyRecordSchema,
@@ -29,8 +45,19 @@ import {
   projectImportCommitResultSchema,
   projectDetailSchema,
   quickCaptureInputSchema,
+  recurrenceRuleSchema,
+  saveProjectTemplateInputSchema,
+  saveWbsTemplateInputSchema,
+  templateRecordSchema,
+  upsertRecurrenceRuleInputSchema,
   updateItemInputSchema,
   updateProjectInputSchema,
+  type BackupEntry,
+  type BackupAutoResult,
+  type BackupPreview,
+  type BackupRestoreResult,
+  type ApplyProjectTemplateInput,
+  type ApplyWbsTemplateInput,
   type BulkPostponeInput,
   type CreateDependencyInput,
   type CreateItemInput,
@@ -46,6 +73,11 @@ import {
   type ProjectImportCommitResult,
   type ProjectSummary,
   type QuickCaptureInput,
+  type RecurrenceRule,
+  type SaveProjectTemplateInput,
+  type SaveWbsTemplateInput,
+  type TemplateRecord,
+  type UpsertRecurrenceRuleInput,
   type UpdateItemInput,
   type UpdateProjectInput,
 } from "../../shared/contracts";
@@ -58,7 +90,9 @@ import { exportProjectWorkbookXlsx } from "../../infra/excel/project-workbook-ex
 import { DependencyRepository } from "../repositories/dependency-repository";
 import { ItemRepository } from "../repositories/item-repository";
 import { ProjectRepository } from "../repositories/project-repository";
+import { RecurrenceRuleRepository } from "../repositories/recurrence-rule-repository";
 import { TagRepository } from "../repositories/tag-repository";
+import { TemplateRepository } from "../repositories/template-repository";
 
 export const INBOX_PROJECT_CODE = "_INBOX";
 export const INBOX_PROJECT_NAME = "Inbox";
@@ -68,16 +102,58 @@ export class WorkspaceService {
   private readonly items: ItemRepository;
   private readonly tags: TagRepository;
   private readonly dependencies: DependencyRepository;
+  private readonly templates: TemplateRepository;
+  private readonly recurrenceRules: RecurrenceRuleRepository;
 
   constructor(private readonly db: DatabaseManager) {
     this.projects = new ProjectRepository(db);
     this.items = new ItemRepository(db);
     this.tags = new TagRepository(db);
     this.dependencies = new DependencyRepository(db);
+    this.templates = new TemplateRepository(db);
+    this.recurrenceRules = new RecurrenceRuleRepository(db);
   }
 
   listProjects(): ProjectSummary[] {
     return this.projects.listByCodes([INBOX_PROJECT_CODE]);
+  }
+
+  listBackups(): BackupEntry[] {
+    return this.db.listBackups().map((entry) => backupEntrySchema.parse(entry));
+  }
+
+  createBackup(): BackupEntry {
+    return backupEntrySchema.parse(this.db.createBackup());
+  }
+
+  ensureAutoBackup(input: { now?: Date } = {}): BackupAutoResult {
+    return backupAutoResultSchema.parse(this.db.ensureAutoBackup(input));
+  }
+
+  async previewBackup(entry: BackupEntry): Promise<BackupPreview> {
+    const parsed = backupEntrySchema.parse(entry);
+    if (!parsed.filePath) {
+      throw new Error("Backup preview requires a local backup file");
+    }
+
+    const summary = await this.db.previewBackup(parsed.filePath);
+    return backupPreviewSchema.parse({
+      ...parsed,
+      ...summary,
+    });
+  }
+
+  async restoreBackup(entry: BackupEntry): Promise<BackupRestoreResult> {
+    const parsed = backupEntrySchema.parse(entry);
+    if (!parsed.filePath) {
+      throw new Error("Backup restore requires a local backup file");
+    }
+
+    const safetyBackup = await this.db.restoreBackup(parsed.filePath);
+    return backupRestoreResultSchema.parse({
+      restoredBackup: parsed,
+      safetyBackup,
+    });
   }
 
   getHomeSummary(): HomeSummary {
@@ -454,6 +530,214 @@ export class WorkspaceService {
     });
   }
 
+  listTemplates(): TemplateRecord[] {
+    return this.templates.list().map((template) => templateRecordSchema.parse(template));
+  }
+
+  saveWbsTemplate(input: SaveWbsTemplateInput): TemplateRecord {
+    const parsed = saveWbsTemplateInputSchema.parse(input);
+    const rootItem = this.mustGetItem(parsed.rootItemId);
+    if (rootItem.archived) {
+      throw new Error("Archived items cannot be saved as template");
+    }
+
+    const projectItems = this.items.listByProject(rootItem.projectId);
+    const now = new Date().toISOString();
+    const templateId = randomUUID();
+    const body = buildWbsTemplateBody({
+      items: projectItems,
+      rootItemId: rootItem.id,
+      sourceProjectId: rootItem.projectId,
+    });
+    const template: TemplateRecord = {
+      id: templateId,
+      workspaceId: rootItem.workspaceId,
+      kind: "wbs",
+      name: parsed.name ?? rootItem.title,
+      body,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.db.withTransaction(() => {
+      this.templates.insert({
+        id: template.id,
+        workspaceId: template.workspaceId,
+        kind: template.kind,
+        name: template.name,
+        body: template.body,
+        createdAt: template.createdAt,
+        updatedAt: template.updatedAt,
+      });
+    });
+
+    return templateRecordSchema.parse(template);
+  }
+
+  saveProjectTemplate(input: SaveProjectTemplateInput): TemplateRecord {
+    const parsed = saveProjectTemplateInputSchema.parse(input);
+    const project = this.mustGetProject(parsed.projectId);
+    if (project.archived) {
+      throw new Error("Archived projects cannot be saved as template");
+    }
+
+    const projectItems = this.items.listByProject(project.id);
+    const now = new Date().toISOString();
+    const templateId = randomUUID();
+    const template: TemplateRecord = {
+      id: templateId,
+      workspaceId: project.workspaceId,
+      kind: "project",
+      name: parsed.name ?? project.name,
+      body: buildProjectTemplateBody({
+        project,
+        items: projectItems,
+      }),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.db.withTransaction(() => {
+      this.templates.insert({
+        id: template.id,
+        workspaceId: template.workspaceId,
+        kind: template.kind,
+        name: template.name,
+        body: template.body,
+        createdAt: template.createdAt,
+        updatedAt: template.updatedAt,
+      });
+    });
+
+    return templateRecordSchema.parse(template);
+  }
+
+  applyWbsTemplate(input: ApplyWbsTemplateInput): ItemRecord[] {
+    const parsed = applyWbsTemplateInputSchema.parse(input);
+    const project = this.mustGetProject(parsed.projectId);
+    const template = this.templates.getById(parsed.templateId);
+    if (!template || template.kind !== "wbs") {
+      throw new Error(`Template not found: ${parsed.templateId}`);
+    }
+
+    const orderedNodes = buildWbsTemplateApplyNodes(template.body);
+    if (orderedNodes.length === 0) {
+      throw new Error(`Template has no nodes: ${parsed.templateId}`);
+    }
+
+    const now = new Date().toISOString();
+    const createdItemIds: string[] = [];
+
+    this.db.withTransaction(() => {
+      this.insertTemplateNodesIntoProject({
+        projectId: project.id,
+        orderedNodes,
+        now,
+        createdItemIds,
+      });
+
+      this.rebalanceProject(project.id);
+    });
+
+    return createdItemIds.map((itemId) => this.mustGetItem(itemId));
+  }
+
+  applyProjectTemplate(input: ApplyProjectTemplateInput): ProjectDetail {
+    const parsed = applyProjectTemplateInputSchema.parse(input);
+    const template = this.templates.getById(parsed.templateId);
+    if (!template || template.kind !== "project") {
+      throw new Error(`Template not found: ${parsed.templateId}`);
+    }
+
+    const now = new Date().toISOString();
+    const projectId = randomUUID();
+    const existingCount = this.listProjects().length + 1;
+    const projectCode = `PRJ-${String(existingCount).padStart(3, "0")}`;
+    const createdItemIds: string[] = [];
+
+    this.db.withTransaction(() => {
+      this.projects.insert({
+        id: projectId,
+        code: projectCode,
+        name: template.body.projectFields.name,
+        description: template.body.projectFields.description,
+        ownerName: template.body.projectFields.ownerName,
+        status: "not_started",
+        priority: template.body.projectFields.priority,
+        color: template.body.projectFields.color,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      this.insertTemplateNodesIntoProject({
+        projectId,
+        orderedNodes: buildTemplateApplyNodes(template.body.templateItems),
+        now,
+        createdItemIds,
+      });
+
+      this.rebalanceProject(projectId);
+    });
+
+    return this.getProjectDetail(projectId);
+  }
+
+  getRecurrenceRuleByItem(itemId: string): RecurrenceRule | null {
+    const item = this.mustGetItem(itemId);
+    if (item.archived) {
+      return null;
+    }
+    const rule = this.recurrenceRules.getByItemId(itemId);
+    return rule ? recurrenceRuleSchema.parse(rule) : null;
+  }
+
+  upsertRecurrenceRule(input: UpsertRecurrenceRuleInput): RecurrenceRule {
+    const parsed = upsertRecurrenceRuleInputSchema.parse(input);
+    const item = this.mustGetItem(parsed.itemId);
+
+    if (item.archived) {
+      throw new Error("Recurrence rules cannot be attached to archived items");
+    }
+    if (item.type !== "task") {
+      throw new Error("Recurrence rules are supported for task items only");
+    }
+
+    const existing = this.recurrenceRules.getByItemId(parsed.itemId);
+    const now = new Date().toISOString();
+    const nextRule: RecurrenceRule = {
+      id: existing?.id ?? randomUUID(),
+      itemId: parsed.itemId,
+      rruleText: parsed.rruleText,
+      nextOccurrenceAt: parsed.nextOccurrenceAt ?? null,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    this.db.withTransaction(() => {
+      this.recurrenceRules.upsert({
+        id: nextRule.id,
+        itemId: nextRule.itemId,
+        rruleText: nextRule.rruleText,
+        nextOccurrenceAt: nextRule.nextOccurrenceAt,
+        createdAt: nextRule.createdAt,
+        updatedAt: nextRule.updatedAt,
+      });
+      this.items.setRecurringFlag(parsed.itemId, true, now);
+    });
+
+    return recurrenceRuleSchema.parse(this.recurrenceRules.getByItemId(parsed.itemId));
+  }
+
+  deleteRecurrenceRuleByItem(itemId: string): void {
+    this.mustGetItem(itemId);
+    const now = new Date().toISOString();
+
+    this.db.withTransaction(() => {
+      this.recurrenceRules.deleteByItemId(itemId);
+      this.items.setRecurringFlag(itemId, false, now);
+    });
+  }
+
   createItem(input: CreateItemInput): ItemRecord {
     const parsed = createItemInputSchema.parse(input);
     const project = this.mustGetProject(parsed.projectId);
@@ -625,6 +909,7 @@ export class WorkspaceService {
         parsed.startDate === undefined && parsed.endDate === undefined
           ? existing.dueDate
           : parsed.endDate ?? parsed.startDate ?? existing.dueDate,
+      estimateHours: parsed.estimateHours ?? existing.estimateHours,
       assigneeName: parsed.assigneeName ?? existing.assigneeName,
       note: parsed.note ?? existing.note,
       isScheduled:
@@ -664,6 +949,18 @@ export class WorkspaceService {
     for (const [itemId, item] of dependencyItemsById.entries()) {
       itemStateById.set(itemId, item);
     }
+    const recurrenceRule =
+      existing.status !== "done" && nextItem.status === "done"
+        ? this.recurrenceRules.getByItemId(existing.id)
+        : null;
+    const recurringOccurrence = recurrenceRule
+      ? buildRecurringGeneration({
+          sourceItem: nextItem,
+          recurrenceRule,
+          now,
+          nextSortOrder: this.items.nextSortOrder(nextItem.projectId, nextItem.parentId),
+        })
+      : null;
 
     this.db.withTransaction(() => {
       this.items.updateEditable(nextItem);
@@ -675,6 +972,16 @@ export class WorkspaceService {
       }
       if (parsed.tags !== undefined) {
         this.tags.attachNamesToItem(parsed.id, parsed.tags, now);
+      }
+      if (recurringOccurrence) {
+        this.items.insert(recurringOccurrence.item);
+        if (nextItem.tags.length > 0) {
+          this.tags.attachNamesToItem(recurringOccurrence.item.id, nextItem.tags, now);
+        }
+        this.recurrenceRules.deleteByItemId(existing.id);
+        this.items.setRecurringFlag(existing.id, false, now);
+        this.recurrenceRules.upsert(recurringOccurrence.rule);
+        this.items.setRecurringFlag(recurringOccurrence.item.id, true, now);
       }
       if (existing.projectId !== nextItem.projectId) {
         this.rebalanceProject(existing.projectId);
@@ -695,6 +1002,51 @@ export class WorkspaceService {
       this.items.archiveMany(targets, now);
       this.rebalanceProject(item.projectId);
     });
+  }
+
+  private insertTemplateNodesIntoProject(input: {
+    projectId: string;
+    orderedNodes: ReturnType<typeof buildTemplateApplyNodes>;
+    now: string;
+    createdItemIds: string[];
+  }): void {
+    const itemIdByNodeId = new Map<string, string>();
+    const nextSortOrderByParent = new Map<string | null, number>();
+
+    for (const node of input.orderedNodes) {
+      const parentId = node.parentNodeId ? itemIdByNodeId.get(node.parentNodeId) ?? null : null;
+      const nextSortOrder =
+        nextSortOrderByParent.get(parentId) ?? this.items.nextSortOrder(input.projectId, parentId);
+      const itemId = randomUUID();
+
+      this.items.insert({
+        id: itemId,
+        projectId: input.projectId,
+        parentId,
+        title: node.title,
+        type: node.type,
+        note: node.note,
+        status: "not_started",
+        priority: node.priority,
+        assigneeName: node.assigneeName,
+        startDate: null,
+        endDate: null,
+        dueDate: null,
+        estimateHours: node.estimateHours,
+        durationDays: node.durationDays,
+        percentComplete: 0,
+        actualHours: 0,
+        isScheduled: false,
+        sortOrder: nextSortOrder,
+        createdAt: input.now,
+        updatedAt: input.now,
+        completedAt: null,
+      });
+      this.tags.attachNamesToItem(itemId, node.tags, input.now);
+      itemIdByNodeId.set(node.nodeId, itemId);
+      nextSortOrderByParent.set(parentId, nextSortOrder + 1);
+      input.createdItemIds.push(itemId);
+    }
   }
 
   private rebalanceProject(projectId: string): void {
@@ -1040,6 +1392,72 @@ function getEffectiveDate(item: ItemRecord): string | null {
   return item.endDate ?? item.startDate ?? item.dueDate;
 }
 
+function buildRecurringGeneration(input: {
+  sourceItem: ItemRecord;
+  recurrenceRule: RecurrenceRule;
+  now: string;
+  nextSortOrder: number;
+}): {
+  item: Parameters<ItemRepository["insert"]>[0];
+  rule: RecurrenceRule;
+} | null {
+  if (
+    input.sourceItem.type !== "task" ||
+    !input.sourceItem.startDate ||
+    !input.sourceItem.endDate ||
+    !input.recurrenceRule.nextOccurrenceAt
+  ) {
+    return null;
+  }
+
+  const nextOccurrenceStartDate = input.recurrenceRule.nextOccurrenceAt;
+  const recurringDurationDays = deriveDurationDays(
+    input.sourceItem.startDate,
+    input.sourceItem.endDate
+  );
+  const nextOccurrenceEndDate = deriveRecurringOccurrenceEndDate(
+    nextOccurrenceStartDate,
+    recurringDurationDays
+  );
+  const generatedItemId = randomUUID();
+  const nextOccurrenceAt = advanceRecurrenceNextOccurrenceAt(
+    input.recurrenceRule.rruleText,
+    nextOccurrenceStartDate
+  );
+
+  return {
+    item: {
+      id: generatedItemId,
+      projectId: input.sourceItem.projectId,
+      parentId: input.sourceItem.parentId,
+      title: input.sourceItem.title,
+      type: "task",
+      note: input.sourceItem.note,
+      status: "not_started",
+      priority: input.sourceItem.priority,
+      assigneeName: input.sourceItem.assigneeName,
+      startDate: nextOccurrenceStartDate,
+      endDate: nextOccurrenceEndDate,
+      dueDate: nextOccurrenceEndDate,
+      estimateHours: input.sourceItem.estimateHours,
+      durationDays: recurringDurationDays,
+      percentComplete: 0,
+      actualHours: 0,
+      isScheduled: true,
+      sortOrder: input.nextSortOrder,
+      createdAt: input.now,
+      updatedAt: input.now,
+      completedAt: null,
+    },
+    rule: {
+      ...input.recurrenceRule,
+      itemId: generatedItemId,
+      nextOccurrenceAt,
+      updatedAt: input.now,
+    },
+  };
+}
+
 function collectSubtreeItems(items: ItemRecord[], rootId: string): ItemRecord[] {
   const ids = new Set(collectSubtreeIds(items, rootId));
   return items.filter((item) => ids.has(item.id));
@@ -1115,8 +1533,7 @@ function deriveDurationDays(startDate: string | null, endDate: string | null): n
     return 1;
   }
 
-  const diff = endOfDay(parseISO(endDate)).getTime() - startOfDay(parseISO(startDate)).getTime();
-  return Math.max(Math.round(diff / (24 * 60 * 60 * 1000)) + 1, 1);
+  return Math.max(differenceInCalendarDays(parseISO(endDate), parseISO(startDate)) + 1, 1);
 }
 
 function getPostponeDate(target: PostponeTarget, now: Date): Date {

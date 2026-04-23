@@ -198,12 +198,44 @@
 
 ### ACC-031 Reschedule dialog keyboard
 **Given** 親子の scheduled item があり、親の timeline move で reschedule scope dialog が開いている  
-**When** `Escape` で閉じた後、再度 dialog を開いて `ArrowLeft` で `single` へ移動し `Enter` を押す  
+**When** `Tab / Shift+Tab` を確認した後、`Escape` で閉じ、再度 dialog を開いて `ArrowLeft` で `single` へ移動し `Enter` を押す  
 **Then**
 - 最初の dialog は閉じるだけで変更を適用しない
 - 再度開いた dialog では既定選択 `with_descendants` に focus がある
+- `Tab` で dialog 内の次の button に移動し、最後の button からさらに `Tab` すると先頭へ戻る
+- `Shift+Tab` で逆方向に移動し、先頭からさらに `Shift+Tab` すると最後へ戻る
 - `ArrowLeft` 後は `single` が active/focus になる
 - `Enter` で `single` が適用され、親だけが移動して子の日付は変わらない
+- 最初の `Escape` 後は元の timeline item に focus が戻る
+- `Enter` 適用後も同じ timeline item に focus が戻る
+
+### ACC-032 Project detail row virtualization
+**Given** Project Detail に多数の visible row があり、WBS と timeline が同時表示されている  
+**When** 下方向へスクロールする  
+**Then**
+- WBS と timeline は同じ visible row window を描画する
+- top / bottom spacer により scroll height は維持される
+- DOM 上の row 数は visible window + overscan の範囲に収まる
+- selected row と timeline focus traversal は virtualization 後も維持される
+
+### ACC-037 Roadmap row virtualization
+**Given** Year / FY roadmap に多数の row があり、quarter header と month header が表示されている  
+**When** roadmap body を下方向へスクロールする  
+**Then**
+- quarter header と month header は表示されたまま維持される
+- body row は visible window + overscan の範囲だけ描画される
+- top / bottom spacer により scroll height は維持される
+- expand/collapse と project open の click target は virtualization 後も維持される
+
+### ACC-038 Portable build artifact
+**Given** Windows desktop build 環境で依存関係が解決済み  
+**When** `powershell -ExecutionPolicy Bypass -File scripts/build.ps1` を実行  
+**Then**
+- `artifacts/` 配下に version 付き portable staging folder が生成される
+- 同じ `artifacts/` 配下に対応する `.zip` artifact が生成される
+- staging folder には `dist/`, `dist-electron/`, `node_modules/sql.js/dist/sql-wasm.wasm`, `Launch SGC.cmd`, Electron runtime が含まれる
+- zip を展開しても同じ構成が得られる
+- `Launch SGC.cmd` は bundled Electron runtime を使って app root を起動する
 
 ### ACC-016 Excel export workbook
 **Given** プロジェクトデータあり  
@@ -226,7 +258,6 @@
 - warning を持つ row は panel 上部の warning summary にも `row number / title / warning reason` 付きで見える
 - warning を持つ row は dedicated warning-only table にも見え、error row はその表に含まれない
 - browser fallback でも file picker から preview を開ける
-- browser fallback の preview panel では `DependsOn` が apply 時に skip されることが見える
 - browser fallback でも preview 済み workbook を current project へ apply できる
 - error row では invalid field と理由が見える
 - current project と一致しない `ProjectCode / ProjectName` row は error になる
@@ -246,7 +277,7 @@
 - `tmp_*` temporary ID を使った new row 同士の `DependsOn` も finish-to-start dependency として反映される
 - successor の `DependsOn` を空にした行は既存 dependency が外れる
 - `error` 行は反映されない
-- browser fallback の初期 commit では `DependsOn` を apply しない
+- browser fallback でも valid な `DependsOn` は current project に対して反映される
 
 ### ACC-029 Excel import compare preview
 **Given** current project に既存 item があり、workbook 側でタイトルまたは日付を変更している  
@@ -259,13 +290,117 @@
 ## P2
 
 ### ACC-019 Recurring weekly task
-**Given** 毎週月曜の繰り返し設定  
-**When** 次週に進む  
+**Given** scheduled task に `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO` の recurrence rule があり、`next_occurrence_at` が翌週月曜を指している  
+**When** 現在の recurring task を `done` にする  
 **Then**
-- 新しい occurrence が生成される
+- 同じ project / parent 配下に次の occurrence が1件だけ生成される
+- 新しい occurrence は `status=not_started`, `percentComplete=0`, `completedAt=null` になる
+- 新しい occurrence の開始日は `next_occurrence_at`、終了日は元 task の duration を保った日付になる
+- recurrence rule は新しい occurrence へ移り、元 task の `isRecurring` は false、新しい occurrence の `isRecurring` は true になる
+- recurrence rule の `next_occurrence_at` はさらに次の週へ進む
+
+### ACC-039 Recurrence rule persistence
+**Given** scheduled task が1件あり、recurrence rule model が有効  
+**When** item に recurrence rule を保存し、その後削除する  
+**Then**
+- item ごとに 1件の recurrence_rule が保存される
+- 保存直後の item は `isRecurring=true` になる
+- 保存済み rule は item 単位で再取得できる
+- 削除後は recurrence_rule が消え、item は `isRecurring=false` に戻る
+- group / milestone / archived item には recurrence rule を保存できない
+
+### ACC-040 WBS template save
+**Given** project 内に root item とその子孫、および無関係な sibling item がある  
+**When** root item を WBS template として保存する  
+**Then**
+- `kind=wbs` の template が1件保存される
+- template 名は明示名または root item の title で保存される
+- template body には root item と非 archived descendant だけが hierarchy 付きで入る
+- sibling item と archived descendant は template body に含まれない
+- 初期保存対象は `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` に限定される
+
+### ACC-041 WBS template apply
+**Given** 保存済み `kind=wbs` template があり、target project に既存 root item がある  
+**When** template を target project へ apply する  
+**Then**
+- template の root と descendant が target project の root 直下へ subtree として追加される
+- 既存 item の後ろへ append され、WBS code は再計算される
+- template の hierarchy と `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` が復元される
+- 生成 item の `status=not_started`, `percentComplete=0`, `actualHours=0`, `completedAt=null`, `isScheduled=false`, `isRecurring=false` になる
+- `startDate / endDate / dueDate / dependency / recurrence` は復元されない
+
+### ACC-042 Project template save
+**Given** project とその非 archived root item / descendants があり、project に code や schedule 済み field も入っている  
+**When** project を `kind=project` template として保存する  
+**Then**
+- `kind=project` の template が1件保存される
+- template 名は明示名または project 名で保存される
+- project-level では `name / description / ownerName / priority / color` だけが body に入る
+- item-level では非 archived root item / descendants だけが hierarchy 付きで入る
+- item-level 保存対象は `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` に限定される
+- `code / status / startDate / endDate / targetDate / progressCached / riskLevel / dependency / recurrence` は body に含まれない
+
+### ACC-043 Project template apply
+**Given** 保存済み `kind=project` template がある  
+**When** template を apply して新しい project を生成する  
+**Then**
+- 新しい project が1件作成される
+- project-level では `name / description / ownerName / priority / color` が復元される
+- 新しい project の `code` は source project をそのまま再利用せず、新規採番される
+- template の root item / descendants が新しい project の root subtree として復元される
+- item-level では `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` が復元される
+- 生成 project の `status=not_started`, `startDate=null`, `endDate=null`, `targetDate=null`, `progressCached=0` になる
+- 生成 item の `status=not_started`, `percentComplete=0`, `actualHours=0`, `completedAt=null`, `isScheduled=false`, `isRecurring=false` になる
+- `startDate / endDate / dueDate / dependency / recurrence` は復元されない
 
 ### ACC-020 Backup recovery
 **Given** 直近バックアップあり  
 **When** DB 異常を検知  
 **Then**
 - 復旧導線が提示される
+
+### ACC-032 Manual local backup
+**Given** desktop app で project / item が保存済み  
+**When** sidebar の `Backup now` を実行  
+**Then**
+- timestamp 付き local backup file が作成される
+- recent backup list に新しい entry が追加される
+- backup file を別 DB として開くと保存済み project / item が見える
+
+### ACC-033 Backup restore preview
+**Given** recent backup が1件以上あり、backup 内に project / item が保存されている  
+**When** sidebar の recent backup row から `Restore Preview` を開く  
+**Then**
+- `file name / created at / size` が見える
+- `project count / item count / latest updatedAt` が見える
+- current DB の project / item はその時点では変更されない
+
+### ACC-034 Manual backup restore
+**Given** recent backup があり、その作成後に current DB が変更されている  
+**When** restore preview から confirm 付きで `Restore` を実行  
+**Then**
+- desktop では restore 前に safety backup が自動作成される
+- current DB は選択した backup の内容へ戻る
+- restore 後に app state が再読込される
+- restore 後の notice から restored backup と safety backup の両方を確認できる
+
+### ACC-035 Auto backup retention
+**Given** app bootstrap 時点で今日の `sgc-auto-backup-*` がまだ無く、古い auto backup が8件ある  
+**When** app を起動する  
+**Then**
+- 今日の `sgc-auto-backup-*` が1件だけ追加される
+- `sgc-auto-backup-*` は最新7件だけ残る
+- manual backup (`sgc-backup-*`) と safety backup (`sgc-safety-backup-*`) は retention で削除されない
+- 同じ local day に再度 bootstrap しても追加の auto backup は作られない
+
+### ACC-036 Recovery prompt on startup anomaly
+**Given** DB 初期化または bootstrap が失敗し、recent backup が1件以上ある  
+**When** app を起動する  
+**Then**
+- 通常 workspace の代わりに recovery screen が開く
+- startup error summary が見える
+- recent backup list と `Restore Preview` が見える
+- recovery screen の preview では backup 内容を読める
+- recovery screen の preview から confirm 付き `Restore` を実行できる
+- desktop では restore 前に safety backup が自動作成される
+- restore 成功後は通常 workspace へ戻り、restored backup と safety backup の notice が見える

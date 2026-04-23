@@ -5,6 +5,16 @@ const api: RendererApi = {
   home: {
     getSummary: () => ipcRenderer.invoke("home:getSummary"),
   },
+  system: {
+    getStartupContext: () => ipcRenderer.invoke("system:getStartupContext"),
+  },
+  backups: {
+    list: () => ipcRenderer.invoke("backup:list"),
+    create: () => ipcRenderer.invoke("backup:create"),
+    ensureAuto: () => ipcRenderer.invoke("backup:ensureAuto"),
+    preview: (entry) => ipcRenderer.invoke("backup:preview", entry),
+    restore: (entry) => ipcRenderer.invoke("backup:restore", entry),
+  },
   portfolio: {
     getSummary: () => ipcRenderer.invoke("portfolio:getSummary"),
     getProjectPhases: (projectId) => ipcRenderer.invoke("portfolio:getProjectPhases", projectId),
@@ -13,6 +23,18 @@ const api: RendererApi = {
     listByProject: (projectId) => ipcRenderer.invoke("dependency:listByProject", projectId),
     create: (input) => ipcRenderer.invoke("dependency:create", input),
     delete: (dependencyId) => ipcRenderer.invoke("dependency:delete", dependencyId),
+  },
+  templates: {
+    list: () => ipcRenderer.invoke("template:list"),
+    saveWbs: (input) => ipcRenderer.invoke("template:saveWbs", input),
+    saveProject: (input) => ipcRenderer.invoke("template:saveProject", input),
+    applyWbs: (input) => ipcRenderer.invoke("template:applyWbs", input),
+    applyProject: (input) => ipcRenderer.invoke("template:applyProject", input),
+  },
+  recurrenceRules: {
+    getByItem: (itemId) => ipcRenderer.invoke("recurrenceRule:getByItem", itemId),
+    upsert: (input) => ipcRenderer.invoke("recurrenceRule:upsert", input),
+    deleteByItem: (itemId) => ipcRenderer.invoke("recurrenceRule:deleteByItem", itemId),
   },
   projects: {
     list: () => ipcRenderer.invoke("project:list"),

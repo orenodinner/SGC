@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { browserApi } from "../lib/browser-api";
 import type {
+  BackupEntry,
+  BackupPreview,
+  BackupRestoreResult,
   PostponeTarget,
   CreateProjectInput,
   HierarchyMoveDirection,
@@ -12,6 +15,7 @@ import type {
   ProjectImportPreview,
   ProjectExportResult,
   ProjectSummary,
+  StartupContext,
   UpdateItemInput,
   UpdateProjectInput,
 } from "../../shared/contracts";
@@ -33,6 +37,9 @@ interface AppState {
   selectedProjectId: string | null;
   projectDetail: ProjectDetail | null;
   homeSummary: HomeSummary | null;
+  backups: BackupEntry[];
+  backupPreview: BackupPreview | null;
+  startupContext: StartupContext | null;
   portfolioSummary: PortfolioSummary | null;
   importPreview: ProjectImportPreview | null;
   itemEditHistory: ItemEditHistoryState;
@@ -43,6 +50,10 @@ interface AppState {
   notice: string | null;
   bootstrap: () => Promise<void>;
   refreshHome: () => Promise<void>;
+  createBackup: () => Promise<BackupEntry | null>;
+  previewBackup: (entry: BackupEntry) => Promise<BackupPreview | null>;
+  restoreBackup: (entry: BackupEntry) => Promise<BackupRestoreResult | null>;
+  clearBackupPreview: () => void;
   selectProject: (projectId: string) => Promise<void>;
   createProject: (input: CreateProjectInput) => Promise<void>;
   updateProject: (input: UpdateProjectInput) => Promise<void>;
@@ -67,6 +78,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   selectedProjectId: null,
   projectDetail: null,
   homeSummary: null,
+  backups: [],
+  backupPreview: null,
+  startupContext: null,
   portfolioSummary: null,
   importPreview: null,
   itemEditHistory: emptyItemEditHistory,
@@ -80,8 +94,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      const [projects, homeSummary, portfolioSummary] = await Promise.all([
+      const startupContext = await api.system.getStartupContext();
+      if (startupContext.mode === "recovery") {
+        set({
+          projects: [],
+          backups: startupContext.recentBackups,
+          selectedProjectId: null,
+          projectDetail: null,
+          homeSummary: null,
+          portfolioSummary: null,
+          backupPreview: null,
+          importPreview: null,
+          startupContext,
+          ...historyPatch(emptyItemEditHistory),
+          loading: false,
+          notice: null,
+        });
+        return;
+      }
+
+      await api.backups.ensureAuto();
+      const [projects, backups, homeSummary, portfolioSummary] = await Promise.all([
         api.projects.list(),
+        api.backups.list(),
         api.home.getSummary(),
         api.portfolio.getSummary(),
       ]);
@@ -92,10 +127,13 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       set({
         projects,
+        backups,
         selectedProjectId,
         projectDetail,
         homeSummary,
         portfolioSummary,
+        startupContext,
+        backupPreview: null,
         importPreview: null,
         ...historyPatch(emptyItemEditHistory),
         loading: false,
@@ -110,14 +148,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   async refreshHome() {
     try {
-      const [projects, homeSummary, portfolioSummary] = await Promise.all([
+      const [projects, backups, homeSummary, portfolioSummary] = await Promise.all([
         api.projects.list(),
+        api.backups.list(),
         api.home.getSummary(),
         api.portfolio.getSummary(),
       ]);
 
       set({
         projects,
+        backups,
         homeSummary,
         portfolioSummary,
       });
@@ -128,6 +168,97 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  async createBackup() {
+    set({ loading: true, error: null });
+    try {
+      const backup = await api.backups.create();
+      const backups = await api.backups.list();
+      set({
+        backups,
+        loading: false,
+        notice: backup.filePath ? `Backup created: ${backup.filePath}` : `Backup created: ${backup.fileName}`,
+      });
+      return backup;
+    } catch (error) {
+      set({
+        loading: false,
+        notice: null,
+        error: error instanceof Error ? error.message : "Failed to create backup",
+      });
+      return null;
+    }
+  },
+
+  async previewBackup(entry) {
+    set({ loading: true, error: null });
+    try {
+      const backupPreview = await api.backups.preview(entry);
+      set({
+        backupPreview,
+        loading: false,
+        notice: null,
+      });
+      return backupPreview;
+    } catch (error) {
+      set({
+        backupPreview: null,
+        loading: false,
+        notice: null,
+        error: error instanceof Error ? error.message : "Failed to preview backup",
+      });
+      return null;
+    }
+  },
+
+  async restoreBackup(entry) {
+    set({ loading: true, error: null });
+    try {
+      const result = await api.backups.restore(entry);
+      const [startupContext, projects, backups, homeSummary, portfolioSummary] = await Promise.all([
+        api.system.getStartupContext(),
+        api.projects.list(),
+        api.backups.list(),
+        api.home.getSummary(),
+        api.portfolio.getSummary(),
+      ]);
+      const previousSelectedProjectId = get().selectedProjectId;
+      const nextSelectedProjectId =
+        projects.find((project) => project.id === previousSelectedProjectId)?.id ??
+        projects[0]?.id ??
+        null;
+      const projectDetail = nextSelectedProjectId
+        ? await api.projects.get(nextSelectedProjectId)
+        : null;
+
+      set({
+        projects,
+        backups,
+        selectedProjectId: nextSelectedProjectId,
+        projectDetail,
+        homeSummary,
+        portfolioSummary,
+        startupContext,
+        backupPreview: null,
+        importPreview: null,
+        ...historyPatch(emptyItemEditHistory),
+        loading: false,
+        notice: `Backup restored: ${result.restoredBackup.fileName} / safety: ${result.safetyBackup.fileName}`,
+      });
+      return result;
+    } catch (error) {
+      set({
+        loading: false,
+        notice: null,
+        error: error instanceof Error ? error.message : "Failed to restore backup",
+      });
+      return null;
+    }
+  },
+
+  clearBackupPreview() {
+    set({ backupPreview: null });
+  },
+
   async selectProject(projectId) {
     set({ loading: true, error: null });
     try {
@@ -135,6 +266,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({
         selectedProjectId: projectId,
         projectDetail,
+        backupPreview: null,
         importPreview: null,
         ...historyPatch(emptyItemEditHistory),
         loading: false,
@@ -163,6 +295,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         projectDetail,
         homeSummary,
         portfolioSummary,
+        backupPreview: null,
         importPreview: null,
         ...historyPatch(emptyItemEditHistory),
         loading: false,
@@ -422,7 +555,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const supportsDependencyImport = importPreview.supportsDependencyImport;
       const result = await api.projects.commitImport(selectedProjectId, importPreview.sourcePath ?? "");
       const [projects, projectDetail, homeSummary, portfolioSummary] = await Promise.all([
         api.projects.list(),
@@ -437,9 +569,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         portfolioSummary,
         importPreview: null,
         loading: false,
-        notice: supportsDependencyImport
-          ? `Excel import applied: +${result.createdCount} new / ${result.updatedCount} updated / ${result.skippedCount} skipped`
-          : `Excel import applied: +${result.createdCount} new / ${result.updatedCount} updated / ${result.skippedCount} skipped / DependsOn skipped in browser mode`,
+        notice: `Excel import applied: +${result.createdCount} new / ${result.updatedCount} updated / ${result.skippedCount} skipped`,
       });
       return result;
     } catch (error) {

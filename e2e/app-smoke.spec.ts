@@ -4,6 +4,8 @@ import path from "node:path";
 import { test, expect } from "@playwright/test";
 import electronPackage from "electron";
 import { _electron as electron } from "playwright";
+import { DatabaseManager } from "../src/infra/db/database";
+import { WorkspaceService } from "../src/main/services/workspace-service";
 import { buildRoundTripWorkbookFixture } from "../src/test/excel-roundtrip-fixtures";
 
 const electronExecutable = electronPackage as unknown as string;
@@ -522,8 +524,17 @@ test("reschedule dialog supports keyboard cancel and scope selection", async () 
     await page.keyboard.press("Alt+ArrowRight");
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByRole("button", { name: "子も一緒に" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "後続もずらす" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "キャンセル" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "このタスクだけ" })).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.getByRole("button", { name: "キャンセル" })).toBeFocused();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(parentTimelineBar).toBeFocused();
     await expect(parentRow.locator('input[type="date"]').nth(0)).toHaveValue(initialParentStart);
     await expect(parentRow.locator('input[type="date"]').nth(1)).toHaveValue(initialParentEnd);
     await expect(childRow.locator('input[type="date"]').nth(0)).toHaveValue(initialChildStart);
@@ -536,6 +547,7 @@ test("reschedule dialog supports keyboard cancel and scope selection", async () 
     await expect(page.getByRole("button", { name: "このタスクだけ" })).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(parentTimelineBar).toBeFocused();
 
     await expect(parentRow.locator('input[type="date"]').nth(0)).toHaveValue(
       formatDateInput(addDays(new Date(`${initialParentStart}T00:00:00`), 1))
@@ -547,6 +559,286 @@ test("reschedule dialog supports keyboard cancel and scope selection", async () 
     await expect(childRow.locator('input[type="date"]').nth(1)).toHaveValue(initialChildEnd);
   } finally {
     await app.close();
+  }
+});
+
+test("sidebar backup action creates a local backup file", async () => {
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+  });
+
+  try {
+    const page = await app.firstWindow();
+    const timestamp = Date.now();
+    const projectName = `E2E Backup ${timestamp}`;
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByLabel("プロジェクト名").fill(projectName);
+    await page.getByRole("button", { name: "プロジェクト作成" }).click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Backup now" }).click();
+    const notice = page.locator(".notice-banner");
+    await expect(notice).toContainText("Backup created:");
+    const noticeText = (await notice.textContent()) ?? "";
+    const backupPath = noticeText.replace(/^Backup created:\s*/u, "").trim();
+    const backupRow = page
+      .locator(".backup-list-item")
+      .filter({ hasText: path.basename(backupPath) })
+      .first();
+
+    await expect.poll(() => fs.existsSync(backupPath)).toBe(true);
+    await expect(backupRow).toBeVisible();
+    await backupRow.getByRole("button", { name: "Restore Preview" }).click();
+    const restorePreview = page.locator('[aria-label="Restore Preview"]');
+    await expect(restorePreview).toBeVisible();
+    await expect(restorePreview).toContainText("Projects");
+    await expect(restorePreview).toContainText("Items");
+    await expect(restorePreview).toContainText(path.basename(backupPath));
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    const afterProjectName = `E2E After Restore ${timestamp}`;
+    await page.getByLabel("プロジェクト名").fill(afterProjectName);
+    await page.getByRole("button", { name: "プロジェクト作成" }).click();
+    await expect(page.locator(`input[value="${afterProjectName}"]`).first()).toBeVisible();
+
+    await backupRow.getByRole("button", { name: "Restore Preview" }).click();
+    await expect(restorePreview).toBeVisible();
+    await restorePreview.getByRole("button", { name: "Restore" }).click();
+    await expect(restorePreview).toContainText("safety backup");
+    await restorePreview.getByRole("button", { name: "Restore" }).last().click();
+    await expect(page.locator(".notice-banner")).toContainText("Backup restored:");
+    const restoreNoticeText = (await page.locator(".notice-banner").textContent()) ?? "";
+    const safetyFileName = restoreNoticeText.split("/ safety:").at(1)?.trim();
+    expect(safetyFileName).toBeTruthy();
+    const safetyBackupPath = path.join(path.dirname(backupPath), safetyFileName!);
+    await expect.poll(() => fs.existsSync(safetyBackupPath)).toBe(true);
+    await expect(
+      page.locator(".backup-list-item").filter({ hasText: safetyFileName! }).first()
+    ).toBeVisible();
+    await expect
+      .poll(async () => {
+        const projects = await page.evaluate(async () => {
+          const api = window.sgc;
+          if (!api) {
+            throw new Error("Renderer API is unavailable");
+          }
+          return api.projects.list();
+        });
+        return projects.map((project) => project.name);
+      })
+      .toContain(projectName);
+    await expect
+      .poll(async () => {
+        const projects = await page.evaluate(async () => {
+          const api = window.sgc;
+          if (!api) {
+            throw new Error("Renderer API is unavailable");
+          }
+          return api.projects.list();
+        });
+        return projects.map((project) => project.name);
+      })
+      .not.toContain(afterProjectName);
+  } finally {
+    await app.close();
+  }
+});
+
+test("project detail virtualizes large row sets", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-virtualization-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const projectName = `Virtualized Project ${timestamp}`;
+  const firstTitle = `Virtual Task 001 ${timestamp}`;
+  const lastTitle = `Virtual Task 080 ${timestamp}`;
+  const project = bootstrapService.createProject({
+    name: projectName,
+    code: `VRT-${timestamp}`,
+  });
+
+  for (let index = 1; index <= 80; index += 1) {
+    const item = bootstrapService.createItem({
+      projectId: project.id,
+      title: `Virtual Task ${String(index).padStart(3, "0")} ${timestamp}`,
+      type: "task",
+    });
+    bootstrapService.updateItem({
+      id: item.id,
+      startDate: "2026-05-01",
+      endDate: "2026-05-03",
+    });
+  }
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.locator(".project-card").filter({ hasText: projectName }).first().click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    const tableRows = page.locator(".table-body .table-row");
+    const timelineRows = page.locator(".timeline-body .timeline-row");
+    const initialTableRowCount = await tableRows.count();
+    const initialTimelineRowCount = await timelineRows.count();
+
+    expect(initialTableRowCount).toBeGreaterThan(0);
+    expect(initialTableRowCount).toBeLessThan(40);
+    expect(initialTableRowCount).toBe(initialTimelineRowCount);
+    await expect(page.locator(`.table-body input[value="${firstTitle}"]`).first()).toBeVisible();
+
+    await page.locator(".table-body").evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+
+    await expect(page.locator(`.table-body input[value="${lastTitle}"]`).first()).toBeVisible();
+    const scrolledTableRowCount = await tableRows.count();
+    const scrolledTimelineRowCount = await timelineRows.count();
+    expect(scrolledTableRowCount).toBeGreaterThan(0);
+    expect(scrolledTableRowCount).toBeLessThan(40);
+    expect(scrolledTableRowCount).toBe(scrolledTimelineRowCount);
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("roadmap virtualizes large row sets while keeping headers visible", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-roadmap-virtualization-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const projectName = `Roadmap Virtualized ${timestamp}`;
+  const firstTitle = `Roadmap Task 001 ${timestamp}`;
+  const lastTitle = `Roadmap Task 080 ${timestamp}`;
+  const project = bootstrapService.createProject({
+    name: projectName,
+    code: `RDM-${timestamp}`,
+  });
+
+  for (let index = 1; index <= 80; index += 1) {
+    const item = bootstrapService.createItem({
+      projectId: project.id,
+      title: `Roadmap Task ${String(index).padStart(3, "0")} ${timestamp}`,
+      type: "task",
+    });
+    bootstrapService.updateItem({
+      id: item.id,
+      startDate: "2026-05-01",
+      endDate: "2026-05-03",
+    });
+  }
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByRole("button", { name: "Year / FY" }).click();
+    await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toBeVisible();
+
+    const roadmapRows = page.locator(".roadmap-body .roadmap-row");
+    const initialRowCount = await roadmapRows.count();
+    expect(initialRowCount).toBeGreaterThan(0);
+    expect(initialRowCount).toBeLessThan(40);
+    await expect(page.locator(".roadmap-body .roadmap-title-cell").filter({ hasText: firstTitle }).first()).toBeVisible();
+    await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q1" }).first()).toBeVisible();
+    await expect(page.locator(".roadmap-header-cell").filter({ hasText: "5" }).first()).toBeVisible();
+
+    await page.locator(".roadmap-body").evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+
+    await expect(page.locator(".roadmap-body .roadmap-title-cell").filter({ hasText: lastTitle }).first()).toBeVisible();
+    const scrolledRowCount = await roadmapRows.count();
+    expect(scrolledRowCount).toBeGreaterThan(0);
+    expect(scrolledRowCount).toBeLessThan(40);
+    await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q1" }).first()).toBeVisible();
+    await expect(page.locator(".roadmap-header-cell").filter({ hasText: "5" }).first()).toBeVisible();
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("recovery screen restores a backup and returns to normal workspace", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-recovery-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const projectName = `Recovery Restore ${timestamp}`;
+  const project = bootstrapService.createProject({
+    name: projectName,
+    code: `REC-${timestamp}`,
+  });
+  bootstrapService.createItem({
+    projectId: project.id,
+    title: `Recovery Task ${timestamp}`,
+    type: "task",
+  });
+  const backup = bootstrapService.createBackup();
+  fs.writeFileSync(dbPath, Buffer.from("broken-sqlite"));
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+
+    await expect(page.getByRole("heading", { name: "起動に失敗したため recovery mode で開いています" })).toBeVisible();
+    const backupRow = page
+      .locator(".backup-list-item")
+      .filter({ hasText: backup.fileName })
+      .first();
+    await expect(backupRow).toBeVisible();
+    await backupRow.getByRole("button", { name: "Restore Preview" }).click();
+
+    const restorePreview = page.locator('[aria-label="Restore Preview"]');
+    await expect(restorePreview).toBeVisible();
+    await expect(restorePreview).toContainText(backup.fileName);
+    await restorePreview.getByRole("button", { name: "Restore" }).click();
+    await expect(restorePreview).toContainText("safety backup");
+    await restorePreview.getByRole("button", { name: "Restore" }).last().click();
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await expect(page.locator(".notice-banner")).toContainText("Backup restored:");
+    await expect(
+      page.locator(".project-card").filter({ hasText: projectName }).first()
+    ).toBeVisible();
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
   }
 });
 

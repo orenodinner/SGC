@@ -13,6 +13,101 @@ export const postponeTargetSchema = z.enum(["today", "tomorrow", "week_end"]);
 export const hierarchyMoveDirectionSchema = z.enum(["indent", "outdent"]);
 export const dependencyTypeSchema = z.enum(["finish_to_start"]);
 export const rescheduleScopeSchema = z.enum(["single", "with_descendants", "with_dependents"]);
+export const templateKindSchema = z.enum(["wbs", "project"]);
+export const recurrenceRuleSchema = z.object({
+  id: z.string(),
+  itemId: z.string(),
+  rruleText: z.string(),
+  nextOccurrenceAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export const wbsTemplateNodeSchema = z.object({
+  nodeId: z.string(),
+  parentNodeId: z.string().nullable(),
+  type: itemTypeSchema,
+  title: z.string(),
+  note: z.string(),
+  priority: prioritySchema,
+  assigneeName: z.string(),
+  tags: z.array(z.string()),
+  estimateHours: z.number(),
+  durationDays: z.number(),
+  sortOrder: z.number(),
+});
+export const wbsTemplateBodySchema = z.object({
+  schemaVersion: z.literal(1),
+  sourceProjectId: z.string(),
+  sourceRootItemId: z.string(),
+  sourceRootTitle: z.string(),
+  templateItems: z.array(wbsTemplateNodeSchema),
+});
+export const projectTemplateProjectFieldsSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  ownerName: z.string(),
+  priority: prioritySchema,
+  color: z.string(),
+});
+export const projectTemplateBodySchema = z.object({
+  schemaVersion: z.literal(1),
+  sourceProjectId: z.string(),
+  sourceProjectName: z.string(),
+  projectFields: projectTemplateProjectFieldsSchema,
+  templateItems: z.array(wbsTemplateNodeSchema),
+});
+const wbsTemplateRecordSchema = z.object({
+  id: z.string(),
+  workspaceId: z.string(),
+  kind: z.literal("wbs"),
+  name: z.string(),
+  body: wbsTemplateBodySchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+const projectTemplateRecordSchema = z.object({
+  id: z.string(),
+  workspaceId: z.string(),
+  kind: z.literal("project"),
+  name: z.string(),
+  body: projectTemplateBodySchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export const templateRecordSchema = z.discriminatedUnion("kind", [
+  wbsTemplateRecordSchema,
+  projectTemplateRecordSchema,
+]);
+export const upsertRecurrenceRuleInputSchema = z.object({
+  itemId: z.string(),
+  rruleText: z.string().trim().min(1).max(200),
+  nextOccurrenceAt: z.string().nullable().optional(),
+});
+export const saveWbsTemplateInputSchema = z.object({
+  rootItemId: z.string(),
+  name: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .transform((value) => value || undefined),
+});
+export const saveProjectTemplateInputSchema = z.object({
+  projectId: z.string(),
+  name: z
+    .string()
+    .trim()
+    .max(120)
+    .optional()
+    .transform((value) => value || undefined),
+});
+export const applyWbsTemplateInputSchema = z.object({
+  templateId: z.string(),
+  projectId: z.string(),
+});
+export const applyProjectTemplateInputSchema = z.object({
+  templateId: z.string(),
+});
 
 export const projectSummarySchema = z.object({
   id: z.string(),
@@ -102,6 +197,7 @@ export const updateItemInputSchema = z.object({
   percentComplete: z.number().min(0).max(100).optional(),
   startDate: z.string().nullable().optional(),
   endDate: z.string().nullable().optional(),
+  estimateHours: z.number().min(0).optional(),
   assigneeName: z.string().max(80).optional(),
   note: z.string().max(1000).optional(),
   tags: z.array(z.string().trim().min(1).max(40)).optional(),
@@ -251,6 +347,41 @@ export const projectImportPreviewSchema = z.object({
   rows: z.array(projectImportPreviewRowSchema),
 });
 
+export const backupEntrySchema = z.object({
+  filePath: z.string().nullable(),
+  fileName: z.string(),
+  createdAt: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+});
+
+export const backupPreviewSchema = backupEntrySchema.extend({
+  projectCount: z.number().int().nonnegative(),
+  itemCount: z.number().int().nonnegative(),
+  latestUpdatedAt: z.string().nullable(),
+});
+
+export const backupRestoreResultSchema = z.object({
+  restoredBackup: backupEntrySchema,
+  safetyBackup: backupEntrySchema,
+});
+
+export const backupAutoResultSchema = z.object({
+  createdBackup: backupEntrySchema.nullable(),
+  prunedFileNames: z.array(z.string()),
+  retentionLimit: z.number().int().positive(),
+});
+
+export const startupContextSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("normal"),
+  }),
+  z.object({
+    mode: z.literal("recovery"),
+    errorMessage: z.string(),
+    recentBackups: z.array(backupEntrySchema),
+  }),
+]);
+
 export type ItemType = z.infer<typeof itemTypeSchema>;
 export type ItemStatus = z.infer<typeof itemStatusSchema>;
 export type Priority = z.infer<typeof prioritySchema>;
@@ -258,6 +389,18 @@ export type PostponeTarget = z.infer<typeof postponeTargetSchema>;
 export type HierarchyMoveDirection = z.infer<typeof hierarchyMoveDirectionSchema>;
 export type DependencyType = z.infer<typeof dependencyTypeSchema>;
 export type RescheduleScope = z.infer<typeof rescheduleScopeSchema>;
+export type TemplateKind = z.infer<typeof templateKindSchema>;
+export type RecurrenceRule = z.infer<typeof recurrenceRuleSchema>;
+export type WbsTemplateNode = z.infer<typeof wbsTemplateNodeSchema>;
+export type WbsTemplateBody = z.infer<typeof wbsTemplateBodySchema>;
+export type ProjectTemplateProjectFields = z.infer<typeof projectTemplateProjectFieldsSchema>;
+export type ProjectTemplateBody = z.infer<typeof projectTemplateBodySchema>;
+export type TemplateRecord = z.infer<typeof templateRecordSchema>;
+export type UpsertRecurrenceRuleInput = z.infer<typeof upsertRecurrenceRuleInputSchema>;
+export type SaveWbsTemplateInput = z.infer<typeof saveWbsTemplateInputSchema>;
+export type SaveProjectTemplateInput = z.infer<typeof saveProjectTemplateInputSchema>;
+export type ApplyWbsTemplateInput = z.infer<typeof applyWbsTemplateInputSchema>;
+export type ApplyProjectTemplateInput = z.infer<typeof applyProjectTemplateInputSchema>;
 export type ProjectSummary = z.infer<typeof projectSummarySchema>;
 export type ItemRecord = z.infer<typeof itemRecordSchema>;
 export type ProjectDetail = z.infer<typeof projectDetailSchema>;
@@ -284,10 +427,25 @@ export type ProjectImportPreviewWarning = z.infer<typeof projectImportPreviewWar
 export type ProjectImportPreviewChange = z.infer<typeof projectImportPreviewChangeSchema>;
 export type ProjectImportPreviewRow = z.infer<typeof projectImportPreviewRowSchema>;
 export type ProjectImportPreview = z.infer<typeof projectImportPreviewSchema>;
+export type BackupEntry = z.infer<typeof backupEntrySchema>;
+export type BackupPreview = z.infer<typeof backupPreviewSchema>;
+export type BackupRestoreResult = z.infer<typeof backupRestoreResultSchema>;
+export type BackupAutoResult = z.infer<typeof backupAutoResultSchema>;
+export type StartupContext = z.infer<typeof startupContextSchema>;
 
 export interface RendererApi {
   home: {
     getSummary: () => Promise<HomeSummary>;
+  };
+  system: {
+    getStartupContext: () => Promise<StartupContext>;
+  };
+  backups: {
+    list: () => Promise<BackupEntry[]>;
+    create: () => Promise<BackupEntry>;
+    ensureAuto: () => Promise<BackupAutoResult>;
+    preview: (entry: BackupEntry) => Promise<BackupPreview>;
+    restore: (entry: BackupEntry) => Promise<BackupRestoreResult>;
   };
   portfolio: {
     getSummary: () => Promise<PortfolioSummary>;
@@ -297,6 +455,18 @@ export interface RendererApi {
     listByProject: (projectId: string) => Promise<DependencyRecord[]>;
     create: (input: CreateDependencyInput) => Promise<DependencyRecord>;
     delete: (dependencyId: string) => Promise<void>;
+  };
+  templates: {
+    list: () => Promise<TemplateRecord[]>;
+    saveWbs: (input: SaveWbsTemplateInput) => Promise<TemplateRecord>;
+    saveProject: (input: SaveProjectTemplateInput) => Promise<TemplateRecord>;
+    applyWbs: (input: ApplyWbsTemplateInput) => Promise<ItemRecord[]>;
+    applyProject: (input: ApplyProjectTemplateInput) => Promise<ProjectDetail>;
+  };
+  recurrenceRules: {
+    getByItem: (itemId: string) => Promise<RecurrenceRule | null>;
+    upsert: (input: UpsertRecurrenceRuleInput) => Promise<RecurrenceRule>;
+    deleteByItem: (itemId: string) => Promise<void>;
   };
   projects: {
     list: () => Promise<ProjectSummary[]>;

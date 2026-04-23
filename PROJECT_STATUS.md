@@ -1,14 +1,14 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-23 00:28 JST
+最終更新日時: 2026-04-23 11:10 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 50 / 50
-- 今回完了したサイクル: Reschedule dialog keyboard slice
+- 完了サイクル数: 70
+- 今回完了したサイクル: Project template apply MVP
 
 ## 現在フェーズ
-- Phase 8 in progress. Phase 6 closed, keyboard a11y follow-up next
+- All planned phases are complete according to the current docs and backlog. Phase 7 templates / recurrence is complete with recurrence rule persistence, recurring generation MVP, WBS template save/apply flow, and project template save/apply flow in place
 
 ## 直近で完了したもの
 - Electron + React + TypeScript + Vite の開発土台作成
@@ -143,14 +143,18 @@
 - browser mode では preview contract を desktop と揃えつつ、初期 slice では `適用` を disabled のまま維持した
 - browserApi unit test で file picker preview と cancel を固定した
 - browser fallback で preview 済み workbook を current project へ commit できるようにした
-- browser mode の commit は canonical `Tasks` の基本編集列と `Tags / ParentRecordId` を apply し、`DependsOn` はまだ apply しない
+- browser mode の commit は canonical `Tasks` の基本編集列と `Tags / ParentRecordId` を apply し、その後 preview を通過した `DependsOn` も current project へ反映する
 - browserApi unit test で browser fallback import commit の update / new apply を固定した
+- browser fallback の import でも preview を通過した `DependsOn` を current project へ apply できるようにした
+- browser fallback の `DependsOn` import で current project の既知 item ID と workbook 内 `tmp_*` temporary ID を解決するようにした
+- browser fallback import 後の success notice を dependency parity 後の挙動に合わせて整理した
+- browserApi unit test で existing item と `tmp_*` new row 同士の dependency import を固定した
 - import preview panel に dedicated warning-only list を追加した
 - warning 行だけを table 本体とは別の独立一覧で続けて確認できるようにした
 - desktop Playwright smoke で warning-only list に warning row だけが出ることを確認した
 - import preview contract に browser fallback の dependency import capability flag を追加した
-- browser fallback の preview panel で `DependsOn` が apply 時に skip されることを informational note で明示した
-- browser fallback commit 後の notice に `DependsOn skipped in browser mode` を含めるようにした
+- browser fallback の import preview contract に dependency import capability を持たせた
+- browser fallback の import notice と preview 表示を current capability に合わせて追従できるようにした
 - import preview の warning-only 導線を compact list から dedicated table に更新した
 - warning row を `row / project / title / action / warning` 列で横比較できるようにした
 - desktop Playwright smoke を warning-only table 前提に更新した
@@ -171,20 +175,81 @@
 - reschedule scope dialog の keyboard 操作を追加した
 - `ArrowLeft/ArrowRight` で scope 候補移動、`Enter/Space` で確定、`Escape` でキャンセルできるようにした
 - desktop Playwright smoke で `Escape` cancel と `single` 適用時の親子差分を確認した
+- local backup create と recent backup list を追加した
+- `Backup now` で current SQLite DB の timestamp 付き local backup file を作成できるようにした
+- sidebar に `Data Protection` card を追加し、recent backup list を表示するようにした
+- backup file を standalone DB として開ける service / DB test を追加した
+- desktop Playwright smoke で backup file 作成と sidebar list 反映を確認した
+- recent backup row から read-only `Restore Preview` を開けるようにした
+- restore preview で `file name / created at / size / project count / item count / latest updatedAt` を表示するようにした
+- restore preview は backup snapshot を読むだけで current DB を変更しない
+- backup preview の service / DB / browser fallback test を追加した
+- desktop Playwright smoke で backup preview panel の表示を確認した
+- restore preview から confirm 付き `Restore` を実行できるようにした
+- desktop restore 前に safety backup を自動作成し、restore 後に app state を再読込するようにした
+- browser fallback でも snapshot restore と safety backup 相当の導線を追加した
+- DB / service / browser fallback / desktop Playwright smoke で backup restore apply を固定した
+- app bootstrap 時に local day あたり1回だけ `sgc-auto-backup-*` を自動作成するようにした
+- `sgc-auto-backup-*` 系列にだけ最新7件 retention を適用するようにした
+- manual / auto / safety を backup list 上で区別できるようにした
+- auto backup retention の DB / service / browser fallback test を追加した
+- DB 初期化または bootstrap 失敗時でも app window 自体は開き、recovery screen を表示するようにした
+- recovery screen で startup error と recent backup list と restore preview を確認できるようにした
+- recovery mode では通常 workspace を起動せず、preview のみ許可するようにした
+- startup context helper test を追加し、recovery mode の recent backup 収集を固定した
+- recovery screen の restore preview から confirm 付き restore を実行できるようにした
+- recovery mode では live DB 未初期化でも file-level restore を行い、成功後に current session を normal workspace として再初期化するようにした
+- recovery restore 用の desktop Playwright smoke を追加し、broken DB から backup restore して通常 workspace へ戻る経路を固定した
+- Project Detail の WBS / timeline に shared virtual window を追加した
+- fixed row height + spacer 方式で large row set の DOM 行数を visible window + overscan に抑えるようにした
+- virtual window helper の unit test と desktop Playwright smoke を追加した
+- Roadmap の body row に virtualization を追加した
+- quarter header / month header を固定したまま、body row の DOM 行数を visible window + overscan に抑えるようにした
+- roadmap virtualization の desktop Playwright smoke を追加した
+- `scripts/build.ps1` から Windows 向け portable build artifact を自動生成するようにした
+- `artifacts/sgc-portable-win-x64-v0.1.0/` staging folder と対応 `.zip` を生成し、bundled Electron runtime / dist / dist-electron / runtime node_modules / `Launch SGC.cmd` を含めるようにした
+- portable artifact の必須パス検証と Electron runtime version 確認を追加した
+- reschedule scope dialog を閉じた後に元の timeline item へ focus を戻すようにした
+- `Escape` cancel と `Enter` apply の両方で同じ timeline bar / marker に focus restore される desktop Playwright smoke を追加した
+- reschedule scope dialog に `Tab / Shift+Tab` 循環を追加した
+- dialog 内の button 群だけで focus を循環させ、背景へ focus が漏れないことを desktop Playwright smoke で確認した
+- recurrence_rule migration と repository を追加した
+- recurrence rule の service / IPC / preload / browser fallback contract を追加した
+- recurrence rule 保存時に task item の `isRecurring=true`、削除時に `isRecurring=false` を同期するようにした
+- group / milestone / archived item への recurrence rule 保存を reject する validation を追加した
+- ACC-039 相当の service / browser fallback / DB test を追加した
+- recurring task が `done` へ遷移した時に次の occurrence を1件だけ生成する MVP を追加した
+- recurrence rule を完了済み item から新しい occurrence へ移し、`next_occurrence_at` を次回分へ進めるようにした
+- weekly / monthly / business-day (`FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR`) の rule advance helper と domain test を追加した
+- service / browser fallback の recurrence generation test を追加した
+- date range の duration 算出を `differenceInCalendarDays + 1` に揃えた
+- template migration と repository を追加した
+- `kind=wbs` template の contract と subtree serializer を追加した
+- selected root item と非 archived descendants を保存する WBS template save service / IPC / preload / browser fallback を追加した
+- ACC-040 相当の service / browser fallback / DB test を追加した
+- saved `kind=wbs` template を target project root へ subtree append する apply MVP を追加した
+- template apply では hierarchy と基本編集列だけを復元し、status / progress / schedule / dependency / recurrence を reset するようにした
+- ACC-041 相当の service / browser fallback test を追加した
+- item update API に `estimateHours` の局所更新を追加し、template source item の hours を保持できるようにした
+- template contract を `kind=wbs | project` の union に拡張した
+- selected project とその非 archived root item / descendants を `kind=project` template として保存 / list できるようにした
+- project template body に `projectFields(name / description / ownerName / priority / color)` と item hierarchy を保持するようにした
+- ACC-042 相当の service / browser fallback test を追加した
+- saved `kind=project` template から新しい project を生成する apply MVP を追加した
+- project template apply では `name / description / ownerName / priority / color` と root subtree を復元し、project / item の schedule・progress・dependency・recurrence を初期値へ戻すようにした
+- ACC-043 相当の service / browser fallback test を追加した
 
 ## 今いちばん重要な次アクション
-1. browser fallback の dependency import apply を後続で扱うかを docs で固定する
-2. dependency editor に type/layer 拡張が必要かを docs で固定する
-3. local backup / restore の first slice を切る
-4. large list rendering の virtualization 着手点を docs で固定する
+1. current docs / backlog 上の未完了 task はない
+2. 追加仕様が入る場合は WBS / project template の UI 導線を docs に固定してから着手する
+3. 追加仕様が入る場合は recurrence の UI 編集導線を template apply 後にどこへ載せるかを docs で固定する
 
 ## 現在の blocker
 - なし
 
 ## 既知のリスク
 - 現在の DB は SQL.js を同期 API として使っており、大量件数では書込コスト評価が未実施
-- desktop E2E は最小 smoke 1 本のみで、現状の自動確認は lint / typecheck / unit / build / desktop smoke まで
-- roadmap view は deeper task expansion までで、row virtualization は未着手
+- desktop E2E は主要主経路 smoke まで拡張済みだが、full regression coverage には未到達
 - Quick Capture の recurrence / project 名一般解釈は最小実装で、複雑な自然文は未対応
 - WBS の並び替えはインデント / アウトデントまでで、drag reorder は未着手
 - timeline edit は scheduled item の pointer と keyboard 初期対応までで、dependency 連動は未接続
@@ -194,19 +259,29 @@
 - Excel round-trip は列契約を先に固定しないと後戻りコストが高い
 - 依存関係の自動シフトは working day と組み合わさるため、適用順の固定が必要
 - 現在の reschedule scope popup は timeline move 経路のみで、date input 直接編集にはまだ出ない
-- timeline keyboard edit は focused bar / marker への初期対応で、focus traversal や dialog keyboard 補助はまだ薄い
 - dependency shift は月〜金の既定営業日に対応したが、カスタム稼働日設定と predecessor 前倒しにはまだ未対応
 - recentChangeCount7d は現状 item.updatedAt ベースで、同一 project の rollup 再計算に引っ張られて粗めに増える
 - workbook writer は minimal OpenXML / store-only ZIP で、書式・列幅・印刷最適化は未実装
 - browser fallback の export は download 開始までで、Electron のような保存先パス通知は返さない
 - import preview / commit は initial slice で、`.xlsx` canonical `Tasks` sheet と基本編集列まで。rollback は未実装
-- browser fallback の import は current project commit まで対応したが、初期対象は SGC export が出す store-only workbook で、`DependsOn` はまだ apply しない
-- import commit は current project と canonical `Tasks` の基本編集列に限定しており、dependency import / rollback / project 横断 apply は未実装
+- browser fallback の import は current project commit と `DependsOn` apply まで対応したが、初期対象は SGC export が出す store-only workbook で、dependency editor は引き続き desktop only
+- import commit は current project と canonical `Tasks` を中心に成立したが、rollback と project 横断 apply は未実装
 - import compare は update row の inline before / after までで、修正 UI や差分専用画面は未実装
 - import warning / error 表示は summary / warning-only table / inline compare までで、差分を横断集約する専用 compare view は未実装
 - round-trip fixture は `Tasks` canonical sheet を中心にした test helper で、Dashboard / Gantt_View / MasterData の表示 fidelity までは固定していない
 - workbook-local temporary `RecordId` は `tmp_*` prefix 前提で、duplicate temp ID は error になる
-- timeline keyboard edit は focused bar / marker と reschedule dialog の初期補助までで、dialog の完全な focus trap や周辺画面への traversal は未実装
+- local backup は manual / auto / safety と recovery screen restore まで入ったが、restore failure の詳細分類と partial recovery は未実装
+- recovery screen は actual restore まで入ったが、OS プロセス relaunch ではなく current session の再初期化で通常 workspace に戻している
+- browser fallback の backup / preview は lightweight snapshot download ベースで、desktop の SQLite file restore と完全同等ではない
+- restore は desktop で safety backup を先に切る初期実装までで、restore failure の詳細分類や partial recovery は未実装
+- auto backup は bootstrap 時の日次1回に限定しており、アイドル時や定期実行の scheduler は未実装
+- Project Detail virtualization は fixed row height 58px 前提の first slice で、row 高さの動的計測や可変高 row には未対応
+- Roadmap virtualization は body row のみを対象にした first slice で、header 自体の virtualization や可変高 row には未対応
+- installer pipeline は portable zip artifact の初期実装で、MSI / updater / code signing は未実装
+- portable artifact は date-fns / zod / sql.js package 全体を同梱する first slice で、サイズ最適化は未実施
+- recurrence は completion-triggered の1件生成までで、background scheduler・複数件先行生成・template apply は未実装
+- WBS / project template は save/apply の service / fallback までで、UI 導線は未実装
+- project template は save/list persistence までで、create/apply と UI 導線は未実装
 
 ## 次に見るべきドキュメント
 - `docs/08-implementation-plan.md`
@@ -280,7 +355,7 @@
 - [ ] Blocked
 
 ### 次にやるべき最小単位
-- browser fallback の dependency import apply を後続で扱うかを docs で固定する
+- recovery screen からの actual restore / restart 導線を追加する
 
 ### 残リスク
 - desktop E2E 未整備

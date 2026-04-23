@@ -26,7 +26,9 @@ import {
   type TimelineInteractionMode,
   type TimelineScale,
 } from "../domain/timeline";
+import { buildVirtualWindow } from "../domain/virtual-window";
 import type {
+  BackupPreview,
   DependencyRecord,
   HierarchyMoveDirection,
   HomeSummary,
@@ -46,12 +48,22 @@ import { useAppStore } from "./store/app-store";
 
 type ViewMode = "home" | "portfolio" | "roadmap" | "project";
 
+const PROJECT_DETAIL_ROW_HEIGHT = 58;
+const PROJECT_DETAIL_VIRTUAL_OVERSCAN = 6;
+const PROJECT_DETAIL_DEFAULT_VIEWPORT_HEIGHT = 560;
+const ROADMAP_ROW_HEIGHT = 62;
+const ROADMAP_VIRTUAL_OVERSCAN = 6;
+const ROADMAP_DEFAULT_VIEWPORT_HEIGHT = 620;
+
 export default function App() {
   const {
     projects,
     selectedProjectId,
     projectDetail,
     homeSummary,
+    backups,
+    backupPreview,
+    startupContext,
     portfolioSummary,
     importPreview,
     loading,
@@ -65,6 +77,10 @@ export default function App() {
     updateItem,
     archiveItem,
     captureQuickEntry,
+    createBackup,
+    previewBackup,
+    restoreBackup,
+    clearBackupPreview,
     bulkPostponeOverdue,
     moveItemHierarchy,
     previewProjectImport,
@@ -85,7 +101,12 @@ export default function App() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [activeTimelineEdit, setActiveTimelineEdit] = useState<ActiveTimelineEdit | null>(null);
   const [pendingRescheduleChange, setPendingRescheduleChange] = useState<PendingRescheduleChange | null>(null);
+  const [pendingTimelineFocusRestoreItemId, setPendingTimelineFocusRestoreItemId] = useState<string | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [projectDetailScrollTop, setProjectDetailScrollTop] = useState(0);
+  const [projectDetailViewportHeight, setProjectDetailViewportHeight] = useState(
+    PROJECT_DETAIL_DEFAULT_VIEWPORT_HEIGHT
+  );
   const wbsScrollRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const syncLockRef = useRef<"wbs" | "timeline" | null>(null);
@@ -108,6 +129,21 @@ export default function App() {
     () => buildVisibleRows(projectDetail?.items ?? [], effectiveExpandedIds),
     [effectiveExpandedIds, projectDetail?.items]
   );
+  const virtualWindow = useMemo(
+    () =>
+      buildVirtualWindow({
+        itemCount: rows.length,
+        scrollTop: projectDetailScrollTop,
+        viewportHeight: projectDetailViewportHeight,
+        rowHeight: PROJECT_DETAIL_ROW_HEIGHT,
+        overscan: PROJECT_DETAIL_VIRTUAL_OVERSCAN,
+      }),
+    [projectDetailScrollTop, projectDetailViewportHeight, rows.length]
+  );
+  const visibleRows = useMemo(
+    () => rows.slice(virtualWindow.startIndex, virtualWindow.endIndexExclusive),
+    [rows, virtualWindow.endIndexExclusive, virtualWindow.startIndex]
+  );
   const timelineColumns = useMemo(
     () => buildTimelineColumns(projectDetail?.items ?? [], timelineScale),
     [projectDetail?.items, timelineScale]
@@ -126,6 +162,50 @@ export default function App() {
 
   const openCount = projectDetail?.items.filter((item) => item.status !== "done").length ?? 0;
   const completedCount = projectDetail?.items.filter((item) => item.status === "done").length ?? 0;
+
+  useEffect(() => {
+    const viewportHeight =
+      wbsScrollRef.current?.clientHeight ??
+      timelineScrollRef.current?.clientHeight ??
+      PROJECT_DETAIL_DEFAULT_VIEWPORT_HEIGHT;
+    setProjectDetailViewportHeight(viewportHeight);
+  }, [rows.length, viewMode]);
+
+  useEffect(() => {
+    if (wbsScrollRef.current) {
+      wbsScrollRef.current.scrollTop = 0;
+    }
+    if (timelineScrollRef.current) {
+      timelineScrollRef.current.scrollTop = 0;
+    }
+    syncLockRef.current = null;
+
+    const timeoutId = window.setTimeout(() => {
+      setProjectDetailScrollTop(0);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [projectDetail?.project.id]);
+
+  useEffect(() => {
+    if (!pendingTimelineFocusRestoreItemId || pendingRescheduleChange) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const timelineItem = document.querySelector<HTMLElement>(
+        `[data-timeline-item-id="${pendingTimelineFocusRestoreItemId}"]`
+      );
+      timelineItem?.focus();
+      setPendingTimelineFocusRestoreItemId(null);
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [pendingRescheduleChange, pendingTimelineFocusRestoreItemId]);
 
   const requestProjectItemUpdate = (item: ItemRecord, patch: ProjectItemUpdatePatch) => {
     if (shouldPromptReschedule(item, patch, projectDetail?.items ?? [])) {
@@ -170,6 +250,7 @@ export default function App() {
         projectDetail?.items ?? []
       )
     ) {
+      setPendingTimelineFocusRestoreItemId(item.id);
       setPendingRescheduleChange({
         item,
         patch: {
@@ -382,6 +463,69 @@ export default function App() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [viewMode, canUndoItemEdit, canRedoItemEdit, undoItemEdit, redoItemEdit]);
 
+  if (startupContext?.mode === "recovery") {
+    return (
+      <div className="app-shell">
+        <main className="main-panel recovery-panel">
+          <section className="recovery-screen">
+            <div className="section-heading">
+              <div>
+                <p className="sidebar-label">Recovery</p>
+                <h2>起動に失敗したため recovery mode で開いています</h2>
+                <p className="capture-copy">
+                  DB の初期化または bootstrap に失敗しました。recent backup を確認し、必要なら restore して通常 workspace へ戻してください。
+                </p>
+              </div>
+            </div>
+            <div className="error-banner">{startupContext.errorMessage}</div>
+            <section className="backup-card" aria-label="Recovery Backups">
+              <div className="section-heading">
+                <div>
+                  <p className="sidebar-label">Recent Backups</p>
+                  <strong>復旧候補</strong>
+                </div>
+              </div>
+              {backups.length === 0 ? (
+                <p className="empty-message">利用可能な backup はありません。</p>
+              ) : (
+                <div className="backup-list">
+                  {backups.map((backup) => (
+                    <div key={`${backup.fileName}-${backup.createdAt}`} className="backup-list-item">
+                      <div className="backup-list-item-main">
+                        <strong>
+                          <span className={`backup-kind-badge ${getBackupKindLabel(backup.fileName)}`}>
+                            {getBackupKindLabel(backup.fileName)}
+                          </span>
+                          {backup.fileName}
+                        </strong>
+                        <span>{formatBackupCreatedAt(backup.createdAt)}</span>
+                        <span>{formatBackupSize(backup.sizeBytes)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="nav-chip"
+                        onClick={() => void previewBackup(backup)}
+                      >
+                        Restore Preview
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {backupPreview ? (
+                <BackupPreviewCard
+                  preview={backupPreview}
+                  onRestore={() => void restoreBackup(backupPreview)}
+                  onClose={clearBackupPreview}
+                />
+              ) : null}
+            </section>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -481,6 +625,53 @@ export default function App() {
             ))
           )}
         </div>
+
+        <section className="backup-card" aria-label="Data Protection">
+          <div className="section-heading">
+            <div>
+              <p className="sidebar-label">Data Protection</p>
+              <strong>Local Backups</strong>
+              <p className="detail-field-hint">自動: 起動時に日次1回 / auto 7件保持</p>
+            </div>
+            <button type="button" className="nav-chip active" onClick={() => void createBackup()}>
+              Backup now
+            </button>
+          </div>
+          {backups.length === 0 ? (
+            <p className="empty-message">まだ backup はありません。</p>
+          ) : (
+            <div className="backup-list">
+              {backups.slice(0, 5).map((backup) => (
+                <div key={`${backup.fileName}-${backup.createdAt}`} className="backup-list-item">
+                  <div className="backup-list-item-main">
+                    <strong>
+                      <span className={`backup-kind-badge ${getBackupKindLabel(backup.fileName)}`}>
+                        {getBackupKindLabel(backup.fileName)}
+                      </span>
+                      {backup.fileName}
+                    </strong>
+                    <span>{formatBackupCreatedAt(backup.createdAt)}</span>
+                    <span>{formatBackupSize(backup.sizeBytes)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="nav-chip"
+                    onClick={() => void previewBackup(backup)}
+                  >
+                    Restore Preview
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {backupPreview ? (
+            <BackupPreviewCard
+              preview={backupPreview}
+              onRestore={() => void restoreBackup(backupPreview)}
+              onClose={clearBackupPreview}
+            />
+          ) : null}
+        </section>
       </aside>
 
       <main className="main-panel">
@@ -658,44 +849,62 @@ export default function App() {
                 <div
                   ref={wbsScrollRef}
                   className="table-body"
-                  onScroll={(event) =>
+                  onScroll={(event) => {
+                    setProjectDetailScrollTop(event.currentTarget.scrollTop);
+                    setProjectDetailViewportHeight(event.currentTarget.clientHeight);
                     syncVerticalScroll({
                       source: "wbs",
                       event,
                       peer: timelineScrollRef.current,
                       syncLockRef,
-                    })
-                  }
+                    });
+                  }}
                 >
                   {rows.length === 0 ? (
                     <div className="empty-table">親・子・孫を作れる最小 CRUD から開始して下さい。</div>
                   ) : (
-                    rows.map(({ item, depth, hasChildren }) => (
-                      <ItemRow
-                        key={item.id}
-                        item={item}
-                        depth={depth}
-                        hasChildren={hasChildren}
-                        expanded={effectiveExpandedIds.has(item.id)}
-                        onToggle={() =>
-                          setExpandedIds((current) => {
-                            const next = new Set(current);
-                            if (next.has(item.id)) {
-                              next.delete(item.id);
-                            } else {
-                              next.add(item.id);
-                            }
-                            return next;
-                          })
-                        }
-                        onUpdate={(patch) => requestProjectItemUpdate(item, patch)}
-                        onAddChild={() => void createItem(projectDetail.project.id, item.id)}
-                        onArchive={() => void archiveItem(item.id)}
-                        onMoveHierarchy={(direction) => void moveItemHierarchy(item.id, direction)}
-                        onOpenDetail={() => setSelectedItemId(item.id)}
-                        isSelected={selectedItem?.id === item.id}
-                      />
-                    ))
+                    <>
+                      {virtualWindow.topSpacerHeight > 0 ? (
+                        <div
+                          className="virtual-scroll-spacer"
+                          style={{ height: `${virtualWindow.topSpacerHeight}px` }}
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                      {visibleRows.map(({ item, depth, hasChildren }) => (
+                        <ItemRow
+                          key={item.id}
+                          item={item}
+                          depth={depth}
+                          hasChildren={hasChildren}
+                          expanded={effectiveExpandedIds.has(item.id)}
+                          onToggle={() =>
+                            setExpandedIds((current) => {
+                              const next = new Set(current);
+                              if (next.has(item.id)) {
+                                next.delete(item.id);
+                              } else {
+                                next.add(item.id);
+                              }
+                              return next;
+                            })
+                          }
+                          onUpdate={(patch) => requestProjectItemUpdate(item, patch)}
+                          onAddChild={() => void createItem(projectDetail.project.id, item.id)}
+                          onArchive={() => void archiveItem(item.id)}
+                          onMoveHierarchy={(direction) => void moveItemHierarchy(item.id, direction)}
+                          onOpenDetail={() => setSelectedItemId(item.id)}
+                          isSelected={selectedItem?.id === item.id}
+                        />
+                      ))}
+                      {virtualWindow.bottomSpacerHeight > 0 ? (
+                        <div
+                          className="virtual-scroll-spacer"
+                          style={{ height: `${virtualWindow.bottomSpacerHeight}px` }}
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </>
                   )}
                 </div>
               </div>
@@ -716,104 +925,123 @@ export default function App() {
                 <div
                   ref={timelineScrollRef}
                   className="timeline-body"
-                  onScroll={(event) =>
+                  onScroll={(event) => {
+                    setProjectDetailScrollTop(event.currentTarget.scrollTop);
+                    setProjectDetailViewportHeight(event.currentTarget.clientHeight);
                     syncVerticalScroll({
                       source: "timeline",
                       event,
                       peer: wbsScrollRef.current,
                       syncLockRef,
-                    })
-                  }
+                    });
+                  }}
                 >
                   {rows.length === 0 ? (
                     <div className="empty-table">日付が入った項目を表示します</div>
                   ) : (
-                    rows.map(({ item }) => {
-                      const layout = timelineLayout.get(item.id);
-                      const isDraggable = Boolean(item.startDate && item.endDate);
-                      const previewLayout =
-                        layout && activeTimelineEdit?.itemId === item.id
-                          ? getPreviewLayout(
-                              layout,
-                              activeTimelineEdit.mode,
-                              activeTimelineEdit.deltaUnits,
-                              timelineColumns.length
-                            )
-                          : layout;
-                      return (
+                    <>
+                      {virtualWindow.topSpacerHeight > 0 ? (
                         <div
-                          key={item.id}
-                          className="timeline-row"
-                          style={{
-                            gridTemplateColumns: `repeat(${timelineColumns.length}, minmax(64px, 1fr))`,
-                          }}
-                        >
-                          {timelineColumns.map((column) => (
-                            <div key={column.key} className="timeline-cell" />
-                          ))}
-                          {previewLayout ? (
-                            <div
-                              className={
-                                previewLayout.isMilestone
-                                  ? `timeline-marker${isDraggable ? " interactive" : ""}${
-                                      selectedItem?.id === item.id ? " selected" : ""
-                                    }`
-                                  : `timeline-bar ${item.type}${isDraggable ? " interactive" : ""}${
-                                      activeTimelineEdit?.itemId === item.id ? " dragging" : ""
-                                    }${selectedItem?.id === item.id ? " selected" : ""}`
-                              }
-                              style={{
-                                gridColumn: `${previewLayout.startColumn + 1} / ${
-                                  previewLayout.endColumn + 2
-                                }`,
-                              }}
-                              title={`${item.title} ${formatDateRange(item)}`}
-                              tabIndex={isDraggable ? 0 : -1}
-                              role={isDraggable ? "button" : undefined}
-                              aria-label={
-                                isDraggable
-                                  ? `${item.title} ${formatDateRange(item)}。${
-                                      previewLayout.isMilestone
-                                        ? "上下で前後の項目へ移動、Alt+左右で移動"
-                                        : "上下で前後の項目へ移動、Alt+左右で移動、Alt+Shift+左右で右端を調整"
-                                    }`
-                                  : undefined
-                              }
-                              aria-keyshortcuts={
-                                isDraggable
-                                  ? previewLayout.isMilestone
-                                    ? "ArrowUp ArrowDown Alt+ArrowLeft Alt+ArrowRight"
-                                    : "ArrowUp ArrowDown Alt+ArrowLeft Alt+ArrowRight Alt+Shift+ArrowLeft Alt+Shift+ArrowRight"
-                                  : undefined
-                              }
-                              onFocus={() => setSelectedItemId(item.id)}
-                              onClick={() => setSelectedItemId(item.id)}
-                              onKeyDown={
-                                isDraggable
-                                  ? (event) =>
-                                      handleTimelineBarKeyDown(event, item, previewLayout.isMilestone)
-                                  : undefined
-                              }
-                              onPointerDown={
-                                isDraggable
-                                  ? (event) => beginTimelineEdit(event, item, "move")
-                                  : undefined
-                              }
-                            >
-                              {!previewLayout.isMilestone && isDraggable ? (
-                                <div
-                                  className="timeline-resize-handle"
-                                  role="presentation"
-                                  onPointerDown={(event) =>
-                                    beginTimelineEdit(event, item, "resize_end")
-                                  }
-                                />
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })
+                          className="virtual-scroll-spacer"
+                          style={{ height: `${virtualWindow.topSpacerHeight}px` }}
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                      {visibleRows.map(({ item }) => {
+                        const layout = timelineLayout.get(item.id);
+                        const isDraggable = Boolean(item.startDate && item.endDate);
+                        const previewLayout =
+                          layout && activeTimelineEdit?.itemId === item.id
+                            ? getPreviewLayout(
+                                layout,
+                                activeTimelineEdit.mode,
+                                activeTimelineEdit.deltaUnits,
+                                timelineColumns.length
+                              )
+                            : layout;
+                        return (
+                          <div
+                            key={item.id}
+                            className="timeline-row"
+                            style={{
+                              gridTemplateColumns: `repeat(${timelineColumns.length}, minmax(64px, 1fr))`,
+                            }}
+                          >
+                            {timelineColumns.map((column) => (
+                              <div key={column.key} className="timeline-cell" />
+                            ))}
+                            {previewLayout ? (
+                              <div
+                                className={
+                                  previewLayout.isMilestone
+                                    ? `timeline-marker${isDraggable ? " interactive" : ""}${
+                                        selectedItem?.id === item.id ? " selected" : ""
+                                      }`
+                                    : `timeline-bar ${item.type}${isDraggable ? " interactive" : ""}${
+                                        activeTimelineEdit?.itemId === item.id ? " dragging" : ""
+                                      }${selectedItem?.id === item.id ? " selected" : ""}`
+                                }
+                                style={{
+                                  gridColumn: `${previewLayout.startColumn + 1} / ${
+                                    previewLayout.endColumn + 2
+                                  }`,
+                                }}
+                                title={`${item.title} ${formatDateRange(item)}`}
+                                tabIndex={isDraggable ? 0 : -1}
+                                role={isDraggable ? "button" : undefined}
+                                aria-label={
+                                  isDraggable
+                                    ? `${item.title} ${formatDateRange(item)}。${
+                                        previewLayout.isMilestone
+                                          ? "上下で前後の項目へ移動、Alt+左右で移動"
+                                          : "上下で前後の項目へ移動、Alt+左右で移動、Alt+Shift+左右で右端を調整"
+                                      }`
+                                    : undefined
+                                }
+                                aria-keyshortcuts={
+                                  isDraggable
+                                    ? previewLayout.isMilestone
+                                      ? "ArrowUp ArrowDown Alt+ArrowLeft Alt+ArrowRight"
+                                      : "ArrowUp ArrowDown Alt+ArrowLeft Alt+ArrowRight Alt+Shift+ArrowLeft Alt+Shift+ArrowRight"
+                                    : undefined
+                                }
+                                data-timeline-item-id={item.id}
+                                onFocus={() => setSelectedItemId(item.id)}
+                                onClick={() => setSelectedItemId(item.id)}
+                                onKeyDown={
+                                  isDraggable
+                                    ? (event) =>
+                                        handleTimelineBarKeyDown(event, item, previewLayout.isMilestone)
+                                    : undefined
+                                }
+                                onPointerDown={
+                                  isDraggable
+                                    ? (event) => beginTimelineEdit(event, item, "move")
+                                    : undefined
+                                }
+                              >
+                                {!previewLayout.isMilestone && isDraggable ? (
+                                  <div
+                                    className="timeline-resize-handle"
+                                    role="presentation"
+                                    onPointerDown={(event) =>
+                                      beginTimelineEdit(event, item, "resize_end")
+                                    }
+                                  />
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                      {virtualWindow.bottomSpacerHeight > 0 ? (
+                        <div
+                          className="virtual-scroll-spacer"
+                          style={{ height: `${virtualWindow.bottomSpacerHeight}px` }}
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </>
                   )}
                 </div>
               </div>
@@ -834,8 +1062,12 @@ export default function App() {
           <RescheduleScopeDialog
             item={pendingRescheduleChange.item}
             descendantCount={countDescendants(projectDetail?.items ?? [], pendingRescheduleChange.item.id)}
-            onCancel={() => setPendingRescheduleChange(null)}
+            onCancel={() => {
+              setPendingTimelineFocusRestoreItemId(pendingRescheduleChange.item.id);
+              setPendingRescheduleChange(null);
+            }}
             onSelect={(scope) => {
+              setPendingTimelineFocusRestoreItemId(pendingRescheduleChange.item.id);
               void updateItem({
                 id: pendingRescheduleChange.item.id,
                 ...pendingRescheduleChange.patch,
@@ -988,6 +1220,7 @@ function RescheduleScopeDialog(props: {
     { scope: "with_dependents", label: "後続もずらす" },
   ];
   const [activeIndex, setActiveIndex] = useState(1);
+  const dialogRef = useRef<HTMLElement | null>(null);
   const scopeButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
@@ -1000,6 +1233,34 @@ function RescheduleScopeDialog(props: {
       event.stopPropagation();
       props.onCancel();
       return;
+    }
+
+    if (event.key === "Tab") {
+      const focusableButtons = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? []
+      );
+      if (focusableButtons.length === 0) {
+        return;
+      }
+
+      const currentIndex = focusableButtons.indexOf(document.activeElement as HTMLButtonElement);
+      if (currentIndex === -1) {
+        event.preventDefault();
+        focusableButtons[event.shiftKey ? focusableButtons.length - 1 : 0]?.focus();
+        return;
+      }
+
+      if (!event.shiftKey && currentIndex === focusableButtons.length - 1) {
+        event.preventDefault();
+        focusableButtons[0]?.focus();
+        return;
+      }
+
+      if (event.shiftKey && currentIndex === 0) {
+        event.preventDefault();
+        focusableButtons[focusableButtons.length - 1]?.focus();
+        return;
+      }
     }
 
     if (event.key === "ArrowLeft") {
@@ -1026,6 +1287,7 @@ function RescheduleScopeDialog(props: {
   return (
     <div className="reschedule-popover-backdrop" role="presentation" onClick={props.onCancel}>
       <section
+        ref={dialogRef}
         className="reschedule-popover"
         role="dialog"
         aria-modal="true"
@@ -1077,6 +1339,95 @@ function SectionCard(props: { title: string; subtitle: string; children: ReactNo
         </div>
       </div>
       {props.children}
+    </section>
+  );
+}
+
+function BackupPreviewCard(props: {
+  preview: BackupPreview;
+  canRestore?: boolean;
+  onRestore: () => void;
+  onClose: () => void;
+}) {
+  const [confirmingRestore, setConfirmingRestore] = useState(false);
+
+  return (
+    <section className="backup-preview-card" aria-label="Restore Preview">
+      <div className="section-heading">
+        <div>
+          <strong>Restore Preview</strong>
+          <p>backup snapshot の内容だけを確認します。まだ current DB は変更しません。</p>
+        </div>
+        <button type="button" className="nav-chip" onClick={props.onClose}>
+          閉じる
+        </button>
+      </div>
+      <div className="backup-preview-grid">
+        <MetricCard label="Projects" value={String(props.preview.projectCount)} />
+        <MetricCard label="Items" value={String(props.preview.itemCount)} />
+        <MetricCard
+          label="Updated"
+          value={
+            props.preview.latestUpdatedAt
+              ? formatBackupCreatedAt(props.preview.latestUpdatedAt)
+              : "-"
+          }
+        />
+      </div>
+      <div className="backup-preview-meta">
+        <div className="backup-preview-meta-row">
+          <span>File</span>
+          <strong>{props.preview.fileName}</strong>
+        </div>
+        <div className="backup-preview-meta-row">
+          <span>Created</span>
+          <strong>{formatBackupCreatedAt(props.preview.createdAt)}</strong>
+        </div>
+        <div className="backup-preview-meta-row">
+          <span>Size</span>
+          <strong>{formatBackupSize(props.preview.sizeBytes)}</strong>
+        </div>
+      </div>
+      {props.canRestore === false ? (
+        <p className="detail-field-hint">recovery mode では preview のみ利用できます。復元実行は後続 slice で対応します。</p>
+      ) : confirmingRestore ? (
+        <div className="backup-restore-confirm">
+          <strong>この backup を current state に戻します。</strong>
+          <p>desktop では restore 前に safety backup を自動作成します。</p>
+          <div className="backup-restore-confirm-actions">
+            <button
+              type="button"
+              className="nav-chip"
+              onClick={() => setConfirmingRestore(false)}
+            >
+              キャンセル
+            </button>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                setConfirmingRestore(false);
+                props.onRestore();
+              }}
+            >
+              Restore
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="backup-restore-actions">
+          <button
+            type="button"
+            className="danger"
+            onClick={() => setConfirmingRestore(true)}
+          >
+            Restore
+          </button>
+        </div>
+      )}
+      {props.canRestore === false ? null : (
+        <p className="detail-field-hint">restore 後は app state を再読込し、safety backup から再度戻せます。</p>
+      )}
     </section>
   );
 }
@@ -1553,6 +1904,9 @@ function RoadmapView(props: {
   const [projectDetails, setProjectDetails] = useState<Record<string, ProjectDetail>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roadmapScrollTop, setRoadmapScrollTop] = useState(0);
+  const [roadmapViewportHeight, setRoadmapViewportHeight] = useState(ROADMAP_DEFAULT_VIEWPORT_HEIGHT);
+  const roadmapBodyRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (props.projects.length === 0) {
@@ -1678,11 +2032,31 @@ function RoadmapView(props: {
     () => buildRoadmapLayout(roadmapRows.map((row) => row.item), buckets),
     [buckets, roadmapRows]
   );
+  const roadmapVirtualWindow = useMemo(
+    () =>
+      buildVirtualWindow({
+        itemCount: roadmapRows.length,
+        scrollTop: roadmapScrollTop,
+        viewportHeight: roadmapViewportHeight,
+        rowHeight: ROADMAP_ROW_HEIGHT,
+        overscan: ROADMAP_VIRTUAL_OVERSCAN,
+      }),
+    [roadmapRows.length, roadmapScrollTop, roadmapViewportHeight]
+  );
+  const visibleRoadmapRows = useMemo(
+    () => roadmapRows.slice(roadmapVirtualWindow.startIndex, roadmapVirtualWindow.endIndexExclusive),
+    [roadmapRows, roadmapVirtualWindow.endIndexExclusive, roadmapVirtualWindow.startIndex]
+  );
   const quarterHeaders = useMemo(() => buildRoadmapQuarterHeaders(buckets), [buckets]);
   const rangeLabel =
     scale === "year"
       ? `${anchorYear}年`
       : `FY${anchorYear} (${buckets[0]?.label ?? "-"} - ${buckets[buckets.length - 1]?.label ?? "-"})`;
+
+  useEffect(() => {
+    const viewportHeight = roadmapBodyRef.current?.clientHeight ?? ROADMAP_DEFAULT_VIEWPORT_HEIGHT;
+    setRoadmapViewportHeight(viewportHeight);
+  }, [loading, roadmapRows.length]);
 
   if (props.projects.length === 0) {
     return (
@@ -1784,13 +2158,28 @@ function RoadmapView(props: {
           ))}
         </div>
 
-        <div className="roadmap-body">
+        <div
+          ref={roadmapBodyRef}
+          className="roadmap-body"
+          onScroll={(event) => {
+            setRoadmapScrollTop(event.currentTarget.scrollTop);
+            setRoadmapViewportHeight(event.currentTarget.clientHeight);
+          }}
+        >
           {loading ? (
             <div className="empty-table">roadmap を読み込み中です</div>
           ) : roadmapRows.length === 0 ? (
             <div className="empty-table">条件に合う project / root item はありません</div>
           ) : (
-            roadmapRows.map((row) => {
+            <>
+              {roadmapVirtualWindow.topSpacerHeight > 0 ? (
+                <div
+                  className="virtual-scroll-spacer"
+                  style={{ height: `${roadmapVirtualWindow.topSpacerHeight}px` }}
+                  aria-hidden="true"
+                />
+              ) : null}
+              {visibleRoadmapRows.map((row) => {
               const layout = roadmapLayout.get(row.item.id);
               return (
                 <div
@@ -1865,7 +2254,15 @@ function RoadmapView(props: {
                   ) : null}
                 </div>
               );
-            })
+            })}
+              {roadmapVirtualWindow.bottomSpacerHeight > 0 ? (
+                <div
+                  className="virtual-scroll-spacer"
+                  style={{ height: `${roadmapVirtualWindow.bottomSpacerHeight}px` }}
+                  aria-hidden="true"
+                />
+              ) : null}
+            </>
           )}
         </div>
       </section>
@@ -2558,6 +2955,41 @@ function formatDateRange(item: ItemRecord): string {
 
 function normalizeDateInput(value: string | null): string {
   return value ? value.slice(0, 10) : "";
+}
+
+function formatBackupCreatedAt(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ja-JP", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatBackupSize(sizeBytes: number): string {
+  if (sizeBytes < 1024) {
+    return `${sizeBytes} B`;
+  }
+  if (sizeBytes < 1024 * 1024) {
+    return `${(sizeBytes / 1024).toFixed(1)} KB`;
+  }
+  return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function getBackupKindLabel(fileName: string): "manual" | "auto" | "safety" {
+  if (fileName.startsWith("sgc-auto-backup-")) {
+    return "auto";
+  }
+  if (fileName.startsWith("sgc-safety-backup-")) {
+    return "safety";
+  }
+  return "manual";
 }
 
 function makeProjectRoadmapItem(project: ProjectSummary): ItemRecord | null {

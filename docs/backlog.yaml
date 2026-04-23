@@ -160,32 +160,38 @@ epics:
   - id: EPIC-07
     name: Templates and recurrence
     priority: P2
-    status: todo
+    status: done
     tasks:
       - id: TASK-0701
         title: Add recurrence rule model
-        status: todo
+        status: done
       - id: TASK-0702
         title: Generate recurring tasks
-        status: todo
+        status: done
       - id: TASK-0703
         title: Save and apply WBS template
-        status: todo
+        status: done
+      - id: TASK-0704
+        title: Create project from template
+        status: done
 
   - id: EPIC-08
     name: Hardening
     priority: P2
-    status: in_progress
+    status: done
     tasks:
       - id: TASK-0801
         title: Implement local backup and restore
-        status: todo
+        status: done
       - id: TASK-0802
         title: Optimize large list rendering
-        status: todo
+        status: done
       - id: TASK-0803
         title: Improve accessibility and keyboard control
-        status: in_progress
+        status: done
       - id: TASK-0804
         title: Add installer pipeline
-        status: todo
+        status: done
+      - id: TASK-0805
+        title: Add recovery prompt on database anomaly
+        status: done

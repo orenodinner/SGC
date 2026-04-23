@@ -3,15 +3,29 @@ import { app, BrowserWindow } from "electron";
 import { DatabaseManager } from "../infra/db/database";
 import { registerIpcHandlers } from "./ipc";
 import { WorkspaceService } from "./services/workspace-service";
+import { createNormalStartupContext, createRecoveryStartupContext } from "./startup-context";
 
 let mainWindow: BrowserWindow | null = null;
 
 async function bootstrap(): Promise<void> {
-  const dataDir = path.join(app.getPath("userData"), "data");
+  const userDataPath = process.env.SGC_USER_DATA_DIR || app.getPath("userData");
+  const dataDir = path.join(userDataPath, "data");
   const dbPath = path.join(dataDir, "sgc.sqlite");
-  const database = new DatabaseManager(dbPath);
-  await database.initialize();
-  registerIpcHandlers(new WorkspaceService(database));
+  let service: WorkspaceService | null = null;
+  let startupContext = createNormalStartupContext();
+
+  try {
+    const database = new DatabaseManager(dbPath);
+    await database.initialize();
+    service = new WorkspaceService(database);
+  } catch (error) {
+    startupContext = createRecoveryStartupContext({
+      dbPath,
+      error,
+    });
+  }
+
+  registerIpcHandlers(service, startupContext, dbPath);
 
   mainWindow = new BrowserWindow({
     width: 1460,

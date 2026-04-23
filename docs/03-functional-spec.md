@@ -85,6 +85,13 @@
 - 右クリックの最小コンテキストメニュー
 - detail drawer から selected item の dependency を追加 / 削除
 
+#### 初期 performance ルール
+- Project Detail の WBS / timeline は同じ visible row window を共有する
+- 初期 virtualization は Project Detail の行描画だけを対象にし、Portfolio / Roadmap には広げない
+- 初期 virtualization は fixed row height を前提にし、WBS row と timeline row の縦サイズを揃える
+- scroll 高さは top / bottom spacer で維持し、visible row の前後には overscan row を含める
+- 展開 / 折りたたみ / 選択 / timeline focus は virtualization 後も row identity を保持する
+
 ### FS-004 Portfolio
 目的: 複数大規模案件の横断把握
 
@@ -149,6 +156,9 @@
 - root-level `group` row には展開ボタンを置き、必要時に dated descendant を開ける
 - dated descendant を持つ undated group は context row として残してよい
 - 深いタスクは初期表示では閉じ、明示展開時のみ表示する
+- 初期 roadmap virtualization は row body のみを対象にし、quarter header / month header は常時描画する
+- 初期 roadmap virtualization は fixed row height を前提にし、scroll 高さは top / bottom spacer で維持する
+- 初期 roadmap virtualization は filter / expand / project open の挙動を変えず、visible row の前後には overscan row を含める
 
 ### FS-006 Search / Filter Drawer
 目的: 今見たい範囲に絞る
@@ -184,10 +194,10 @@
 - 初期 preview panel では `action=update` row に限って差分比較を開ける
 - 差分比較は field ごとの before / after を inline 表示し、初期実装では canonical `Tasks` の主要編集列だけを対象にする
 - browser fallback では file picker から `.xlsx` を選んで preview を出し、そのまま current project へ commit できる
-- browser fallback の preview panel では `DependsOn` は preview/validation のみで apply 時は反映しないことを明示する
 - browser fallback の初期 import は SGC export が出す store-only workbook を主対象とする
 - browser fallback の初期 commit は preview 済み workbook を browser memory 上の current project へ apply する
-- browser fallback の初期 commit は canonical `Tasks` の基本編集列と `Tags / ParentRecordId` までを対象とし、`DependsOn` は apply しない
+- browser fallback の initial commit では preview を通過した `DependsOn` も current project に対して apply する
+- browser fallback の `DependsOn` apply は current project の既知 item ID と同一 workbook 内の `tmp_*` temporary ID を解決できる範囲に限定する
 - 初期 commit は Project Detail で開いている current project に対してのみ適用する
 - current project import では `ProjectCode / ProjectName` が現在の import target と一致しない row を error として隔離する
 - 初期 preview では `DependsOn` の token 形式と参照先妥当性だけを検証し、current project 外参照 / 自己参照 / 不明 ID を error として隔離する
@@ -216,6 +226,59 @@
 - 既定表示
 - 自動バックアップ設定
 - Excel テンプレート既定値
+- 初期 hardening では settings 画面より先に `Backup now` を sidebar utility として提供する
+- `Backup now` は現在の SQLite DB を timestamp 付きローカル backup ファイルとして保存する
+- 初期 backup UI では recent backups を新しい順に表示する
+- 初期 restore slice では recent backup から read-only restore preview を開ける
+- restore preview では `file name / created at / size / project count / item count / latest updatedAt` を表示する
+- restore preview は backup snapshot を読むだけで、current DB にはまだ変更を加えない
+- 初期 restore apply slice では preview 中の backup に対して confirm 後に restore を実行できる
+- desktop restore は apply 前に current DB の safety backup を自動作成する
+- restore apply 後は app state を再読込し、restored backup の内容を current state に反映する
+- browser fallback では desktop の SQLite file copy の代わりに in-memory snapshot を restore する
+- 初期 auto backup slice では app bootstrap 時に local day あたり1回だけ `sgc-auto-backup-*` を自動作成する
+- auto backup の retention は `sgc-auto-backup-*` 系列にだけ適用し、最新7件を超えた古い auto backup を削除する
+- manual backup (`sgc-backup-*`) と safety backup (`sgc-safety-backup-*`) はこの retention では削除しない
+- 初期 recovery prompt slice では DB 初期化や bootstrap 失敗を検知した場合でも app window 自体は開き、通常 workspace の代わりに recovery screen を表示する
+- recovery screen では startup error message と recent backups を表示し、backup preview を経由した restore を許可する
+- recovery screen から restore を実行する場合も desktop では apply 前に current DB file の safety backup を自動作成する
+- recovery screen からの restore 成功後は current session を再初期化し、通常 workspace へ戻す
+- recovery mode 中は project/item の通常操作を無効化し、recent backup の確認と復旧導線を優先する
+
+### FS-009 Templates and Recurrence
+目的: 定型タスク生成の元データを保持する
+
+- 初期 recurrence model は item 単位で 1 rule を保持する
+- 初期 recurrence model は raw `rrule_text` と `next_occurrence_at` を永続化する
+- 初期 recurrence model は task item のみを対象にし、group / milestone には保存しない
+- recurrence rule を保存した item は `isRecurring=true` に同期する
+- recurrence rule を削除した item は `isRecurring=false` に戻る
+- 初期 recurring generation は recurring task が `done` へ遷移した時だけ発火する
+- 初期 recurring generation は rule の `next_occurrence_at` を次の occurrence の開始日として 1件だけ生成する
+- 初期 recurring generation で作られる occurrence は元 task の `title / note / priority / assignee / tags / estimate_hours / duration_days` を引き継ぎ、`status=not_started`, `percentComplete=0`, `completedAt=null` に戻す
+- 初期 recurring generation では recurrence rule を完了済み occurrence から新しい occurrence へ移し、古い item の `isRecurring` は false、新しい item の `isRecurring` は true にする
+- 初期 recurring generation の rule advance は `FREQ=WEEKLY`, `FREQ=MONTHLY`, `FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR` のみに対応する
+- unsupported な `rrule_text` は永続化はするが、この slice では occurrence 自動生成を行わない
+- 初期 WBS template は selected root item 1件とその非 archived descendants を subtree ごとに保存する
+- 初期 WBS template の保存対象フィールドは `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` とする
+- 初期 WBS template は hierarchy だけを保存し、`status / percentComplete / actualHours / startDate / endDate / dueDate / dependency / recurrence` は保存しない
+- 初期 WBS template の保存対象 root は project 内 item に限定し、保存時には root item の title を既定 template 名に使ってよい
+- 初期 WBS template は `kind=wbs` のみを扱う
+- 初期 WBS template apply は saved template を target project の root 直下へ subtree として末尾追加する
+- 初期 WBS template apply は `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` だけを復元する
+- 初期 WBS template apply で作られる item は `status=not_started`, `percentComplete=0`, `actualHours=0`, `completedAt=null`, `isScheduled=false`, `isRecurring=false` とする
+- 初期 WBS template apply では `startDate / endDate / dueDate / dependency / recurrence` は復元しない
+- 初期 project template save は selected project 1件とその非 archived root item / descendants を `kind=project` template として保存する
+- 初期 project template save の project-level 保存対象は `name / description / ownerName / priority / color` に限定する
+- 初期 project template save の item-level 保存対象は WBS template と同じく `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` に限定する
+- 初期 project template save では `code / status / startDate / endDate / targetDate / progressCached / riskLevel / dependency / recurrence` は保存しない
+- 初期 project template apply は saved `kind=project` template から新しい project を1件作成する
+- 初期 project template apply の project-level 復元対象は `name / description / ownerName / priority / color` に限定する
+- 初期 project template apply で生成される project の `code` は新規採番し、`status=not_started`, `startDate=null`, `endDate=null`, `targetDate=null`, `progressCached=0`, `riskLevel=normal` とする
+- 初期 project template apply では saved root item / descendants を新しい project の root subtree として復元する
+- 初期 project template apply の item-level 復元対象は `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` に限定する
+- 初期 project template apply で生成される item は `status=not_started`, `percentComplete=0`, `actualHours=0`, `completedAt=null`, `isScheduled=false`, `isRecurring=false` とする
+- 初期 project template apply では `startDate / endDate / dueDate / dependency / recurrence` は復元しない
 
 ## 3.3 ドメインルール
 
@@ -250,7 +313,9 @@
 - 既定の working day は月〜金で、土日をまたぐ自動シフトは次の稼働日へ送る
 - reschedule scope dialog の keyboard 初期対応では、開いた時点で既定選択の `with_descendants` へ focus する
 - dialog 内では `ArrowLeft/ArrowRight` で scope 候補を移動し、`Enter` または `Space` で現在候補を確定する
+- dialog 内では `Tab / Shift+Tab` で既存 focusable 要素の間を循環し、背景へ focus を逃がさない
 - `Escape` では reschedule scope dialog を閉じ、変更は適用しない
+- `Escape` または scope 確定で dialog が閉じた後は、開く前に focus していた timeline item へ focus を戻す
 
 ### Dependency Type
 - MVP は `finish_to_start` のみ
@@ -268,6 +333,7 @@
 - 初期 keyboard timeline edit は focused bar / marker に対して `Alt+Left/Right` で移動、`Alt+Shift+Left/Right` で右端リサイズを提供する
 - focused timeline bar / marker では `ArrowUp/ArrowDown` で前後の visible timeline item へ focus を移動できる
 - milestone は keyboard move のみを対象とし、keyboard resize は task / group の bar に限定する
+- reschedule scope dialog を timeline keyboard move から開いた場合、close 後の focus restore は同じ item の bar / marker を優先する
 
 ## 3.4 ロールアップ
 

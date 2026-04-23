@@ -5,7 +5,7 @@ const reactHooks = require("eslint-plugin-react-hooks");
 
 module.exports = tseslint.config(
   {
-    ignores: ["dist/**", "dist-electron/**", "node_modules/**", "eslint.config.js"],
+    ignores: ["dist/**", "dist-electron/**", "artifacts/**", "node_modules/**", "eslint.config.js"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

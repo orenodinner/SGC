@@ -35,6 +35,10 @@
 - Test: `powershell -ExecutionPolicy Bypass -File scripts/test.ps1`
 - Build: `powershell -ExecutionPolicy Bypass -File scripts/build.ps1`
 
+`build.ps1` の初期 installer slice は Windows 向け portable artifact を生成する。  
+出力先は `artifacts/` 配下で、version 付き staging folder と `.zip` を残す。  
+生成物には bundled Electron runtime、`dist/`、`dist-electron/`、必要最小限の runtime `node_modules/`、`Launch SGC.cmd` を含める。
+
 ## 11.5 レビュー運用
 - 変更後は review pane で差分確認
 - 問題があれば inline comment を残し、その後 thread に「inline comments を解消して scope を最小に」と投げる

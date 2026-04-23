@@ -8,6 +8,7 @@ import {
   startOfDay,
   startOfWeek,
 } from "date-fns";
+import { wouldCreateDependencyCycle } from "../../domain/dependency-graph";
 import {
   buildProjectImportPreview,
   parseProjectImportTasksRows,
@@ -16,8 +17,22 @@ import { itemStatusSchema, itemTypeSchema, prioritySchema } from "../../shared/c
 import { exportProjectWorkbookXlsx } from "../../infra/excel/project-workbook-export";
 import { normalizeProjectItems } from "../../domain/project-tree";
 import { parseQuickCapture } from "../../domain/quick-capture";
+import {
+  advanceRecurrenceNextOccurrenceAt,
+  deriveRecurringOccurrenceEndDate,
+} from "../../domain/recurrence";
+import { buildProjectTemplateBody } from "../../domain/project-template";
+import {
+  buildTemplateApplyNodes,
+  buildWbsTemplateApplyNodes,
+  buildWbsTemplateBody,
+} from "../../domain/wbs-template";
 import { addWorkingDays } from "../../domain/working-days";
 import type {
+  BackupAutoResult,
+  ApplyProjectTemplateInput,
+  BackupEntry,
+  BackupPreview,
   CreateDependencyInput,
   CreateItemInput,
   DependencyRecord,
@@ -33,7 +48,12 @@ import type {
   PortfolioSummary,
   ProjectSummary,
   QuickCaptureInput,
+  RecurrenceRule,
+  SaveProjectTemplateInput,
+  SaveWbsTemplateInput,
+  TemplateRecord,
   RendererApi,
+  UpsertRecurrenceRuleInput,
   UpdateItemInput,
   UpdateProjectInput,
 } from "../../shared/contracts";
@@ -44,7 +64,12 @@ const INBOX_PROJECT_NAME = "Inbox";
 const memory = {
   projects: [] as ProjectSummary[],
   items: [] as ItemRecord[],
+  dependencies: [] as DependencyRecord[],
+  templates: [] as TemplateRecord[],
+  recurrenceRules: [] as RecurrenceRule[],
+  backups: [] as BackupEntry[],
 };
+const browserBackupSnapshots = new Map<string, BrowserBackupSnapshot>();
 const browserImportSessions = new Map<string, BrowserImportSession>();
 
 export const browserApi: RendererApi = {
@@ -77,6 +102,58 @@ export const browserApi: RendererApi = {
           return date >= weekStart && date <= weekEnd;
         }),
         recentProjects: listUserProjects().slice(0, 5),
+      };
+    },
+  },
+  system: {
+    async getStartupContext() {
+      return {
+        mode: "normal",
+      } as const;
+    },
+  },
+  backups: {
+    async list(): Promise<BackupEntry[]> {
+      return [...memory.backups];
+    },
+    async create(): Promise<BackupEntry> {
+      return createBrowserBackupSnapshot({ triggerDownload: true, kind: "manual" });
+    },
+    async ensureAuto(): Promise<BackupAutoResult> {
+      return ensureBrowserAutoBackup();
+    },
+    async preview(entry: BackupEntry): Promise<BackupPreview> {
+      const snapshot = browserBackupSnapshots.get(buildBrowserBackupSnapshotKey(entry));
+      if (!snapshot) {
+        throw new Error("Backup snapshot not found in browser mode");
+      }
+
+      return {
+        ...entry,
+        projectCount: snapshot.projects.filter(
+          (project) => !project.archived && project.code !== INBOX_PROJECT_CODE
+        ).length,
+        itemCount: snapshot.items.filter((item) => !item.archived).length,
+        latestUpdatedAt: getLatestUpdatedAt(snapshot.projects, snapshot.items),
+      };
+    },
+    async restore(entry: BackupEntry) {
+      const snapshot = browserBackupSnapshots.get(buildBrowserBackupSnapshotKey(entry));
+      if (!snapshot) {
+        throw new Error("Backup snapshot not found in browser mode");
+      }
+
+      const safetyBackup = createBrowserBackupSnapshot({ triggerDownload: false, kind: "safety" });
+      const clonedSnapshot = cloneBrowserBackupSnapshot(snapshot);
+      memory.projects = clonedSnapshot.projects;
+      memory.items = clonedSnapshot.items;
+      memory.dependencies = clonedSnapshot.dependencies;
+      memory.templates = clonedSnapshot.templates;
+      memory.recurrenceRules = clonedSnapshot.recurrenceRules;
+
+      return {
+        restoredBackup: entry,
+        safetyBackup,
       };
     },
   },
@@ -168,7 +245,7 @@ export const browserApi: RendererApi = {
   dependencies: {
     async listByProject(projectId: string): Promise<DependencyRecord[]> {
       requireProject(projectId);
-      return [];
+      return memory.dependencies.filter((dependency) => dependency.projectId === projectId);
     },
     async create(input: CreateDependencyInput): Promise<DependencyRecord> {
       void input;
@@ -177,6 +254,170 @@ export const browserApi: RendererApi = {
     async delete(dependencyId: string): Promise<void> {
       void dependencyId;
       throw new Error("Dependency API is not available in browser mode");
+    },
+  },
+  templates: {
+    async list(): Promise<TemplateRecord[]> {
+      return [...memory.templates].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    },
+    async saveWbs(input: SaveWbsTemplateInput): Promise<TemplateRecord> {
+      const rootItem = requireItem(input.rootItemId);
+      if (rootItem.archived) {
+        throw new Error("Archived items cannot be saved as template");
+      }
+
+      const now = new Date().toISOString();
+      const template: TemplateRecord = {
+        id: crypto.randomUUID(),
+        workspaceId: rootItem.workspaceId,
+        kind: "wbs",
+        name: input.name?.trim() || rootItem.title,
+        body: buildWbsTemplateBody({
+          items: memory.items.filter(
+            (item) => item.projectId === rootItem.projectId && !item.archived
+          ),
+          rootItemId: rootItem.id,
+          sourceProjectId: rootItem.projectId,
+        }),
+        createdAt: now,
+        updatedAt: now,
+      };
+      memory.templates = [template, ...memory.templates];
+      return template;
+    },
+      async saveProject(input: SaveProjectTemplateInput): Promise<TemplateRecord> {
+        const project = requireProject(input.projectId);
+        if (project.archived) {
+          throw new Error("Archived projects cannot be saved as template");
+        }
+
+      const now = new Date().toISOString();
+      const template: TemplateRecord = {
+        id: crypto.randomUUID(),
+        workspaceId: project.workspaceId,
+        kind: "project",
+        name: input.name?.trim() || project.name,
+        body: buildProjectTemplateBody({
+          project,
+          items: memory.items.filter((item) => item.projectId === project.id && !item.archived),
+        }),
+        createdAt: now,
+        updatedAt: now,
+      };
+        memory.templates = [template, ...memory.templates];
+        return template;
+      },
+      async applyProject(input: ApplyProjectTemplateInput) {
+        const template = memory.templates.find((entry) => entry.id === input.templateId);
+        if (!template || template.kind !== "project") {
+          throw new Error(`Template not found: ${input.templateId}`);
+        }
+
+        const now = new Date().toISOString();
+        const project: ProjectSummary = {
+          id: crypto.randomUUID(),
+          workspaceId: template.workspaceId,
+          code: `PRJ-${String(listUserProjects().length + 1).padStart(3, "0")}`,
+          name: template.body.projectFields.name,
+          description: template.body.projectFields.description,
+          ownerName: template.body.projectFields.ownerName,
+          status: "not_started",
+          priority: template.body.projectFields.priority,
+          color: template.body.projectFields.color,
+          startDate: null,
+          endDate: null,
+          targetDate: null,
+          progressCached: 0,
+          riskLevel: "normal",
+          archived: false,
+          createdAt: now,
+          updatedAt: now,
+        };
+        memory.projects.unshift(project);
+
+        const createdItems = insertTemplateNodesIntoBrowserProject({
+          projectId: project.id,
+          workspaceId: project.workspaceId,
+          orderedNodes: buildTemplateApplyNodes(template.body.templateItems),
+          now,
+          projectName: project.name,
+        });
+
+        if (createdItems.length > 0) {
+          rebalanceProject(project.id);
+        }
+
+        return {
+          project: requireProject(project.id),
+          items: memory.items.filter((item) => item.projectId === project.id && !item.archived),
+        };
+      },
+      async applyWbs(input) {
+        const project = requireProject(input.projectId);
+        const template = memory.templates.find((entry) => entry.id === input.templateId);
+        if (!template || template.kind !== "wbs") {
+          throw new Error(`Template not found: ${input.templateId}`);
+      }
+
+      const orderedNodes = buildWbsTemplateApplyNodes(template.body);
+      if (orderedNodes.length === 0) {
+        throw new Error(`Template has no nodes: ${input.templateId}`);
+      }
+
+        const now = new Date().toISOString();
+        const createdItems = insertTemplateNodesIntoBrowserProject({
+          projectId: project.id,
+          workspaceId: project.workspaceId,
+          orderedNodes,
+          now,
+          projectName: project.name,
+        });
+
+        rebalanceProject(project.id);
+        return createdItems.map((item) => requireItem(item.id));
+      },
+  },
+  recurrenceRules: {
+    async getByItem(itemId: string): Promise<RecurrenceRule | null> {
+      const item = requireItem(itemId);
+      if (item.archived) {
+        return null;
+      }
+      return memory.recurrenceRules.find((rule) => rule.itemId === itemId) ?? null;
+    },
+    async upsert(input: UpsertRecurrenceRuleInput): Promise<RecurrenceRule> {
+      const item = requireItem(input.itemId);
+      if (item.archived) {
+        throw new Error("Recurrence rules cannot be attached to archived items");
+      }
+      if (item.type !== "task") {
+        throw new Error("Recurrence rules are supported for task items only");
+      }
+
+      const now = new Date().toISOString();
+      const existing = memory.recurrenceRules.find((rule) => rule.itemId === input.itemId);
+      const nextRule: RecurrenceRule = {
+        id: existing?.id ?? crypto.randomUUID(),
+        itemId: input.itemId,
+        rruleText: input.rruleText,
+        nextOccurrenceAt: input.nextOccurrenceAt ?? null,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+
+      memory.recurrenceRules = [
+        ...memory.recurrenceRules.filter((rule) => rule.itemId !== input.itemId),
+        nextRule,
+      ];
+      item.isRecurring = true;
+      item.updatedAt = now;
+      return nextRule;
+    },
+    async deleteByItem(itemId: string): Promise<void> {
+      const item = requireItem(itemId);
+      memory.recurrenceRules = memory.recurrenceRules.filter((rule) => rule.itemId !== itemId);
+      item.isRecurring = false;
+      item.updatedAt = new Date().toISOString();
     },
   },
   projects: {
@@ -236,11 +477,11 @@ export const browserApi: RendererApi = {
       return buildProjectImportPreview({
         project,
         sourcePath: null,
-        supportsDependencyImport: false,
+        supportsDependencyImport: true,
         workbookBytes: selection.workbookBytes,
         items: memory.items.filter((item) => !item.archived),
         projects: memory.projects.filter((entry) => !entry.archived),
-        dependencies: [],
+        dependencies: memory.dependencies.filter((dependency) => dependency.projectId === project.id),
       });
     },
     async commitImport(
@@ -257,16 +498,23 @@ export const browserApi: RendererApi = {
       const preview = buildProjectImportPreview({
         project,
         sourcePath: null,
-        supportsDependencyImport: false,
+        supportsDependencyImport: true,
         workbookBytes: session.workbookBytes,
         items: memory.items.filter((item) => !item.archived),
         projects: memory.projects.filter((entry) => !entry.archived),
-        dependencies: [],
+        dependencies: memory.dependencies.filter((dependency) => dependency.projectId === project.id),
       });
       const rows = parseProjectImportTasksRows(session.workbookBytes);
       const previewRowsByNumber = new Map(preview.rows.map((row) => [row.rowNumber, row]));
       const projectItems = memory.items.filter((item) => item.projectId === projectId && !item.archived);
       const itemsById = new Map(projectItems.map((item) => [item.id, item]));
+      const currentProjectExistingIds = new Set(projectItems.map((item) => item.id));
+      const workbookTemporaryRecordIdToItemId = new Map<string, string>();
+      const desiredDependenciesBySuccessor = new Map<
+        string,
+        Array<{ predecessorItemId: string; lagDays: number }>
+      >();
+      const importedDependsOnBySuccessor = new Map<string, string>();
       const now = new Date().toISOString();
       let createdCount = 0;
       let updatedCount = 0;
@@ -296,6 +544,7 @@ export const browserApi: RendererApi = {
           Object.assign(existing, nextItem);
           existing.tags = parseImportedTagNames(row.Tags);
           itemsById.set(existing.id, existing);
+          importedDependsOnBySuccessor.set(existing.id, row.DependsOn);
           updatedCount += 1;
           continue;
         }
@@ -312,8 +561,30 @@ export const browserApi: RendererApi = {
         });
         memory.items.push(inserted);
         itemsById.set(inserted.id, inserted);
+        importedDependsOnBySuccessor.set(inserted.id, row.DependsOn);
+        if (isWorkbookTemporaryRecordId(row.RecordId.trim())) {
+          workbookTemporaryRecordIdToItemId.set(row.RecordId.trim(), inserted.id);
+        }
         createdCount += 1;
       }
+
+      for (const [successorItemId, dependsOnValue] of importedDependsOnBySuccessor.entries()) {
+        desiredDependenciesBySuccessor.set(
+          successorItemId,
+          parseImportedDependsOn(dependsOnValue, (recordId) => {
+            if (currentProjectExistingIds.has(recordId)) {
+              return recordId;
+            }
+            return workbookTemporaryRecordIdToItemId.get(recordId) ?? null;
+          })
+        );
+      }
+
+      replaceImportedDependencies({
+        projectId,
+        desiredDependenciesBySuccessor,
+        updatedAt: now,
+      });
 
       if (createdCount > 0 || updatedCount > 0) {
         rebalanceProject(projectId);
@@ -333,7 +604,7 @@ export const browserApi: RendererApi = {
       const bytes = exportProjectWorkbookXlsx({
         project,
         items,
-        dependencies: [],
+        dependencies: memory.dependencies.filter((dependency) => dependency.projectId === projectId),
       });
       const browserBytes = new Uint8Array(Array.from(bytes));
       const blob = new Blob([browserBytes], {
@@ -395,6 +666,7 @@ export const browserApi: RendererApi = {
     async update(input: UpdateItemInput) {
       const item = requireItem(input.id);
       const previousProjectId = item.projectId;
+      const previousStatus = item.status;
       const projectItems = memory.items.filter((entry) => entry.projectId === item.projectId && !entry.archived);
       const itemStateById = new Map(projectItems.map((entry) => [entry.id, entry]));
       const rescheduleDeltaDays =
@@ -438,6 +710,9 @@ export const browserApi: RendererApi = {
       if (input.endDate !== undefined) {
         item.endDate = input.endDate;
       }
+      if (input.estimateHours !== undefined) {
+        item.estimateHours = input.estimateHours;
+      }
       if (input.assigneeName !== undefined) {
         item.assigneeName = input.assigneeName;
       }
@@ -451,6 +726,7 @@ export const browserApi: RendererApi = {
       item.updatedAt = new Date().toISOString();
       item.completedAt = item.status === "done" ? item.completedAt ?? item.updatedAt : null;
       item.isScheduled = Boolean(item.startDate && item.endDate);
+      item.durationDays = deriveDurationDays(item.startDate, item.endDate);
       itemStateById.set(item.id, item);
       for (const descendant of descendantItems) {
         applyShiftedDates(descendant, rescheduleDeltaDays, item.updatedAt);
@@ -460,10 +736,29 @@ export const browserApi: RendererApi = {
         applyDependentShift({
           itemsById: itemStateById,
           projectItems,
-          dependencies: [],
+          dependencies: memory.dependencies.filter((dependency) => dependency.projectId === item.projectId),
           changedRootIds: [item.id, ...descendantItems.map((entry) => entry.id)],
           updatedAt: item.updatedAt,
         });
+      }
+      const recurrenceRule =
+        previousStatus !== "done" && item.status === "done"
+          ? memory.recurrenceRules.find((rule) => rule.itemId === item.id) ?? null
+          : null;
+      const recurringOccurrence = recurrenceRule
+        ? buildBrowserRecurringGeneration({
+            sourceItem: item,
+            recurrenceRule,
+            now: item.updatedAt,
+          })
+        : null;
+      if (recurringOccurrence) {
+        memory.items.push(recurringOccurrence.item);
+        memory.recurrenceRules = [
+          ...memory.recurrenceRules.filter((rule) => rule.itemId !== item.id),
+          recurringOccurrence.rule,
+        ];
+        item.isRecurring = false;
       }
       if (previousProjectId !== item.projectId) {
         rebalanceProject(previousProjectId);
@@ -567,6 +862,63 @@ export const browserApi: RendererApi = {
   },
 };
 
+function insertTemplateNodesIntoBrowserProject(input: {
+  projectId: string;
+  workspaceId: string;
+  orderedNodes: ReturnType<typeof buildTemplateApplyNodes>;
+  now: string;
+  projectName: string;
+}): ItemRecord[] {
+  const createdItems: ItemRecord[] = [];
+  const itemIdByNodeId = new Map<string, string>();
+  const nextSortOrderByParent = new Map<string | null, number>();
+
+  for (const node of input.orderedNodes) {
+    const parentId = node.parentNodeId ? itemIdByNodeId.get(node.parentNodeId) ?? null : null;
+    const nextSortOrder =
+      nextSortOrderByParent.get(parentId) ??
+      nextSiblingSortOrder(
+        memory.items.filter((entry) => entry.projectId === input.projectId && !entry.archived),
+        parentId
+      );
+    const item: ItemRecord = {
+      id: crypto.randomUUID(),
+      workspaceId: input.workspaceId,
+      projectId: input.projectId,
+      projectName: input.projectName,
+      parentId,
+      wbsCode: "",
+      title: node.title,
+      type: node.type,
+      note: node.note,
+      status: "not_started",
+      priority: node.priority,
+      assigneeName: node.assigneeName,
+      startDate: null,
+      endDate: null,
+      dueDate: null,
+      durationDays: node.durationDays,
+      percentComplete: 0,
+      estimateHours: node.estimateHours,
+      actualHours: 0,
+      sortOrder: nextSortOrder,
+      isScheduled: false,
+      isRecurring: false,
+      archived: false,
+      createdAt: input.now,
+      updatedAt: input.now,
+      completedAt: null,
+      tags: [...node.tags],
+    };
+    memory.items.push(item);
+    itemIdByNodeId.set(node.nodeId, item.id);
+    nextSortOrderByParent.set(parentId, nextSortOrder + 1);
+    createdItems.push(item);
+  }
+
+  return createdItems;
+}
+
 function rebalanceProject(projectId: string): void {
   const project = requireProject(projectId);
   const projectItems = memory.items.filter((item) => item.projectId === projectId && !item.archived);
@@ -611,6 +963,16 @@ interface BrowserImportSession {
   workbookBytes: Uint8Array;
 }
 
+type BrowserBackupKind = "manual" | "auto" | "safety";
+
+interface BrowserBackupSnapshot {
+  projects: ProjectSummary[];
+  items: ItemRecord[];
+  dependencies: DependencyRecord[];
+  templates: TemplateRecord[];
+  recurrenceRules: RecurrenceRule[];
+}
+
 interface BrowserFileHandleLike {
   getFile: () => Promise<File>;
 }
@@ -623,6 +985,137 @@ interface BrowserFilePickerWindow extends Window {
       accept: Record<string, string[]>;
     }>;
   }) => Promise<BrowserFileHandleLike[]>;
+}
+
+function buildBrowserBackupSnapshotKey(entry: BackupEntry): string {
+  return `${entry.fileName}::${entry.createdAt}`;
+}
+
+function createBrowserBackupSnapshot(input: {
+  triggerDownload: boolean;
+  kind: BrowserBackupKind;
+  createdAt?: string;
+}): BackupEntry {
+  const createdAt = input.createdAt ?? new Date().toISOString();
+  const fileName = `${getBrowserBackupFilePrefix(input.kind)}${createdAt
+    .replace(/[-:]/g, "")
+    .replace(/\.\d+Z$/u, "")
+    .replace("T", "-")}.json`;
+  const snapshot = cloneBrowserBackupSnapshot({
+    projects: memory.projects,
+    items: memory.items,
+    dependencies: memory.dependencies,
+    templates: memory.templates,
+    recurrenceRules: memory.recurrenceRules,
+  });
+  const payload = JSON.stringify(snapshot);
+
+  if (input.triggerDownload) {
+    const blob = new Blob([payload], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const entry: BackupEntry = {
+    filePath: null,
+    fileName,
+    createdAt,
+    sizeBytes: new TextEncoder().encode(payload).byteLength,
+  };
+  browserBackupSnapshots.set(buildBrowserBackupSnapshotKey(entry), snapshot);
+  memory.backups = [entry, ...memory.backups].sort((left, right) =>
+    right.createdAt.localeCompare(left.createdAt)
+  );
+  return entry;
+}
+
+function ensureBrowserAutoBackup(): BackupAutoResult {
+  const todayKey = formatBrowserLocalDateKey(new Date());
+  const hasAutoBackupToday = memory.backups.some(
+    (backup) =>
+      getBrowserBackupKind(backup.fileName) === "auto" &&
+      formatBrowserLocalDateKey(new Date(backup.createdAt)) === todayKey
+  );
+
+  const createdBackup = hasAutoBackupToday
+    ? null
+    : createBrowserBackupSnapshot({
+        triggerDownload: false,
+        kind: "auto",
+        createdAt: new Date().toISOString(),
+      });
+  const autoBackups = [...memory.backups].filter(
+    (backup) => getBrowserBackupKind(backup.fileName) === "auto"
+  );
+  const prunedEntries = autoBackups.slice(7);
+
+  for (const backup of prunedEntries) {
+    browserBackupSnapshots.delete(buildBrowserBackupSnapshotKey(backup));
+  }
+
+  if (prunedEntries.length > 0) {
+    const prunedKeys = new Set(prunedEntries.map((backup) => buildBrowserBackupSnapshotKey(backup)));
+    memory.backups = memory.backups.filter(
+      (backup) => !prunedKeys.has(buildBrowserBackupSnapshotKey(backup))
+    );
+  }
+
+  return {
+    createdBackup,
+    prunedFileNames: prunedEntries.map((backup) => backup.fileName),
+    retentionLimit: 7,
+  };
+}
+
+function cloneBrowserBackupSnapshot(snapshot: BrowserBackupSnapshot): BrowserBackupSnapshot {
+  return JSON.parse(JSON.stringify(snapshot)) as BrowserBackupSnapshot;
+}
+
+function getBrowserBackupFilePrefix(kind: BrowserBackupKind): string {
+  switch (kind) {
+    case "auto":
+      return "sgc-auto-backup-";
+    case "safety":
+      return "sgc-safety-backup-";
+    default:
+      return "sgc-backup-";
+  }
+}
+
+function getBrowserBackupKind(fileName: string): BrowserBackupKind {
+  if (fileName.startsWith("sgc-auto-backup-")) {
+    return "auto";
+  }
+  if (fileName.startsWith("sgc-safety-backup-")) {
+    return "safety";
+  }
+  return "manual";
+}
+
+function formatBrowserLocalDateKey(date: Date): string {
+  const year = String(date.getFullYear());
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getLatestUpdatedAt(
+  projects: ProjectSummary[],
+  items: ItemRecord[]
+): string | null {
+  const latestProjectUpdatedAt = projects.reduce<string | null>(
+    (current, project) =>
+      !current || project.updatedAt > current ? project.updatedAt : current,
+    null
+  );
+  return items.reduce<string | null>(
+    (current, item) => (!current || item.updatedAt > current ? item.updatedAt : current),
+    latestProjectUpdatedAt
+  );
 }
 
 async function pickBrowserWorkbookFile(): Promise<BrowserWorkbookSelection | null> {
@@ -850,6 +1343,178 @@ function parseImportedTagNames(value: string): string[] {
     .filter(Boolean);
 }
 
+function parseImportedDependsOn(
+  value: string,
+  resolveRecordId: (recordId: string) => string | null
+): Array<{ predecessorItemId: string; lagDays: number }> {
+  return value
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .map((token) => parseImportedDependencyToken(token, resolveRecordId))
+    .filter((reference): reference is { predecessorItemId: string; lagDays: number } => Boolean(reference));
+}
+
+function parseImportedDependencyToken(
+  token: string,
+  resolveRecordId: (recordId: string) => string | null
+): { predecessorItemId: string; lagDays: number } | null {
+  const directRecordId = resolveRecordId(token);
+  if (directRecordId) {
+    return {
+      predecessorItemId: directRecordId,
+      lagDays: 0,
+    };
+  }
+
+  const match = token.match(/^(?<recordId>.+?)(?<lag>[+-]\d+)$/u);
+  if (!match?.groups) {
+    return null;
+  }
+
+  const resolvedRecordId = resolveRecordId(match.groups.recordId.trim());
+  if (!resolvedRecordId) {
+    return null;
+  }
+
+  return {
+    predecessorItemId: resolvedRecordId,
+    lagDays: Number(match.groups.lag),
+  };
+}
+
+function isWorkbookTemporaryRecordId(recordId: string): boolean {
+  return /^tmp_/u.test(recordId);
+}
+
+function buildBrowserRecurringGeneration(input: {
+  sourceItem: ItemRecord;
+  recurrenceRule: RecurrenceRule;
+  now: string;
+}): { item: ItemRecord; rule: RecurrenceRule } | null {
+  if (
+    input.sourceItem.type !== "task" ||
+    !input.sourceItem.startDate ||
+    !input.sourceItem.endDate ||
+    !input.recurrenceRule.nextOccurrenceAt
+  ) {
+    return null;
+  }
+
+  const nextOccurrenceStartDate = input.recurrenceRule.nextOccurrenceAt;
+  const generatedItemId = crypto.randomUUID();
+  const nextProject = requireProject(input.sourceItem.projectId);
+  const recurringDurationDays = deriveDurationDays(
+    input.sourceItem.startDate,
+    input.sourceItem.endDate
+  );
+  const nextOccurrenceEndDate = deriveRecurringOccurrenceEndDate(
+    nextOccurrenceStartDate,
+    recurringDurationDays
+  );
+
+  return {
+    item: {
+      ...input.sourceItem,
+      id: generatedItemId,
+      projectName: nextProject.name,
+      status: "not_started",
+      percentComplete: 0,
+      actualHours: 0,
+      startDate: nextOccurrenceStartDate,
+      endDate: nextOccurrenceEndDate,
+      dueDate: nextOccurrenceEndDate,
+      isScheduled: true,
+      isRecurring: true,
+      durationDays: recurringDurationDays,
+      sortOrder: nextSiblingSortOrder(
+        memory.items.filter(
+          (entry) =>
+            entry.projectId === input.sourceItem.projectId &&
+            entry.parentId === input.sourceItem.parentId &&
+            !entry.archived
+        ),
+        input.sourceItem.parentId
+      ),
+      createdAt: input.now,
+      updatedAt: input.now,
+      completedAt: null,
+    },
+    rule: {
+      ...input.recurrenceRule,
+      itemId: generatedItemId,
+      nextOccurrenceAt: advanceRecurrenceNextOccurrenceAt(
+        input.recurrenceRule.rruleText,
+        nextOccurrenceStartDate
+      ),
+      updatedAt: input.now,
+    },
+  };
+}
+
+function replaceImportedDependencies(input: {
+  projectId: string;
+  desiredDependenciesBySuccessor: Map<string, Array<{ predecessorItemId: string; lagDays: number }>>;
+  updatedAt: string;
+}): void {
+  const successorItemIds = [...input.desiredDependenciesBySuccessor.keys()];
+  if (successorItemIds.length === 0) {
+    return;
+  }
+
+  const currentDependencies = memory.dependencies.filter(
+    (dependency) => dependency.projectId === input.projectId
+  );
+  const remainingDependencies = currentDependencies.filter(
+    (dependency) => !input.desiredDependenciesBySuccessor.has(dependency.successorItemId)
+  );
+  memory.dependencies = memory.dependencies.filter(
+    (dependency) =>
+      dependency.projectId !== input.projectId ||
+      !input.desiredDependenciesBySuccessor.has(dependency.successorItemId)
+  );
+
+  const nextDependencies = [...remainingDependencies];
+  for (const successorItemId of successorItemIds) {
+    const desiredDependencies = input.desiredDependenciesBySuccessor.get(successorItemId) ?? [];
+    for (const desiredDependency of desiredDependencies) {
+      if (
+        nextDependencies.some(
+          (dependency) =>
+            dependency.predecessorItemId === desiredDependency.predecessorItemId &&
+            dependency.successorItemId === successorItemId &&
+            dependency.type === "finish_to_start"
+        )
+      ) {
+        continue;
+      }
+
+      if (
+        wouldCreateDependencyCycle(
+          nextDependencies,
+          desiredDependency.predecessorItemId,
+          successorItemId
+        )
+      ) {
+        throw new Error("Imported dependency cycle is not allowed");
+      }
+
+      const dependency: DependencyRecord = {
+        id: crypto.randomUUID(),
+        projectId: input.projectId,
+        predecessorItemId: desiredDependency.predecessorItemId,
+        successorItemId,
+        type: "finish_to_start",
+        lagDays: desiredDependency.lagDays,
+        createdAt: input.updatedAt,
+        updatedAt: input.updatedAt,
+      };
+      memory.dependencies.push(dependency);
+      nextDependencies.push(dependency);
+    }
+  }
+}
+
 function resolveImportedParentId(
   parentRecordId: string,
   itemsById: Map<string, ItemRecord>
@@ -1033,8 +1698,7 @@ function deriveDurationDays(startDate: string | null, endDate: string | null): n
     return 1;
   }
 
-  const diff = endOfDay(parseISO(endDate)).getTime() - startOfDay(parseISO(startDate)).getTime();
-  return Math.max(Math.round(diff / (24 * 60 * 60 * 1000)) + 1, 1);
+  return Math.max(differenceInCalendarDays(parseISO(endDate), parseISO(startDate)) + 1, 1);
 }
 
 function getPostponeDate(target: PostponeTarget, now: Date): Date {

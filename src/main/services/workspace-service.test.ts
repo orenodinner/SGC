@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../../infra/db/database";
 import { EXCEL_TASKS_SHEET_COLUMNS } from "../../domain/excel-contract";
+import { deriveRecurringOccurrenceEndDate } from "../../domain/recurrence";
 import { exportWorkbookXlsx } from "../../infra/excel/xlsx-writer";
 import { readStoredZipEntries } from "../../test/zip-test-utils";
 import { buildRoundTripWorkbookFixture } from "../../test/excel-roundtrip-fixtures";
@@ -17,7 +18,7 @@ describe("WorkspaceService quick capture", () => {
 
   beforeEach(async () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-service-"));
-    dbPath = path.join(tempDir, "sgc.sqlite");
+    dbPath = path.join(tempDir, "data", "sgc.sqlite");
     manager = new DatabaseManager(dbPath);
     await manager.initialize();
     service = new WorkspaceService(manager);
@@ -222,6 +223,384 @@ describe("WorkspaceService quick capture", () => {
     });
   });
 
+  it("persists a recurrence rule per task item and syncs isRecurring", () => {
+    const project = service.createProject({
+      name: "繰り返し案件",
+      code: "PRJ-RRULE",
+    });
+    const task = service.createItem({
+      projectId: project.id,
+      title: "週次確認",
+      type: "task",
+    });
+
+    const created = service.upsertRecurrenceRule({
+      itemId: task.id,
+      rruleText: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+      nextOccurrenceAt: "2026-04-27",
+    });
+    const fetched = service.getRecurrenceRuleByItem(task.id);
+    const recurringItem = service.getProjectDetail(project.id).items.find((item) => item.id === task.id);
+
+    expect(created).toMatchObject({
+      itemId: task.id,
+      rruleText: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+      nextOccurrenceAt: "2026-04-27",
+    });
+    expect(fetched).toMatchObject({
+      id: created.id,
+      itemId: task.id,
+    });
+    expect(recurringItem?.isRecurring).toBe(true);
+
+    service.deleteRecurrenceRuleByItem(task.id);
+
+    const afterDelete = service.getRecurrenceRuleByItem(task.id);
+    const plainItem = service.getProjectDetail(project.id).items.find((item) => item.id === task.id);
+
+    expect(afterDelete).toBeNull();
+    expect(plainItem?.isRecurring).toBe(false);
+  });
+
+  it("rejects recurrence rules for group, milestone, and archived items", () => {
+    const project = service.createProject({
+      name: "繰り返し制約",
+      code: "PRJ-RRULE-INVALID",
+    });
+    const group = service.createItem({
+      projectId: project.id,
+      title: "親グループ",
+      type: "group",
+    });
+    const milestone = service.createItem({
+      projectId: project.id,
+      title: "月初締め",
+      type: "milestone",
+    });
+    const archivedTask = service.createItem({
+      projectId: project.id,
+      title: "アーカイブ済み",
+      type: "task",
+    });
+    service.archiveItem(archivedTask.id);
+
+    expect(() =>
+      service.upsertRecurrenceRule({
+        itemId: group.id,
+        rruleText: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+      })
+    ).toThrow("Recurrence rules are supported for task items only");
+    expect(() =>
+      service.upsertRecurrenceRule({
+        itemId: milestone.id,
+        rruleText: "FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1",
+      })
+    ).toThrow("Recurrence rules are supported for task items only");
+    expect(() =>
+      service.upsertRecurrenceRule({
+        itemId: archivedTask.id,
+        rruleText: "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR",
+      })
+    ).toThrow("Recurrence rules cannot be attached to archived items");
+  });
+
+  it("generates the next recurring occurrence when a recurring task is completed", () => {
+    const project = service.createProject({
+      name: "繰り返し生成案件",
+      code: "PRJ-RECUR-GEN",
+    });
+    const task = service.createItem({
+      projectId: project.id,
+      title: "週次レビュー",
+      type: "task",
+    });
+    service.updateItem({
+      id: task.id,
+      startDate: "2026-04-20",
+      endDate: "2026-04-22",
+      assigneeName: "田中",
+      note: "定例レビュー",
+      tags: ["週次", "会議"],
+    });
+    service.upsertRecurrenceRule({
+      itemId: task.id,
+      rruleText: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+      nextOccurrenceAt: "2026-04-27",
+    });
+
+    const completed = service.updateItem({
+      id: task.id,
+      status: "done",
+    });
+    const detail = service.getProjectDetail(project.id);
+    const generated = detail.items.find(
+      (item) => item.id !== task.id && item.title === "週次レビュー"
+    );
+    const movedRule = generated ? service.getRecurrenceRuleByItem(generated.id) : null;
+
+    expect(completed.status).toBe("done");
+    expect(completed.isRecurring).toBe(false);
+    expect(generated).toMatchObject({
+      status: "not_started",
+      percentComplete: 0,
+      startDate: "2026-04-27",
+      endDate: deriveRecurringOccurrenceEndDate("2026-04-27", completed.durationDays),
+      assigneeName: "田中",
+      note: "定例レビュー",
+      isRecurring: true,
+      completedAt: null,
+      tags: expect.arrayContaining(["週次", "会議"]),
+    });
+    expect(service.getRecurrenceRuleByItem(task.id)).toBeNull();
+    expect(movedRule).toMatchObject({
+      itemId: generated?.id,
+      nextOccurrenceAt: "2026-05-04",
+    });
+  });
+
+  it("saves a WBS template from a root subtree and excludes unrelated or archived items", () => {
+    const project = service.createProject({
+      name: "Template案件",
+      code: "PRJ-TPL",
+    });
+    const root = service.createItem({
+      projectId: project.id,
+      title: "実装フェーズ",
+      type: "group",
+    });
+    const child = service.createItem({
+      projectId: project.id,
+      parentId: root.id,
+      title: "API実装",
+      type: "task",
+    });
+    service.updateItem({
+      id: child.id,
+      note: "保存対象メモ",
+      assigneeName: "田中",
+      tags: ["backend", "api"],
+    });
+    const archivedDescendant = service.createItem({
+      projectId: project.id,
+      parentId: root.id,
+      title: "旧タスク",
+      type: "task",
+    });
+    service.archiveItem(archivedDescendant.id);
+    service.createItem({
+      projectId: project.id,
+      title: "無関係な sibling",
+      type: "task",
+    });
+
+    const saved = service.saveWbsTemplate({
+      rootItemId: root.id,
+    });
+    const templates = service.listTemplates();
+
+    expect(saved).toMatchObject({
+      kind: "wbs",
+      name: "実装フェーズ",
+    });
+    expect(saved.body).toMatchObject({
+      schemaVersion: 1,
+      sourceProjectId: project.id,
+      sourceRootItemId: root.id,
+      sourceRootTitle: "実装フェーズ",
+    });
+    expect(saved.body.templateItems).toHaveLength(2);
+    expect(saved.body.templateItems[0]).toMatchObject({
+      parentNodeId: null,
+      type: "group",
+      title: "実装フェーズ",
+    });
+    expect(saved.body.templateItems[1]).toMatchObject({
+      type: "task",
+      title: "API実装",
+      note: "保存対象メモ",
+      assigneeName: "田中",
+      tags: expect.arrayContaining(["backend", "api"]),
+    });
+    expect(saved.body.templateItems.some((node) => node.title === "旧タスク")).toBe(false);
+    expect(saved.body.templateItems.some((node) => node.title === "無関係な sibling")).toBe(false);
+    expect(templates.map((template) => template.id)).toContain(saved.id);
+  });
+
+  it("saves a project template with project fields and non-archived hierarchy only", () => {
+    const project = service.createProject({
+      name: "Project Template案件",
+      code: "PRJ-PROJTPL",
+    });
+    service.updateProject({
+      id: project.id,
+      name: "Project Template案件 改",
+      code: "PRJ-PROJTPL",
+    });
+    const root = service.createItem({
+      projectId: project.id,
+      title: "親タスク",
+      type: "group",
+    });
+    const child = service.createItem({
+      projectId: project.id,
+      parentId: root.id,
+      title: "子タスク",
+      type: "task",
+    });
+    service.updateItem({
+      id: child.id,
+      note: "保存対象ノート",
+      assigneeName: "中村",
+      tags: ["project", "template"],
+      priority: "high",
+      estimateHours: 5,
+      startDate: "2026-05-12",
+      endDate: "2026-05-13",
+    });
+    const archivedRoot = service.createItem({
+      projectId: project.id,
+      title: "除外ルート",
+      type: "task",
+    });
+    service.archiveItem(archivedRoot.id);
+
+    const saved = service.saveProjectTemplate({
+      projectId: project.id,
+      name: "共通案件テンプレート",
+    });
+    const templates = service.listTemplates();
+
+    expect(saved.kind).toBe("project");
+    if (saved.kind !== "project") {
+      throw new Error("Expected project template");
+    }
+
+    expect(saved.name).toBe("共通案件テンプレート");
+    expect(saved.body.projectFields).toMatchObject({
+      name: "Project Template案件 改",
+      description: "",
+      ownerName: "",
+      priority: "medium",
+      color: "",
+    });
+    expect(saved.body.templateItems).toHaveLength(2);
+    expect(saved.body.templateItems[0]).toMatchObject({
+      parentNodeId: null,
+      type: "group",
+      title: "親タスク",
+    });
+    expect(saved.body.templateItems[1]).toMatchObject({
+      title: "子タスク",
+      type: "task",
+      note: "保存対象ノート",
+      assigneeName: "中村",
+      priority: "high",
+      estimateHours: 5,
+      tags: expect.arrayContaining(["project", "template"]),
+    });
+    expect(saved.body.templateItems.some((node) => node.title === "除外ルート")).toBe(false);
+    expect(JSON.stringify(saved.body)).not.toContain("\"code\"");
+    expect(templates.map((template) => template.id)).toContain(saved.id);
+  });
+
+  it("applies a project template into a new project with reset schedule and progress fields", () => {
+    const sourceProject = service.createProject({
+      name: "Source Template案件",
+      code: "PRJ-SRC-TPL",
+    });
+    const projectUpdatedAt = "2026-06-01T09:00:00.000Z";
+    manager.run(
+      `UPDATE project
+       SET description = ?, owner_name = ?, priority = ?, color = ?, updated_at = ?
+       WHERE id = ?`,
+      ["説明あり", "山田", "high", "#336699", projectUpdatedAt, sourceProject.id]
+    );
+    const root = service.createItem({
+      projectId: sourceProject.id,
+      title: "テンプレート親",
+      type: "group",
+    });
+    const child = service.createItem({
+      projectId: sourceProject.id,
+      parentId: root.id,
+      title: "テンプレート子",
+      type: "task",
+    });
+    service.updateItem({
+      id: child.id,
+      note: "引き継ぐノート",
+      assigneeName: "佐藤",
+      tags: ["template", "project"],
+      priority: "critical",
+      estimateHours: 13,
+      startDate: "2026-06-03",
+      endDate: "2026-06-05",
+      status: "done",
+      percentComplete: 100,
+    });
+    manager.run(
+      `UPDATE item
+       SET actual_hours = ?, is_recurring = ?, updated_at = ?
+       WHERE id = ?`,
+      [9, 1, "2026-06-05T18:00:00.000Z", child.id]
+    );
+
+    const saved = service.saveProjectTemplate({
+      projectId: sourceProject.id,
+      name: "案件テンプレート",
+    });
+    const applied = service.applyProjectTemplate({
+      templateId: saved.id,
+    });
+    const projects = service.listProjects();
+    const appliedRoot = applied.items.find((item) => item.title === "テンプレート親");
+    const appliedChild = applied.items.find((item) => item.title === "テンプレート子");
+
+    expect(projects).toHaveLength(2);
+    expect(applied.project).toMatchObject({
+      name: "Source Template案件",
+      description: "説明あり",
+      ownerName: "山田",
+      priority: "high",
+      color: "#336699",
+      status: "not_started",
+      startDate: null,
+      endDate: null,
+      targetDate: null,
+      progressCached: 0,
+      riskLevel: "normal",
+    });
+    expect(applied.project.id).not.toBe(sourceProject.id);
+    expect(applied.project.code).not.toBe("PRJ-SRC-TPL");
+    expect(applied.project.code).toMatch(/^PRJ-\d{3}$/);
+    expect(appliedRoot).toMatchObject({
+      parentId: null,
+      wbsCode: "1",
+      type: "group",
+      status: "not_started",
+    });
+    expect(appliedChild).toMatchObject({
+      parentId: appliedRoot?.id,
+      wbsCode: "1.1",
+      type: "task",
+      note: "引き継ぐノート",
+      assigneeName: "佐藤",
+      priority: "critical",
+      estimateHours: 13,
+      durationDays: 3,
+      tags: expect.arrayContaining(["template", "project"]),
+      status: "not_started",
+      percentComplete: 0,
+      actualHours: 0,
+      startDate: null,
+      endDate: null,
+      dueDate: null,
+      isScheduled: false,
+      isRecurring: false,
+      completedAt: null,
+    });
+  });
+
   it("exports a project workbook as xlsx bytes", () => {
     const project = service.createProject({
       name: "Excel案件",
@@ -298,6 +677,126 @@ describe("WorkspaceService quick capture", () => {
       action: "update",
       title: "既存タスク",
     });
+  });
+
+  it("creates a local backup that can be opened as a standalone database", async () => {
+    const project = service.createProject({
+      name: "Backup案件",
+      code: "PRJ-BACKUP",
+    });
+    service.createItem({
+      projectId: project.id,
+      title: "退避対象",
+      type: "task",
+    });
+
+    const backup = service.createBackup();
+    const backups = service.listBackups();
+    const restoredManager = new DatabaseManager(backup.filePath ?? "");
+    await restoredManager.initialize();
+    const restoredService = new WorkspaceService(restoredManager);
+
+    expect(backup.fileName).toMatch(/^sgc-backup-\d{8}-\d{6}-\d{3}\.sqlite$/);
+    expect(fs.existsSync(backup.filePath ?? "")).toBe(true);
+    expect(backups[0]?.filePath).toBe(backup.filePath);
+    expect(
+      restoredService.listProjects().some((entry) => entry.id === project.id && entry.name === "Backup案件")
+    ).toBe(true);
+    expect(
+      restoredService.getProjectDetail(project.id).items.some((entry) => entry.title === "退避対象")
+    ).toBe(true);
+  });
+
+  it("builds a read-only restore preview from a local backup", async () => {
+    const project = service.createProject({
+      name: "Restore Preview案件",
+      code: "PRJ-RESTORE-PREVIEW",
+    });
+    const item = service.createItem({
+      projectId: project.id,
+      title: "Preview対象",
+      type: "task",
+    });
+    service.updateItem({
+      id: item.id,
+      startDate: "2026-04-24",
+      endDate: "2026-04-25",
+    });
+
+    const backup = service.createBackup();
+    const preview = await service.previewBackup(backup);
+    const liveDetail = service.getProjectDetail(project.id);
+
+    expect(preview).toMatchObject({
+      filePath: backup.filePath,
+      fileName: backup.fileName,
+      projectCount: 1,
+      itemCount: 1,
+      latestUpdatedAt: expect.any(String),
+    });
+    expect(liveDetail.items.some((entry) => entry.title === "Preview対象")).toBe(true);
+  });
+
+  it("restores a local backup and creates a safety backup", async () => {
+    const restoredProject = service.createProject({
+      name: "Restore Apply案件",
+      code: "PRJ-RESTORE-APPLY",
+    });
+    service.createItem({
+      projectId: restoredProject.id,
+      title: "復元したいタスク",
+      type: "task",
+    });
+    const backup = service.createBackup();
+
+    const afterProject = service.createProject({
+      name: "後追加案件",
+      code: "PRJ-AFTER-RESTORE",
+    });
+    service.createItem({
+      projectId: afterProject.id,
+      title: "消えるタスク",
+      type: "task",
+    });
+
+    const result = await service.restoreBackup(backup);
+    const projects = service.listProjects();
+
+    expect(result.restoredBackup.filePath).toBe(backup.filePath);
+    expect(fs.existsSync(result.safetyBackup.filePath ?? "")).toBe(true);
+    expect(projects.some((entry) => entry.code === "PRJ-RESTORE-APPLY")).toBe(true);
+    expect(projects.some((entry) => entry.code === "PRJ-AFTER-RESTORE")).toBe(false);
+    expect(
+      service
+        .getProjectDetail(restoredProject.id)
+        .items.some((entry) => entry.title === "復元したいタスク")
+    ).toBe(true);
+  });
+
+  it("ensures one auto backup per day and keeps only the latest auto backups", async () => {
+    for (let index = 0; index < 8; index += 1) {
+      const autoBackup = manager.createBackup({
+        kind: "auto",
+        createdAt: `2026-04-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`,
+      });
+      const datedAt = new Date(`2026-04-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`);
+      fs.utimesSync(autoBackup.filePath, datedAt, datedAt);
+    }
+    const manualBackup = service.createBackup();
+
+    const firstRun = manager.ensureAutoBackup({
+      now: new Date("2026-04-09T09:00:00+09:00"),
+      retentionLimit: 7,
+    });
+    const secondRun = service.ensureAutoBackup({
+      now: new Date("2026-04-09T18:00:00+09:00"),
+    });
+    const backups = service.listBackups();
+
+    expect(firstRun.createdBackup?.fileName).toMatch(/^sgc-auto-backup-/);
+    expect(secondRun.retentionLimit).toBe(7);
+    expect(backups.filter((entry) => entry.fileName.startsWith("sgc-auto-backup-"))).toHaveLength(7);
+    expect(backups.some((entry) => entry.fileName === manualBackup.fileName)).toBe(true);
   });
 
   it("applies import commit for update and new rows while skipping errors", () => {
@@ -1632,5 +2131,114 @@ describe("WorkspaceService quick capture", () => {
       startDate: "2026-04-27",
       endDate: "2026-04-27",
     });
+  });
+
+  it("applies a saved WBS template into the target project root and resets schedule state", () => {
+    const sourceProject = service.createProject({
+      name: "テンプレート元案件",
+      code: "PRJ-TPL-SRC",
+    });
+    const root = service.createItem({
+      projectId: sourceProject.id,
+      title: "テンプレート親",
+      type: "group",
+    });
+    const child = service.createItem({
+      projectId: sourceProject.id,
+      parentId: root.id,
+      title: "テンプレート子",
+      type: "task",
+    });
+    const grandchild = service.createItem({
+      projectId: sourceProject.id,
+      parentId: child.id,
+      title: "テンプレート孫",
+      type: "task",
+    });
+    service.updateItem({
+      id: child.id,
+      note: "テンプレート用ノート",
+      tags: ["テンプレ", "適用"],
+      assigneeName: "佐藤",
+      priority: "high",
+      estimateHours: 6,
+      startDate: "2026-05-01",
+      endDate: "2026-05-03",
+      dueDate: "2026-05-07",
+      percentComplete: 50,
+      actualHours: 2,
+    });
+    service.upsertRecurrenceRule({
+      itemId: child.id,
+      rruleText: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+      nextOccurrenceAt: "2026-05-11",
+    });
+    service.updateItem({
+      id: grandchild.id,
+      note: "孫ノード",
+      tags: ["下位"],
+    });
+
+    const template = service.saveWbsTemplate({
+      rootItemId: root.id,
+      name: "定例テンプレート",
+    });
+
+    const targetProject = service.createProject({
+      name: "テンプレート先案件",
+      code: "PRJ-TPL-DST",
+    });
+    const existingRoot = service.createItem({
+      projectId: targetProject.id,
+      title: "既存ルート",
+      type: "group",
+    });
+
+    const created = service.applyWbsTemplate({
+      templateId: template.id,
+      projectId: targetProject.id,
+    });
+    const detail = service.getProjectDetail(targetProject.id);
+    const appliedRoot = detail.items.find((item) => item.title === "テンプレート親");
+    const appliedChild = detail.items.find((item) => item.title === "テンプレート子");
+    const appliedGrandchild = detail.items.find((item) => item.title === "テンプレート孫");
+
+    expect(created).toHaveLength(3);
+    expect(appliedRoot).toMatchObject({
+      parentId: null,
+      wbsCode: "2",
+      status: "not_started",
+    });
+    expect(appliedChild).toMatchObject({
+      parentId: appliedRoot?.id,
+      wbsCode: "2.1",
+      note: "テンプレート用ノート",
+      tags: expect.arrayContaining(["テンプレ", "適用"]),
+      assigneeName: "佐藤",
+      priority: "high",
+      estimateHours: 6,
+      durationDays: 3,
+      status: "not_started",
+      percentComplete: 0,
+      actualHours: 0,
+      startDate: null,
+      endDate: null,
+      dueDate: null,
+      isScheduled: false,
+      isRecurring: false,
+      completedAt: null,
+    });
+    expect(appliedGrandchild).toMatchObject({
+      parentId: appliedChild?.id,
+      wbsCode: "2.1.1",
+      note: "孫ノード",
+      tags: expect.arrayContaining(["下位"]),
+      status: "not_started",
+      startDate: null,
+      endDate: null,
+      dueDate: null,
+    });
+    expect(detail.items.find((item) => item.id === existingRoot.id)?.wbsCode).toBe("1");
+    expect(service.getRecurrenceRuleByItem(appliedChild?.id ?? "")).toBeNull();
   });
 });

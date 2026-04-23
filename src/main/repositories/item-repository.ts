@@ -213,6 +213,15 @@ export class ItemRepository {
     );
   }
 
+  setRecurringFlag(itemId: string, isRecurring: boolean, updatedAt: string): void {
+    this.db.run(
+      `UPDATE item
+       SET is_recurring = ?, updated_at = ?
+       WHERE id = ?`,
+      [isRecurring ? 1 : 0, updatedAt, itemId]
+    );
+  }
+
   nextSortOrder(projectId: string, parentId: string | null): number {
     const rows = this.db.query<{ max_sort_order: number | null }>(
       "SELECT MAX(sort_order) AS max_sort_order FROM item WHERE project_id = ? AND archived = 0 AND parent_id IS ?",

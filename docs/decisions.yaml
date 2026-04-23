@@ -1,5 +1,5 @@
 version: 1
-last_updated: 2026-04-22
+last_updated: 2026-04-23
 decisions:
   - id: DEC-001
     topic: Desktop stack
@@ -312,3 +312,111 @@ decisions:
     status: accepted
     decision: reschedule scope dialog の keyboard 初期対応は `ArrowLeft/ArrowRight` による候補移動、`Enter/Space` による確定、`Escape` によるキャンセルに限定する。dialog を開いた時点では既定選択の `with_descendants` に focus を置き、Tab 順や周辺画面への focus trap まではこの slice では扱わない
     rationale: timeline keyboard 編集の次に必要なのは reschedule 分岐を pointer なしでも確定できることだが、完全な dialog focus trap まで一度に広げると scope が大きくなるため。候補選択と確定/キャンセルだけを先に閉じる方が安全で E2E でも守りやすい。
+
+  - id: DEC-053
+    topic: Browser fallback dependency import parity
+    status: accepted
+    decision: browser fallback の import でも preview を通過した `DependsOn` を current project へ apply する。初期対象は current project の既知 item ID と同一 workbook 内の `tmp_*` temporary ID で解決できる finish-to-start edge に限定し、dependency editor 自体は引き続き desktop only のままとする
+    rationale: browser fallback だけ dependency import を skip すると preview/commit の期待値が分かれ、round-trip 契約も無駄に分岐するため。browser 側には既に preview validation と import helper があり、current project scope に限れば小さい差分で parity を上げられるため。
+
+  - id: DEC-054
+    topic: Initial local backup slice
+    status: accepted
+    decision: TASK-0801 の最初の slice では `Backup now` による manual backup create と recent list のみを提供し、restore は後続 slice へ送る。desktop では `userData/data/../backups` に timestamp 付き SQLite copy を保存し、browser fallback は lightweight snapshot download に留める
+    rationale: hardening の最小価値はまず「今の DB を退避できること」であり、restore 導線まで同時に抱えると不可逆操作や UI 分岐が増えて進行リスクが高いため。manual backup create と recent list だけなら小さい差分で value を出せる。
+
+  - id: DEC-055
+    topic: Initial backup restore preview scope
+    status: accepted
+    decision: TASK-0801 の次 slice では actual restore の前に read-only restore preview を提供し、recent backup から `file name / created at / size / project count / item count / latest updatedAt` を確認できるようにする。preview は backup snapshot を読むだけで、current DB には変更を加えない
+    rationale: restore は不可逆確認や再起動導線を含みやすく scope が広がるため、まずは backup 内容を安全に検査できる preview を先に成立させる方が hardening を縦切りで進めやすい。
+
+  - id: DEC-056
+    topic: Initial backup restore apply scope
+    status: accepted
+    decision: TASK-0801 の restore apply は preview 済み backup に対する confirm 付き restore を最初の slice とし、desktop では apply 前に current DB の safety backup を自動作成する。restore 後は app state を再読込し、browser fallback では in-memory snapshot restore で同等導線を提供する
+    rationale: restore 自体は価値が高い一方で不可逆性があるため、confirm と safety backup を最初から組み込む方が安全で、desktop と browser fallback の capability 差分も小さく保てるため。
+
+  - id: DEC-057
+    topic: Initial auto backup and retention scope
+    status: accepted
+    decision: TASK-0801 の auto backup 初期 slice では app bootstrap 時に local day あたり1回だけ `sgc-auto-backup-*` を自動作成し、`sgc-auto-backup-*` 系列のみに最新7件 retention を適用する。manual backup (`sgc-backup-*`) と safety backup (`sgc-safety-backup-*`) はこの slice では削除しない
+    rationale: retention を全 backup に一度に適用すると既存の manual/safety backup を暗黙に消すことになり、hardening slice としては破壊的影響が大きい。auto 系列だけを独立 prefix で管理すれば、起動時保護と保持上限を追加しつつ既存運用を壊さずに進められるため。
+
+  - id: DEC-058
+    topic: Initial recovery prompt scope
+    status: accepted
+    decision: TASK-0805 の最初の slice では DB 初期化または bootstrap 失敗時でも app window は開き、通常 workspace の代わりに recovery screen を表示する。recovery screen では startup error と recent backup list と restore preview だけを提供し、destructive restore 実行は後続 slice に送る
+    rationale: DB 異常時に完全に起動不能だと backup 導線自体が見えず hardening 価値が薄い。一方で recovery mode から即 restore を実装すると main process の degraded state と restart 制御まで広がるため、まずは prompt と preview だけを成立させる方が小さく安全である。
+
+  - id: DEC-059
+    topic: Recovery restore execution model
+    status: accepted
+    decision: recovery screen の restore は live DB 未初期化でも file-level restore を許可し、desktop では current DB file の safety backup を切ってから backup file を差し戻す。restore 成功後は OS プロセス relaunch ではなく current session を normal startup context と workspace service へ再初期化して通常 workspace に戻す
+    rationale: degraded recovery mode から即座に OS プロセス再起動まで抱えるより、file restore と current session の再初期化へ責務を絞る方が小さな縦切りで安全に閉じられ、renderer 側でも restore 後の state refresh をそのまま再利用できるため。
+
+  - id: DEC-060
+    topic: Initial project detail virtualization scope
+    status: accepted
+    decision: `TASK-0802` の最初の slice では Project Detail の WBS / timeline row 描画だけを virtualization 対象にし、両ペインで同一の visible window を共有する。row 高さは 58px 固定、overscan は 6 row を既定とし、scroll continuity は top / bottom spacer で維持する
+    rationale: large list 対応で最も先に効くのは Project Detail の左右同時描画コストであり、Portfolio / Roadmap まで一度に広げるより scope を小さく保てる。fixed row height と shared window に寄せれば既存の同期スクロールや timeline focus traversal を壊しにくく、Playwright でも DOM 行数を安定して検証できるため。
+
+  - id: DEC-061
+    topic: Initial roadmap virtualization scope
+    status: accepted
+    decision: `TASK-0802` の次 slice では Roadmap の quarter header / month header は常時描画のまま残し、body row だけを virtualization 対象にする。row 高さは 62px 固定、overscan は 6 row を既定とし、Project Detail と同じ helper を再利用する
+    rationale: Roadmap では sticky な header を保ったまま body row の描画コストだけを下げるのが最小で、Project Detail で導入した fixed-row virtualization helper をそのまま流用できる。header まで virtualize しないことで click target と時系列認知を崩さずに large-row 対応を閉じられるため。
+
+  - id: DEC-062
+    topic: Initial installer pipeline scope
+    status: accepted
+    decision: `TASK-0804` の初期 installer pipeline は MSI や setup wizard ではなく、`scripts/build.ps1` から生成する Windows 向け portable zip artifact とする。artifact には bundled Electron runtime、`dist/`、`dist-electron/`、必要最小限の runtime `node_modules/`、`Launch SGC.cmd` を含める
+    rationale: Phase 8 の done 条件はまず build artifact を再現可能に出せることであり、ネイティブ installer まで一度に抱えるより portable zip を自動生成する方が scope を小さく保てる。Electron runtime と app root を同梱した zip なら、ローカル配布と smoke 検証の両方をすぐ成立させられるため。
+
+  - id: DEC-063
+    topic: Initial reschedule dialog focus restore scope
+    status: accepted
+    decision: `TASK-0803` の次 slice では reschedule scope dialog に完全な focus trap は入れず、`Escape` または scope 確定で閉じた後に、開く前に操作していた timeline item へ focus を戻すことを先に保証する
+    rationale: accessibility の残課題として最初に効くのは、dialog を閉じた後に keyboard 操作位置を見失わないことだが、Tab 循環まで一度に広げると scope が大きくなるため。focus restore を先に閉じれば、既存の timeline keyboard edit と自然につながる。
+
+  - id: DEC-064
+    topic: Initial reschedule dialog tab loop scope
+    status: accepted
+    decision: `TASK-0803` の closing slice では、reschedule scope dialog の `Tab / Shift+Tab` を dialog 内の既存 button 群だけで循環させる。背景要素の inert 化や汎用 modal focus manager までは入れない
+    rationale: まず必要なのは keyboard 利用時に dialog から focus が漏れないことだが、アプリ全体の modal 基盤へ広げると scope が大きい。既存の scope button と cancel button だけで循環させれば、最小の変更で acceptance を満たせる。
+
+  - id: DEC-065
+    topic: Initial recurrence rule model scope
+    status: accepted
+    decision: `TASK-0701` の first slice では recurrence rule を item 単位の単一 row として保存し、raw `rrule_text` と `next_occurrence_at` だけを永続化する。保存対象は task item のみとし、保存時に item 側 `isRecurring` を true、削除時に false へ同期する
+    rationale: まず必要なのは recurring generation より前の安定した永続化境界であり、UI 形式や occurrence 展開を先に決め打ちすると後戻りが大きい。raw text と next occurrence だけを先に固定すれば、後続 slice は generator と editor を独立に積み上げられる。
+
+  - id: DEC-066
+    topic: Initial recurring generation trigger and rule advance scope
+    status: accepted
+    decision: `TASK-0702` の first slice では recurring task が `done` へ遷移した時だけ次の occurrence を1件生成する。generation は rule の `next_occurrence_at` を開始日に使い、rule 自体は完了済み item から新しい occurrence へ移す。rule advance の初期対応は `FREQ=WEEKLY`, `FREQ=MONTHLY`, `FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR` に限定する
+    rationale: background scheduler や multi-occurrence 先行生成まで一度に抱えると scope が大きいため。完了時に1件だけ作る方式なら item ごとに 1 rule を保ったまま value を出せ、既存の item update 導線にも最小差分で載せられる。
+
+  - id: DEC-067
+    topic: Initial WBS template save scope
+    status: accepted
+    decision: `TASK-0703` の first slice では project 内の selected root item 1件とその非 archived descendants を `kind=wbs` template として保存し、list できる状態までを扱う。保存対象は hierarchy と WBS 再利用に必要な基本編集列に限定し、schedule / progress / dependency / recurrence / apply flow は後続 slice へ送る
+    rationale: template 機能を一度に apply まで広げると UI と domain の責務が大きくなるため。まず save contract と persistence を先に固定すれば、後続の project template / apply flow / recurrence UI を安全に積み上げられる。
+
+  - id: DEC-068
+    topic: Initial WBS template apply scope
+    status: accepted
+    decision: `TASK-0703` の apply 側は saved `kind=wbs` template を target project の root 直下へ subtree として append する MVP に限定する。復元対象は hierarchy と基本編集列のみとし、status / dates / dependency / recurrence は初期値へ戻して project template 化は後続 slice へ送る
+    rationale: save と同じ task の中で apply まで閉じるには、target project root append に scope を絞るのが最も安全で、既存 WBS rebalance と tag attach を再利用しやすい。schedule や dependency まで持ち込むと import/recurrence と責務が重なるため、この slice では骨格の再利用だけを先に成立させる。
+
+  - id: DEC-069
+    topic: Initial project template save scope
+    status: accepted
+    decision: `TASK-0704` の first slice では selected project 1件を `kind=project` template として保存し、list できる状態までを扱う。保存対象は project-level の基本編集列 (`name / description / ownerName / priority / color`) と、非 archived root item / descendants の hierarchy + 基本編集列に限定し、project create/apply は後続 slice へ送る
+    rationale: project template を一度に create/apply まで広げると project metadata と subtree restore の責務が大きくなるため。まず save/list contract と persistence を先に固定すれば、後続 slice では target project 作成と WBS insert を安全に積み上げられる。
+
+  - id: DEC-070
+    topic: Initial project template apply scope
+    status: accepted
+    decision: `TASK-0704` の apply 側は saved `kind=project` template から新しい project を1件生成し、その project 配下へ saved root item / descendants を復元する MVP に限定する。復元対象は project-level の `name / description / ownerName / priority / color` と、item-level の `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` のみとし、`code / status / schedule / progress / dependency / recurrence` は初期値へ戻す
+    rationale: project template を実用化する最短手は project-level metadata と root subtree 再利用をまとめて小さく閉じることであり、source project の schedule や dependency まで持ち込むと recurrence / import と責務が重なる。新規 project 採番と item 初期化に限定すれば、既存 WBS template apply の実装資産を再利用しつつ安全に縦切りできる。

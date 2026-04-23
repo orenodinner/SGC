@@ -25,8 +25,11 @@ export interface InsertProjectRow {
   id: string;
   code: string;
   name: string;
+  description?: string;
+  ownerName?: string;
   status: ProjectSummary["status"];
   priority: ProjectSummary["priority"];
+  color?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -134,18 +137,24 @@ export class ProjectRepository {
         workspace_id,
         code,
         name,
+        description,
+        owner_name,
         status,
         priority,
+        color,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         project.id,
         DEFAULT_WORKSPACE_ID,
         project.code,
         project.name,
+        project.description ?? "",
+        project.ownerName ?? "",
         project.status,
         project.priority,
+        project.color ?? "",
         project.createdAt,
         project.updatedAt,
       ]

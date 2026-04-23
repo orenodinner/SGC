@@ -118,6 +118,11 @@
 - body_json TEXT NOT NULL
 - created_at TEXT NOT NULL
 - updated_at TEXT NOT NULL
+- 初期 slice の `kind` は `wbs | project`
+- `kind=wbs` の `body_json` は subtree root と descendant hierarchy を持つ JSON とし、`template_items[]` に template-local `node_id / parent_node_id / type / title / note / priority / assignee_name / tags / estimate_hours / duration_days / sort_order` を保持する
+- `kind=wbs` の `body_json` には保存元 `source_project_id / source_root_item_id / source_root_title` を含めてよい
+- `kind=project` の `body_json` は `source_project_id / source_project_name / project_fields / template_items[]` を持つ JSON とし、`project_fields` には `name / description / owner_name / priority / color` だけを保持する
+- `kind=project` の `template_items[]` は `kind=wbs` と同じ node schema を使い、非 archived root item / descendants だけを保持する
 
 ### recurrence_rule
 - id TEXT PK
@@ -126,6 +131,10 @@
 - next_occurrence_at TEXT NULL
 - created_at TEXT NOT NULL
 - updated_at TEXT NOT NULL
+- UNIQUE (item_id)
+- 初期 slice では item ごとに 1 rule のみ保持する
+- 初期 slice では item 側 `is_recurring` と同期する
+- 初期 recurring generation では `item_id` は「次に完了待ちの occurrence」を指し、完了時に次の occurrence へ付け替える
 
 ### app_setting
 - key TEXT PK

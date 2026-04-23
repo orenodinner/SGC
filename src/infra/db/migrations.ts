@@ -114,4 +114,37 @@ export const migrations: Migration[] = [
         ON dependency(project_id, predecessor_item_id, successor_item_id, type);
     `,
   },
+  {
+    id: "004_add_recurrence_rules",
+    sql: `
+      CREATE TABLE IF NOT EXISTS recurrence_rule (
+        id TEXT PRIMARY KEY,
+        item_id TEXT NOT NULL,
+        rrule_text TEXT NOT NULL,
+        next_occurrence_at TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_recurrence_rule_item
+        ON recurrence_rule(item_id);
+    `,
+  },
+  {
+    id: "005_add_templates",
+    sql: `
+      CREATE TABLE IF NOT EXISTS template (
+        id TEXT PRIMARY KEY,
+        workspace_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        body_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_template_workspace_kind
+        ON template(workspace_id, kind, updated_at);
+    `,
+  },
 ];
