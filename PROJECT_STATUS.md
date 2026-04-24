@@ -1,21 +1,26 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-25 03:40 JST
+最終更新日時: 2026-04-25 04:03 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 90
-- 今回完了したサイクル: Windows portable distribution and regression hardening slice
+- 完了サイクル数: 91
+- 今回完了したサイクル: Phase 12 final acceptance validation
 
 ## 現在フェーズ
-- Phase 12 `Multilingual UI parity and deferred polish` を継続
+- Phase 12 `Multilingual UI parity and deferred polish` は完了
 - `TASK-1201 Expand multilingual UI beyond major headings` は完了扱いへ整理済み
 - `TASK-1202 Add generic recurrence editor and unsupported rule builder` は完了
 - `TASK-1203 Broaden theme and visual token coverage` は完了
 - `TASK-1204 Add fuller installer and regression hardening` は完了
-- Phase 12 backlog は全 task 完了。次の実装開始点は final acceptance / release upload verification
+- Phase 12 backlog は全 task 完了。final acceptance validation も通過
+- 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- Phase 12 final acceptance として `typecheck / lint / test / build` を再実行して通過を確認した
+- representative desktop E2E として `settings theme`、`desktop regression journey`、`detail drawer recurrence` を再実行して通過を確認した
+- Windows artifact `artifacts/sgc-portable-win-x64-v0.1.0.zip` が存在し、サイズ `154,569,898 bytes` であることを確認した
+- `gh` CLI は引き続き PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - `spec/portable-artifact-contract.json` を追加し、portable zip の required path と配布 / 更新 / rollback 方針を契約化した
 - `scripts/build.ps1` が contract の runtime dependency / required path を参照し、欠損時は zip 生成前に失敗するようにした
 - portable artifact に `DISTRIBUTION.txt` と distribution metadata 付き `build-manifest.json` を同梱するようにした
@@ -331,9 +336,9 @@
 - ACC-043 相当の service / browser fallback test を追加した
 
 ## 今いちばん重要な次アクション
-1. Phase 12 completion として full validation bundle を再確認する
+1. `gh` CLI の導入 / PATH 登録、または release asset upload 可能な GitHub tool を有効化する
 2. `artifacts/sgc-portable-win-x64-v0.1.0.zip` を GitHub release artifact として upload する
-3. upload が認証 / 権限 / release policy で止まる場合は blocker をここへ具体的に追記する
+3. upload 完了後に `PROJECT_STATUS.md` の blocker を解消済みに更新する
 
 ## 現在の blocker
 - GitHub release upload は未完了。`artifacts/sgc-portable-win-x64-v0.1.0.zip` は生成済みだが、この環境では `gh` CLI が PATH 上に無く、GitHub connector 側にも release asset upload 用 tool が露出していないためアップロードできない
@@ -376,7 +381,7 @@
 - recurrence editor は cadence builder まで入ったが、background scheduler と supported generation rule 拡張は未実装
 
 ## 次の最小スライス
-- Phase 12 final acceptance として full validation bundle、GitHub push、Windows artifact upload を実行し、完了状態または upload blocker を記録する
+- GitHub release asset upload blocker の解消後、`artifacts/sgc-portable-win-x64-v0.1.0.zip` を release に添付する
 
 ## 次に見るべきドキュメント
 - `PROJECT_STATUS.md`
