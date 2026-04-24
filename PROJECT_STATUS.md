@@ -1,16 +1,85 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-23 11:10 JST
+最終更新日時: 2026-04-25 00:52 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 70
-- 今回完了したサイクル: Project template apply MVP
+- 完了サイクル数: 86
+- 今回完了したサイクル: Multilingual overlay and drawer parity slice
 
 ## 現在フェーズ
-- All planned phases are complete according to the current docs and backlog. Phase 7 templates / recurrence is complete with recurrence rule persistence, recurring generation MVP, WBS template save/apply flow, and project template save/apply flow in place
+- Phase 12 `Multilingual UI parity and deferred polish` を再開
+- `TASK-1201 Expand multilingual UI beyond major headings` が進行中
 
 ## 直近で完了したもの
+- deferred scope を `EPIC-12` として backlog / implementation plan へ再登録した
+- `表示言語` の follow-up として Search / Filter Drawer、Import Preview、restore preview / recovery copy の主要文言を `ui-copy` registry へ寄せた
+- Search / Filter の active chip label を `ja / en` で切り替えられるようにした
+- Home の empty copy を `ja / en` 切替対象へ広げた
+- desktop Playwright smoke で英語 mode の search drawer / import preview / restore preview copy を固定した
+- detail drawer に recurrence section を追加した
+- scheduled task に対して `週次(月曜) / 月次 / 平日` preset と `next occurrence` 入力から recurrence rule を追加 / 更新 / 削除できるようにした
+- unsupported rule は raw `rrule_text` と next occurrence 付きで read-only 表示し、generation 対象外であることを見える化した
+- group / milestone / unscheduled task では recurrence editor の代わりに unavailable note を表示するようにした
+- desktop Playwright smoke で recurrence save / update / delete / unsupported replace / unavailable note を固定した
+- Inbox card に `テンプレート変換` button を追加した
+- `テンプレート変換` 実行時に Inbox item の title を既定名にした draft project を作成し、その item を root row として移して Project Detail を開くようにした
+- conversion 完了後は `Templates` panel を自動で開き、既存の `Save current project` / `Save selected root` workflow をそのまま使えるようにした
+- desktop Playwright smoke で Inbox conversion から Templates panel 起動と WBS template save まで固定した
+- Project Detail の `Templates` panel に `Save current project` と `Save selected root` を追加した
+- selected row が root でない時は WBS template save を disabled にし、helper copy で理由を表示するようにした
+- template save 成功後は panel を閉じず、その場で list が再読込されるようにした
+- desktop Playwright smoke で template panel の save / list / apply 主経路を固定した
+- Project Detail toolbar に `Templates` button を追加した
+- saved `kind=wbs` / `kind=project` template を分けて表示する template panel を追加した
+- `kind=wbs` template を current project へ apply できる UI 導線を追加した
+- `kind=project` template から新しい project を作成してそのまま Project Detail を開く UI 導線を追加した
+- desktop Playwright smoke で template panel の list / apply 主経路を固定した
+- Settings に `Excel テンプレート既定値` の `優先度既定値 / 担当既定値` を追加した
+- `excelDefaultPriority / excelDefaultAssignee` を app settings へ永続化し、再起動後も保持されるようにした
+- project export が `MasterData` sheet の `Default` category に Excel defaults を出力するようにした
+- service / browser fallback / desktop Playwright smoke で Excel defaults の保存、保持、export 反映を固定した
+- Settings に `自動バックアップ` の `有効/無効` と `保持件数` (`1-30`) を追加した
+- `autoBackupEnabled / autoBackupRetentionLimit` を app settings へ永続化し、再起動後も保持されるようにした
+- `ensureAutoBackup` が settings を参照し、off 時は create / prune を止め、on 時は configured retention を使うようにした
+- sidebar `Data Protection` card の helper copy が current auto backup settings を反映するようにした
+- service / browser fallback / desktop Playwright smoke で auto backup settings の保存、保持、policy copy 反映を固定した
+- Settings に `テーマ` (`light / dark`) を追加した
+- `theme` を app settings へ永続化し、再起動後も保持されるようにした
+- shell root の theme attribute と CSS variable を追加し、sidebar / 主要 card / button / input の dark palette を切り替えられるようにした
+- desktop Playwright smoke で `テーマ` の変更、再起動保持、light への戻しを固定した
+- Settings に `表示言語` (`ja / en`) を追加した
+- `language` を app settings へ永続化し、再起動後も保持されるようにした
+- sidebar navigation、Settings 見出し、Home / Year-FY Roadmap などの主要見出しと主要 action label を英語へ切り替えられるようにした
+- desktop Playwright smoke で `表示言語` の変更と再起動保持、および主要 UI 文言の英語切替を固定した
+- Settings に `稼働日` checkbox set を追加した
+- `working_day_numbers` を app settings へ永続化し、再起動後も保持されるようにした
+- custom working day を dependency 自動後ろ倒しの next working day 計算へ反映した
+- browser fallback backup snapshot に settings を含め、restore 後も settings を戻せるようにした
+- service test で `日-木` 設定時に successor が次の日曜へ送られることを固定した
+- desktop Playwright smoke で `稼働日` の変更と再起動保持を固定した
+- Settings 画面の first slice を追加した
+- `週開始曜日 / FY開始月 / 既定表示` を編集して保存できるようにした
+- `app_settings` 永続化と IPC / preload / browser fallback 契約を追加した
+- 週開始曜日を Home / Portfolio の今週判定へ反映し、FY開始月を Roadmap の FY bucket へ反映した
+- desktop Playwright smoke で設定保存後の再起動反映を固定した
+- 仕様監査を行い、backlog から漏れていた explicit spec gap を Phase 9-11 として再登録した
+- Project Detail に Search / Filter Drawer を接続した
+- Project Detail では一致 row の ancestor path を残す hierarchy-aware filtering を追加した
+- filtered WBS row と timeline row が同じ visible window を共有するようにした
+- domain test と desktop Playwright smoke で ancestor path / sibling hide / Clear を固定した
+- Search / Filter Drawer の first slice を追加した
+- Home / Portfolio / Year-FY Roadmap に client-side の current-view filtering を接続した
+- `全文 / プロジェクト / Portfolio / 状態 / 優先度 / タグ / 担当 / 期限超過のみ / マイルストーンのみ / 年間表示対象のみ` を drawer から指定できるようにした
+- active filter chip と Clear action を toolbar に追加した
+- `portfolio_id` を renderer / browser fallback 契約まで通し、Portfolio 条件で検索できるようにした
+- desktop Playwright smoke で Home / Portfolio / Roadmap の drawer 絞り込みと Clear を固定した
+- Project Detail の item row に row-scoped context menu を追加した
+- context menu から `詳細 / 子追加 / インデント / アウトデント / アーカイブ` を実行できるようにした
+- desktop Playwright smoke で `詳細` と `子追加` の context menu 主経路を固定した
+- Project Detail の same-parent sibling drag reorder を追加した
+- parent row を動かした時に subtree を保ったまま WBS code と sort order が再計算されるようにした
+- service / browser fallback / desktop Playwright smoke で drag reorder を固定した
 - Electron + React + TypeScript + Vite の開発土台作成
 - SQL.js ベースの SQLite 永続化、migration、IPC 基盤作成
 - Project / Item の最小 CRUD と WBS ツリー画面作成
@@ -240,9 +309,9 @@
 - ACC-043 相当の service / browser fallback test を追加した
 
 ## 今いちばん重要な次アクション
-1. current docs / backlog 上の未完了 task はない
-2. 追加仕様が入る場合は WBS / project template の UI 導線を docs に固定してから着手する
-3. 追加仕様が入る場合は recurrence の UI 編集導線を template apply 後にどこへ載せるかを docs で固定する
+1. `TASK-1201` の残りとして、detail drawer / reschedule dialog / row context menu / Inbox action copy の多言語対応を進める
+2. current `ui-copy` 外に残る直書き文言を段階的に registry へ寄せる
+3. その後に `TASK-1202` generic recurrence editor か `TASK-1204` regression hardening へ進む
 
 ## 現在の blocker
 - なし
@@ -251,9 +320,8 @@
 - 現在の DB は SQL.js を同期 API として使っており、大量件数では書込コスト評価が未実施
 - desktop E2E は主要主経路 smoke まで拡張済みだが、full regression coverage には未到達
 - Quick Capture の recurrence / project 名一般解釈は最小実装で、複雑な自然文は未対応
-- WBS の並び替えはインデント / アウトデントまでで、drag reorder は未着手
 - timeline edit は scheduled item の pointer と keyboard 初期対応までで、dependency 連動は未接続
-- detail drawer は dependency editor まで入ったが、dependency type 拡張 / recurrence / history は未着手
+- detail drawer は dependency / recurrence editor まで入ったが、history UI と dependency type 拡張は未着手
 - undo/redo は create / archive / hierarchy move をまだ対象にしていない
 - 年間ビューは行数増加時に virtualized timeline が必要
 - Excel round-trip は列契約を先に固定しないと後戻りコストが高い
@@ -280,74 +348,33 @@
 - installer pipeline は portable zip artifact の初期実装で、MSI / updater / code signing は未実装
 - portable artifact は date-fns / zod / sql.js package 全体を同梱する first slice で、サイズ最適化は未実施
 - recurrence は completion-triggered の1件生成までで、background scheduler・複数件先行生成・template apply は未実装
-- WBS / project template は save/apply の service / fallback までで、UI 導線は未実装
-- project template は save/list persistence までで、create/apply と UI 導線は未実装
+- Phase 10 Settings parity は `表示言語 / テーマ / 自動バックアップ / Excel 既定値 / 週開始曜日 / FY開始月 / 稼働日 / 既定表示` まで完了した
+- 多言語 UI は Search / Filter Drawer、Import Preview、restore preview / recovery copy まで広がったが、detail drawer / context menu / Inbox action など一部 surface には直書き copy が残る
+- theme は shell / sidebar / 主要 card / button / input を対象にした first slice で、chart や status color の完全 theme 対応は未実装
+- recurrence editor は preset-based first slice で、generic rrule editor や custom cadence builder は未実装
+
+## 次の最小スライス
+- `TASK-1201` の follow-up として、detail drawer / reschedule dialog / context menu の copy を `ui-copy` に寄せ、英語 mode で日本語固定になる残面を減らす
 
 ## 次に見るべきドキュメント
-- `docs/08-implementation-plan.md`
-- `docs/09-acceptance-tests.md`
+- `PROJECT_STATUS.md`
 - `docs/backlog.yaml`
+- `docs/decisions.yaml`
 
 ## セッション終了時の更新テンプレート
 
 ### このセッションでやったこと
-- Phase 0 と Phase 1 をまとめて着手し、起動可能な desktop shell を作成
-- SQLite 永続化、IPC、Project/Item CRUD、WBS 表示を実装
-- domain / DB の最小テストを追加し、各チェックを実行
-- Quick Capture parser、Home / Today 画面、Inbox 保存フローを追加
-- tag / item_tag migration と Quick Capture service test を追加
-- overdue 一括延期の service / UI / browser fallback を追加
-- ACC-003 相当の自動テストを追加
-- WBS grid に優先度 / 担当 / 日付 / タグ列を追加
-- item 階層移動 API と UI 操作を追加
-- hierarchy move の自動テストを追加
-- timeline domain と split-pane UI を追加
-- day / week / month 切替と同期スクロール土台を追加
-- timeline domain test を追加
+- このセッションで閉じた縦切りを 2-5 行で記載
+- code / docs / tests / tracker 更新が揃っていることを先に書く
+- scope を広げなかった判断があれば 1 行で明記
 
 ### 変更したファイル
-- `package.json`, `tsconfig*.json`, `vite.config.ts`, `eslint.config.js`
-- `src/main/*`, `src/preload/*`, `src/renderer/*`, `src/domain/*`, `src/infra/db/*`
-- `docs/backlog.yaml`, `docs/decisions.yaml`, `PROJECT_STATUS.md`
+- 今回触った主要ファイルだけを列挙
+- spec / tracker 更新を含める
 
 ### 実行した確認
-- `npm run typecheck`
-- `npm run lint`
-- `npm run test`
-- `npm run build`
-- Electron launch smoke と DB 生成確認
-- Electron launch smoke 再確認
-- overdue 一括延期テストを追加して再確認
-- hierarchy move テストを追加して再確認
-- timeline test を追加して再確認
-- drag move / resize の timeline interaction test を追加して再確認
-- detail drawer の note / tags 永続化テストを追加して再確認
-- undo/redo helper test を追加して再確認
-- desktop Playwright smoke を追加して再確認
-- Inbox project assign の service / UI を追加して再確認
-- Inbox date add の service / UI を追加して再確認
-- desktop Playwright smoke を再実行して再確認
-- Inbox tag add の service / UI を追加して再確認
-- desktop Playwright smoke を再実行して再確認
-- Portfolio summary query の service / IPC / fallback を追加して再確認
-- Portfolio table view の renderer / store / e2e を追加して再確認
-- Portfolio phase expand query の service / IPC / fallback を追加して再確認
-- Portfolio phase expand UI の renderer / e2e を追加して再確認
-- Year / FY roadmap month bucket domain と test を追加して再確認
-- Year / FY roadmap renderer foundation と e2e を追加して再確認
-- roadmap quarter header renderer と test を追加して再確認
-- roadmap filters と e2e を追加して再確認
-- portfolio filters と desktop smoke を追加して再確認
-- roadmap deeper task expansion と desktop smoke を追加して再確認
-- dependency table / validation の service test と DB migration smoke を追加して再確認
-- dependency cycle detection の service test を追加して再確認
-- reschedule scope popup と descendants shift の service test / desktop smoke を追加して再確認
-- dependent shift の service test / desktop smoke を追加して再確認
-- working day utility と営業日境界の service test を追加して再確認
-- Excel import preview parser / service / UI / desktop smoke を追加して再確認
-- Excel import commit の service / UI / desktop smoke を追加して再確認
-- Excel import validation detail の parser / UI / parser test を追加して再確認
-- Excel round-trip fixture helper と fixture-based service test を追加して再確認
+- 実際に回したコマンドだけを書く
+- `typecheck / lint / test / build / test:e2e` のどこまで回したかを正確に書く
 
 ### 結果
 - [x] 成功
@@ -355,10 +382,7 @@
 - [ ] Blocked
 
 ### 次にやるべき最小単位
-- recovery screen からの actual restore / restart 導線を追加する
+- 現在の backlog 上で一番小さい次 slice を 1 行で書く
 
 ### 残リスク
-- desktop E2E 未整備
-- SQL.js 永続化の性能評価未了
-- custom working day 設定は未着手
-- drag reorder 未着手
+- 今回の slice で残った known risk だけを書く

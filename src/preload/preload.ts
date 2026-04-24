@@ -2,6 +2,10 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { RendererApi } from "../shared/contracts";
 
 const api: RendererApi = {
+  settings: {
+    get: () => ipcRenderer.invoke("settings:get"),
+    update: (input) => ipcRenderer.invoke("settings:update", input),
+  },
   home: {
     getSummary: () => ipcRenderer.invoke("home:getSummary"),
   },
@@ -52,6 +56,7 @@ const api: RendererApi = {
     archive: (itemId) => ipcRenderer.invoke("item:archive", itemId),
     bulkPostponeOverdue: (input) => ipcRenderer.invoke("item:bulkPostponeOverdue", input),
     moveHierarchy: (input) => ipcRenderer.invoke("item:moveHierarchy", input),
+    reorderRow: (input) => ipcRenderer.invoke("item:reorderRow", input),
   },
   quickCapture: {
     create: (input) => ipcRenderer.invoke("quickCapture:create", input),

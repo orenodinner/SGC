@@ -1,5 +1,5 @@
 version: 1
-last_updated: 2026-04-23
+last_updated: 2026-04-25
 epics:
   - id: EPIC-00
     name: Repository bootstrap
@@ -195,3 +195,92 @@ epics:
       - id: TASK-0805
         title: Add recovery prompt on database anomaly
         status: done
+
+  - id: EPIC-09
+    name: Core spec parity
+    priority: P0
+    status: done
+    tasks:
+      - id: TASK-0901
+        title: Complete Project Detail interaction parity
+        status: done
+        done_when:
+          - WBS row drag reorder works for sibling rows and subtree moves
+          - row order persists after reload and WBS code is recalculated
+          - minimal row-scoped context menu opens from Project Detail
+      - id: TASK-0902
+        title: Build search and filter drawer
+        status: done
+        done_when:
+          - drawer exposes FS-006 filter conditions
+          - current view updates from combined filters
+          - clear resets to default view state
+
+  - id: EPIC-10
+    name: Settings parity
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-1001
+        title: Build settings screen and persist core preferences
+        status: done
+        done_when:
+          - Settings 画面から表示言語、週開始曜日、FY開始月、稼働日、テーマ、既定表示を編集できる
+          - 再起動後も設定が保持される
+          - FY / working day / default view が実動作へ反映される
+      - id: TASK-1002
+        title: Add auto backup and Excel default settings UI
+        status: done
+        done_when:
+          - 自動バックアップ設定を Settings から編集できる
+          - Excel テンプレート既定値を Settings から編集できる
+          - 変更内容が再起動後も保持される
+
+  - id: EPIC-11
+    name: Template and recurrence UI parity
+    priority: P2
+    status: done
+    tasks:
+      - id: TASK-1101
+        title: Add template management UI and Inbox template conversion
+        status: done
+        done_when:
+          - WBS / project template を UI から save / list / apply できる
+          - Inbox の template conversion 導線が使える
+      - id: TASK-1102
+        title: Add recurrence editor UI
+        status: done
+        done_when:
+          - Detail drawer から recurrence rule を追加 / 更新 / 削除できる
+          - recurring state が UI と service で同期する
+
+  - id: EPIC-12
+    name: Multilingual UI parity and deferred polish
+    priority: P1
+    status: in_progress
+    tasks:
+      - id: TASK-1201
+        title: Expand multilingual UI beyond major headings
+        status: in_progress
+        done_when:
+          - `ja / en` 切替で Search / Filter Drawer、Import Preview、recovery / restore overlay の主要 copy が切り替わる
+          - active filter chip と empty / helper copy の主要文言が major-copy only から外れて多言語対応になる
+          - Playwright で英語切替後の overlay / drawer copy を確認できる
+      - id: TASK-1202
+        title: Add generic recurrence editor and unsupported rule builder
+        status: pending
+        done_when:
+          - preset 以外の cadence を UI から編集できる
+          - unsupported rule を raw replace/delete だけでなく user-facing に再構築できる
+      - id: TASK-1203
+        title: Broaden theme and visual token coverage
+        status: pending
+        done_when:
+          - chart と status color を theme token に寄せられる
+          - import / roadmap / portfolio の色面が light/dark で破綻しない
+      - id: TASK-1204
+        title: Add fuller installer and regression hardening
+        status: pending
+        done_when:
+          - portable zip 以外の配布 / 更新方針が tracker 上で閉じる
+          - desktop E2E の coverage が smoke より一段広がる

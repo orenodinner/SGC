@@ -147,4 +147,58 @@ export const migrations: Migration[] = [
         ON template(workspace_id, kind, updated_at);
     `,
   },
+  {
+    id: "006_add_app_settings",
+    sql: `
+      CREATE TABLE IF NOT EXISTS app_settings (
+        workspace_id TEXT PRIMARY KEY,
+        week_starts_on TEXT NOT NULL DEFAULT 'monday',
+        fy_start_month INTEGER NOT NULL DEFAULT 4,
+        default_view TEXT NOT NULL DEFAULT 'home',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `,
+  },
+  {
+    id: "007_add_working_day_numbers_to_app_settings",
+    sql: `
+      ALTER TABLE app_settings
+      ADD COLUMN working_day_numbers TEXT NOT NULL DEFAULT '1,2,3,4,5';
+    `,
+  },
+  {
+    id: "008_add_language_to_app_settings",
+    sql: `
+      ALTER TABLE app_settings
+      ADD COLUMN language TEXT NOT NULL DEFAULT 'ja';
+    `,
+  },
+  {
+    id: "009_add_theme_to_app_settings",
+    sql: `
+      ALTER TABLE app_settings
+      ADD COLUMN theme TEXT NOT NULL DEFAULT 'light';
+    `,
+  },
+  {
+    id: "010_add_auto_backup_settings_to_app_settings",
+    sql: `
+      ALTER TABLE app_settings
+      ADD COLUMN auto_backup_enabled INTEGER NOT NULL DEFAULT 1;
+
+      ALTER TABLE app_settings
+      ADD COLUMN auto_backup_retention_limit INTEGER NOT NULL DEFAULT 7;
+    `,
+  },
+  {
+    id: "011_add_excel_default_settings_to_app_settings",
+    sql: `
+      ALTER TABLE app_settings
+      ADD COLUMN excel_default_priority TEXT NOT NULL DEFAULT 'medium';
+
+      ALTER TABLE app_settings
+      ADD COLUMN excel_default_assignee TEXT NOT NULL DEFAULT '';
+    `,
+  },
 ];

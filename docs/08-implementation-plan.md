@@ -153,10 +153,66 @@ Project / Item / WBS の骨格を作る
 - build artifact 生成
 - known issues 文書化
 
+## Phase 9: Core spec parity
+### 目的
+一次仕様に明記されているが backlog から漏れていた主経路ギャップを閉じる
+
+### 作業
+- Project Detail の drag reorder
+- Project Detail の最小コンテキストメニュー
+- Search / Filter Drawer
+
+### 完了条件
+- WBS row を drag reorder できる
+- row ごとの最小コンテキストメニューが使える
+- drawer から current view の絞り込みができる
+
+## Phase 10: Settings parity
+### 目的
+設定系の仕様を user-facing に閉じる
+
+### 作業
+- Settings 画面の追加
+- 表示言語 / 週開始曜日 / FY開始月 / 稼働日 / テーマ / 既定表示の保存
+- 自動バックアップ設定 / Excel テンプレート既定値の入力導線
+
+### 完了条件
+- settings 画面から主要設定を編集できる
+- 再起動後も設定が保持される
+- FY / working day / default view が実動作に反映される
+
+## Phase 11: Template and recurrence UI parity
+### 目的
+既にある template / recurrence service を user-facing workflow に接続する
+
+### 作業
+- Inbox のテンプレート変換
+- WBS / project template の save / list / apply UI
+- detail drawer の recurrence editor
+
+### 完了条件
+- template を UI から保存 / 適用できる
+- Inbox から template conversion を起動できる
+- recurrence rule を UI から追加 / 更新 / 削除できる
+
+## Phase 12: Multilingual UI parity and deferred polish
+### 目的
+日本語を含む多言語 UI を major heading だけでなく実運用で触る overlay / drawer / utility 面まで広げ、backlog 完了後に残った deferred scope を追跡可能な形へ戻す
+
+### 作業
+- stale tracker wording cleanup
+- overlay / drawer / import preview / recovery / utility copy の i18n parity
+- generic recurrence editor や fuller theme / installer / compare hardening の再 backlog 化
+
+### 完了条件
+- docs 上で deferred scope が Phase 12 として追跡できる
+- `ja / en` 切替で主要 overlay / drawer / import preview copy が切り替わる
+- stale な `次アクション` や完了済み機能の未着手表現が状態ファイルから消えている
+
 ## 優先順位
-- P0: Phase 0〜4
-- P1: Phase 5〜6
-- P2: Phase 7〜8
+- P0: Phase 0〜4, Phase 9
+- P1: Phase 5〜6, Phase 10
+- P2: Phase 7〜8, Phase 11〜12
 
 ## 1スライスの推奨サイズ
 - 0.5〜2日で完了するサイズ

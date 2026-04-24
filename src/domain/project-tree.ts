@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import type { ItemRecord, ItemStatus } from "../shared/contracts";
+import type { ItemRecord, ItemStatus, RowReorderPlacement } from "../shared/contracts";
 
 export interface TreeRow {
   item: ItemRecord;
@@ -23,6 +23,11 @@ export interface ProjectRollup {
   projectStartDate: string | null;
   projectEndDate: string | null;
   projectProgress: number;
+}
+
+export interface SiblingReorderPatch {
+  id: string;
+  sortOrder: number;
 }
 
 export function normalizeProjectItems(items: ItemRecord[]): ProjectRollup {
@@ -117,6 +122,118 @@ export function buildVisibleRows(items: ItemRecord[], expandedIds: ReadonlySet<s
   }
 
   return rows;
+}
+
+export function buildFilteredVisibleRows(input: {
+  items: ItemRecord[];
+  expandedIds: ReadonlySet<string>;
+  includedItemIds: ReadonlySet<string>;
+}): TreeRow[] {
+  const filteredItems = input.items.filter((item) => !item.archived);
+  const childrenByParent = buildChildrenMap(filteredItems);
+  const roots = sortItems(childrenByParent.get(null) ?? []);
+  const rows: TreeRow[] = [];
+
+  const collectRows = (item: ItemRecord, depth: number): boolean => {
+    const children = sortItems(childrenByParent.get(item.id) ?? []);
+    const descendantRows: TreeRow[] = [];
+    let hasIncludedDescendant = false;
+
+    for (const child of children) {
+      const childIncluded = collectChildRows(child, depth + 1, descendantRows);
+      if (childIncluded) {
+        hasIncludedDescendant = true;
+      }
+    }
+
+    const includedSelf = input.includedItemIds.has(item.id);
+    if (!includedSelf && !hasIncludedDescendant) {
+      return false;
+    }
+
+    rows.push({
+      item,
+      depth,
+      hasChildren: children.length > 0,
+    });
+
+    if (children.length > 0 && (input.expandedIds.has(item.id) || hasIncludedDescendant)) {
+      rows.push(...descendantRows);
+    }
+
+    return true;
+  };
+
+  const collectChildRows = (item: ItemRecord, depth: number, targetRows: TreeRow[]): boolean => {
+    const children = sortItems(childrenByParent.get(item.id) ?? []);
+    const descendantRows: TreeRow[] = [];
+    let hasIncludedDescendant = false;
+
+    for (const child of children) {
+      const childIncluded = collectChildRows(child, depth + 1, descendantRows);
+      if (childIncluded) {
+        hasIncludedDescendant = true;
+      }
+    }
+
+    const includedSelf = input.includedItemIds.has(item.id);
+    if (!includedSelf && !hasIncludedDescendant) {
+      return false;
+    }
+
+    targetRows.push({
+      item,
+      depth,
+      hasChildren: children.length > 0,
+    });
+
+    if (children.length > 0 && (input.expandedIds.has(item.id) || hasIncludedDescendant)) {
+      targetRows.push(...descendantRows);
+    }
+
+    return true;
+  };
+
+  for (const root of roots) {
+    collectRows(root, 0);
+  }
+
+  return rows;
+}
+
+export function resolveSiblingReorder(input: {
+  items: ItemRecord[];
+  itemId: string;
+  targetItemId: string;
+  placement: RowReorderPlacement;
+}): SiblingReorderPatch[] | null {
+  const item = input.items.find((entry) => entry.id === input.itemId && !entry.archived);
+  const targetItem = input.items.find((entry) => entry.id === input.targetItemId && !entry.archived);
+  if (!item || !targetItem || item.id === targetItem.id || item.parentId !== targetItem.parentId) {
+    return null;
+  }
+
+  const siblings = sortItems(
+    input.items.filter((entry) => !entry.archived && entry.parentId === item.parentId)
+  );
+  const currentOrder = siblings.map((entry) => entry.id);
+  const siblingsWithoutItem = siblings.filter((entry) => entry.id !== item.id);
+  const targetIndex = siblingsWithoutItem.findIndex((entry) => entry.id === targetItem.id);
+  if (targetIndex === -1) {
+    return null;
+  }
+
+  const insertIndex = input.placement === "after" ? targetIndex + 1 : targetIndex;
+  siblingsWithoutItem.splice(insertIndex, 0, item);
+  const nextOrder = siblingsWithoutItem.map((entry) => entry.id);
+  if (nextOrder.every((entry, index) => entry === currentOrder[index])) {
+    return null;
+  }
+
+  return siblingsWithoutItem.map((entry, index) => ({
+    id: entry.id,
+    sortOrder: index + 1,
+  }));
 }
 
 function buildChildrenMap(items: ItemRecord[]): Map<string | null, ItemRecord[]> {

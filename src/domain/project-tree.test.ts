@@ -1,4 +1,4 @@
-import { buildVisibleRows, normalizeProjectItems } from "./project-tree";
+import { buildFilteredVisibleRows, buildVisibleRows, normalizeProjectItems } from "./project-tree";
 import type { ItemRecord } from "../shared/contracts";
 
 function makeItem(overrides: Partial<ItemRecord>): ItemRecord {
@@ -82,5 +82,50 @@ describe("buildVisibleRows", () => {
     expect(
       buildVisibleRows([parent, child], new Set<string>(["parent"])).map((row) => row.item.id)
     ).toEqual(["parent", "child"]);
+  });
+});
+
+describe("buildFilteredVisibleRows", () => {
+  it("keeps ancestor path for matched descendants without mutating expanded state", () => {
+    const parent = makeItem({ id: "parent", wbsCode: "1", type: "group", title: "Parent" });
+    const child = makeItem({
+      id: "child",
+      parentId: "parent",
+      wbsCode: "1.1",
+      title: "Matched Child",
+    });
+    const sibling = makeItem({
+      id: "sibling",
+      parentId: "parent",
+      wbsCode: "1.2",
+      title: "Other Child",
+      sortOrder: 2,
+    });
+
+    expect(
+      buildFilteredVisibleRows({
+        items: [parent, child, sibling],
+        expandedIds: new Set<string>(),
+        includedItemIds: new Set<string>(["child"]),
+      }).map((row) => row.item.id)
+    ).toEqual(["parent", "child"]);
+  });
+
+  it("hides unmatched descendants even when parent itself matches", () => {
+    const parent = makeItem({ id: "parent", wbsCode: "1", type: "group", title: "Matched Parent" });
+    const child = makeItem({
+      id: "child",
+      parentId: "parent",
+      wbsCode: "1.1",
+      title: "Unmatched Child",
+    });
+
+    expect(
+      buildFilteredVisibleRows({
+        items: [parent, child],
+        expandedIds: new Set<string>(["parent"]),
+        includedItemIds: new Set<string>(["parent"]),
+      }).map((row) => row.item.id)
+    ).toEqual(["parent"]);
   });
 });

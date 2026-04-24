@@ -1,4 +1,6 @@
 import {
+  type DragEvent as ReactDragEvent,
+  type FormEvent as ReactFormEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -11,7 +13,7 @@ import {
   type UIEvent,
 } from "react";
 import { endOfWeek, isWithinInterval, parseISO, startOfWeek } from "date-fns";
-import { buildVisibleRows } from "../domain/project-tree";
+import { buildFilteredVisibleRows, buildVisibleRows } from "../domain/project-tree";
 import {
   buildRoadmapBuckets,
   buildRoadmapLayout,
@@ -27,7 +29,22 @@ import {
   type TimelineScale,
 } from "../domain/timeline";
 import { buildVirtualWindow } from "../domain/virtual-window";
+import {
+  buildSearchFilterChips,
+  createEmptySearchFilterState,
+  hasActiveSearchFilters,
+  isOverdueItem,
+  isRoadmapEligibleItem,
+  itemMatchesSearchFilter,
+  projectMatchesSearchFilter,
+  type SearchFilterChip,
+  type SearchFilterState,
+} from "../domain/view-filters";
 import type {
+  AppDefaultView,
+  AppLanguage,
+  AppTheme,
+  AppSettings,
   BackupPreview,
   DependencyRecord,
   HierarchyMoveDirection,
@@ -40,13 +57,27 @@ import type {
   PostponeTarget,
   ProjectDetail,
   ProjectSummary,
+  RecurrenceRule,
+  RowReorderPlacement,
   RescheduleScope,
+  TemplateRecord,
   UpdateItemInput,
+  WorkingDayNumber,
 } from "../shared/contracts";
 import { browserApi } from "./lib/browser-api";
 import { useAppStore } from "./store/app-store";
+import {
+  formatMonthLabel,
+  getAutoBackupPolicyText,
+  getDefaultViewLabel,
+  getThemeLabel,
+  getUiCopy,
+  getWorkingDayOptions,
+  type UiCopy,
+} from "./ui-copy";
 
-type ViewMode = "home" | "portfolio" | "roadmap" | "project";
+type ViewMode = AppDefaultView | "project" | "settings";
+type SearchableViewMode = Exclude<ViewMode, "settings">;
 
 const PROJECT_DETAIL_ROW_HEIGHT = 58;
 const PROJECT_DETAIL_VIRTUAL_OVERSCAN = 6;
@@ -54,9 +85,9 @@ const PROJECT_DETAIL_DEFAULT_VIEWPORT_HEIGHT = 560;
 const ROADMAP_ROW_HEIGHT = 62;
 const ROADMAP_VIRTUAL_OVERSCAN = 6;
 const ROADMAP_DEFAULT_VIEWPORT_HEIGHT = 620;
-
 export default function App() {
   const {
+    settings,
     projects,
     selectedProjectId,
     projectDetail,
@@ -66,12 +97,16 @@ export default function App() {
     startupContext,
     portfolioSummary,
     importPreview,
+    templates,
     loading,
     error,
     notice,
     bootstrap,
     selectProject,
     createProject,
+    convertInboxItemToTemplateProject,
+    saveWbsTemplate,
+    saveProjectTemplate,
     updateProject,
     createItem,
     updateItem,
@@ -80,9 +115,15 @@ export default function App() {
     createBackup,
     previewBackup,
     restoreBackup,
+    updateSettings,
     clearBackupPreview,
     bulkPostponeOverdue,
     moveItemHierarchy,
+    reorderItemRow,
+    applyWbsTemplate,
+    applyProjectTemplate,
+    upsertRecurrenceRule,
+    deleteRecurrenceRule,
     previewProjectImport,
     commitProjectImport,
     clearImportPreview,
@@ -92,28 +133,67 @@ export default function App() {
     undoItemEdit,
     redoItemEdit,
   } = useAppStore();
+  const language = settings?.language ?? "ja";
+  const theme = settings?.theme ?? "light";
+  const copy = useMemo(() => getUiCopy(language), [language]);
+  const autoBackupPolicyText = useMemo(
+    () =>
+      getAutoBackupPolicyText(
+        language,
+        settings?.autoBackupEnabled ?? true,
+        settings?.autoBackupRetentionLimit ?? 7
+      ),
+    [language, settings?.autoBackupEnabled, settings?.autoBackupRetentionLimit]
+  );
 
   const [viewMode, setViewMode] = useState<ViewMode>("home");
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectCode, setNewProjectCode] = useState("");
   const [quickCaptureText, setQuickCaptureText] = useState("");
   const [timelineScale, setTimelineScale] = useState<TimelineScale>("day");
+  const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
+  const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
+  const [searchFiltersByView, setSearchFiltersByView] = useState<Record<SearchableViewMode, SearchFilterState>>({
+    home: createEmptySearchFilterState(),
+    portfolio: createEmptySearchFilterState(),
+    roadmap: createEmptySearchFilterState(),
+    project: createEmptySearchFilterState(),
+  });
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [activeTimelineEdit, setActiveTimelineEdit] = useState<ActiveTimelineEdit | null>(null);
   const [pendingRescheduleChange, setPendingRescheduleChange] = useState<PendingRescheduleChange | null>(null);
   const [pendingTimelineFocusRestoreItemId, setPendingTimelineFocusRestoreItemId] = useState<string | null>(null);
+  const [itemContextMenu, setItemContextMenu] = useState<ItemContextMenuState | null>(null);
+  const [activeRowDragItemId, setActiveRowDragItemId] = useState<string | null>(null);
+  const [pendingRowDrop, setPendingRowDrop] = useState<ItemRowDropTarget | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [projectDetailScrollTop, setProjectDetailScrollTop] = useState(0);
   const [projectDetailViewportHeight, setProjectDetailViewportHeight] = useState(
     PROJECT_DETAIL_DEFAULT_VIEWPORT_HEIGHT
   );
+  const hasHydratedInitialViewRef = useRef(false);
   const wbsScrollRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
   const syncLockRef = useRef<"wbs" | "timeline" | null>(null);
+  const activeRowDragItemIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  useEffect(() => {
+    if (!settings || hasHydratedInitialViewRef.current) {
+      return;
+    }
+
+    hasHydratedInitialViewRef.current = true;
+    setViewMode(settings.defaultView);
+  }, [settings]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.body.dataset.theme = theme;
+  }, [theme]);
 
   const effectiveExpandedIds = useMemo(() => {
     const next = new Set(expandedIds);
@@ -125,10 +205,67 @@ export default function App() {
     return next;
   }, [expandedIds, projectDetail?.items]);
 
-  const rows = useMemo(
-    () => buildVisibleRows(projectDetail?.items ?? [], effectiveExpandedIds),
-    [effectiveExpandedIds, projectDetail?.items]
-  );
+  const searchableViewMode: SearchableViewMode | null =
+    viewMode === "settings"
+      ? null
+      : viewMode === "project" && !projectDetail
+        ? null
+        : viewMode;
+  const activeSearchFilter = searchableViewMode
+    ? searchFiltersByView[searchableViewMode]
+    : createEmptySearchFilterState();
+  const hasProjectSearchFilter =
+    viewMode === "project" && hasActiveSearchFilters(activeSearchFilter);
+  const projectFilterMatchesCurrentProject = useMemo(() => {
+    if (viewMode !== "project" || !projectDetail) {
+      return true;
+    }
+    return projectMatchesSearchFilter({
+      project: projectDetail.project,
+      detailItems: projectDetail.items,
+      filter: activeSearchFilter,
+    });
+  }, [activeSearchFilter, projectDetail, viewMode]);
+  const directlyMatchedProjectItemIds = useMemo(() => {
+    if (viewMode !== "project" || !projectDetail || !hasProjectSearchFilter) {
+      return new Set<string>();
+    }
+
+    return new Set(
+      projectDetail.items
+        .filter((item) =>
+          itemMatchesSearchFilter({
+            item,
+            project: projectDetail.project,
+            filter: activeSearchFilter,
+          })
+        )
+        .map((item) => item.id)
+    );
+  }, [activeSearchFilter, hasProjectSearchFilter, projectDetail, viewMode]);
+  const rows = useMemo(() => {
+    if (viewMode !== "project" || !projectDetail) {
+      return buildVisibleRows(projectDetail?.items ?? [], effectiveExpandedIds);
+    }
+    if (!hasProjectSearchFilter) {
+      return buildVisibleRows(projectDetail.items, effectiveExpandedIds);
+    }
+    if (!projectFilterMatchesCurrentProject) {
+      return [];
+    }
+    return buildFilteredVisibleRows({
+      items: projectDetail.items,
+      expandedIds: effectiveExpandedIds,
+      includedItemIds: directlyMatchedProjectItemIds,
+    });
+  }, [
+    directlyMatchedProjectItemIds,
+    effectiveExpandedIds,
+    hasProjectSearchFilter,
+    projectDetail,
+    projectFilterMatchesCurrentProject,
+    viewMode,
+  ]);
   const virtualWindow = useMemo(
     () =>
       buildVirtualWindow({
@@ -144,6 +281,10 @@ export default function App() {
     () => rows.slice(virtualWindow.startIndex, virtualWindow.endIndexExclusive),
     [rows, virtualWindow.endIndexExclusive, virtualWindow.startIndex]
   );
+  const visibleProjectRowIds = useMemo(
+    () => new Set(rows.map((row) => row.item.id)),
+    [rows]
+  );
   const timelineColumns = useMemo(
     () => buildTimelineColumns(projectDetail?.items ?? [], timelineScale),
     [projectDetail?.items, timelineScale]
@@ -153,15 +294,62 @@ export default function App() {
     [projectDetail?.items, timelineColumns]
   );
   const selectedItem = useMemo(
-    () =>
-      projectDetail?.items.find((item) => item.id === selectedItemId) ??
-      projectDetail?.items[0] ??
-      null,
-    [projectDetail?.items, selectedItemId]
+    () => {
+      const allItems = projectDetail?.items ?? [];
+      if (viewMode === "project" && hasProjectSearchFilter) {
+        return (
+          allItems.find((item) => item.id === selectedItemId && visibleProjectRowIds.has(item.id)) ??
+          rows[0]?.item ??
+          null
+        );
+      }
+      return allItems.find((item) => item.id === selectedItemId) ?? allItems[0] ?? null;
+    },
+    [hasProjectSearchFilter, projectDetail?.items, rows, selectedItemId, viewMode, visibleProjectRowIds]
   );
-
-  const openCount = projectDetail?.items.filter((item) => item.status !== "done").length ?? 0;
-  const completedCount = projectDetail?.items.filter((item) => item.status === "done").length ?? 0;
+  const metricItems =
+    viewMode === "project" && hasProjectSearchFilter
+      ? (projectDetail?.items ?? []).filter((item) => visibleProjectRowIds.has(item.id))
+      : projectDetail?.items ?? [];
+  const openCount = metricItems.filter((item) => item.status !== "done").length;
+  const completedCount = metricItems.filter((item) => item.status === "done").length;
+  const activeSearchFilterChips = useMemo(
+    () =>
+      searchableViewMode
+        ? buildSearchFilterChips(activeSearchFilter, projects, language)
+        : [],
+    [activeSearchFilter, language, projects, searchableViewMode]
+  );
+  const updateCurrentSearchFilter = useCallback(
+    (patch: Partial<SearchFilterState>) => {
+      if (!searchableViewMode) {
+        return;
+      }
+      setSearchFiltersByView((current) => ({
+        ...current,
+        [searchableViewMode]: {
+          ...current[searchableViewMode],
+          ...patch,
+        },
+      }));
+    },
+    [searchableViewMode]
+  );
+  const clearCurrentSearchFilter = useCallback(() => {
+    if (!searchableViewMode) {
+      return;
+    }
+    setSearchFiltersByView((current) => ({
+      ...current,
+      [searchableViewMode]: createEmptySearchFilterState(),
+    }));
+  }, [searchableViewMode]);
+  const switchView = useCallback((nextViewMode: ViewMode) => {
+    setViewMode(nextViewMode);
+    if (nextViewMode === "project" || nextViewMode === "settings") {
+      setSearchDrawerOpen(false);
+    }
+  }, []);
 
   useEffect(() => {
     const viewportHeight =
@@ -470,23 +658,21 @@ export default function App() {
           <section className="recovery-screen">
             <div className="section-heading">
               <div>
-                <p className="sidebar-label">Recovery</p>
-                <h2>起動に失敗したため recovery mode で開いています</h2>
-                <p className="capture-copy">
-                  DB の初期化または bootstrap に失敗しました。recent backup を確認し、必要なら restore して通常 workspace へ戻してください。
-                </p>
+                <p className="sidebar-label">{copy.recovery.label}</p>
+                <h2>{copy.recovery.heading}</h2>
+                <p className="capture-copy">{copy.recovery.copy}</p>
               </div>
             </div>
             <div className="error-banner">{startupContext.errorMessage}</div>
             <section className="backup-card" aria-label="Recovery Backups">
               <div className="section-heading">
                 <div>
-                  <p className="sidebar-label">Recent Backups</p>
-                  <strong>復旧候補</strong>
+                  <p className="sidebar-label">{copy.recovery.recentBackupsLabel}</p>
+                  <strong>{copy.recovery.candidatesHeading}</strong>
                 </div>
               </div>
               {backups.length === 0 ? (
-                <p className="empty-message">利用可能な backup はありません。</p>
+                <p className="empty-message">{copy.recovery.noBackups}</p>
               ) : (
                 <div className="backup-list">
                   {backups.map((backup) => (
@@ -514,6 +700,7 @@ export default function App() {
               )}
               {backupPreview ? (
                 <BackupPreviewCard
+                  language={language}
                   preview={backupPreview}
                   onRestore={() => void restoreBackup(backupPreview)}
                   onClose={clearBackupPreview}
@@ -527,45 +714,55 @@ export default function App() {
   }
 
   return (
-    <div className="shell">
+    <div className="shell" data-theme={theme}>
       <aside className="sidebar">
         <div>
-          <p className="sidebar-label">Workspace</p>
+          <p className="sidebar-label">{copy.sidebar.workspaceLabel}</p>
           <h1>Simple Gantt Chart</h1>
-          <p className="sidebar-copy">
-            Home / Inbox / Quick Capture を追加しつつ、Project Detail の最小 CRUD を維持しています。
-          </p>
+          <p className="sidebar-copy">{copy.sidebar.copy}</p>
         </div>
 
         <div className="nav-stack">
           <button
             type="button"
             className={viewMode === "home" ? "nav-chip active" : "nav-chip"}
-            onClick={() => setViewMode("home")}
+            onClick={() => switchView("home")}
+            aria-label="Home / Today"
           >
-            Home / Today
+            {copy.sidebar.nav.home}
           </button>
           <button
             type="button"
             className={viewMode === "portfolio" ? "nav-chip active" : "nav-chip"}
-            onClick={() => setViewMode("portfolio")}
+            onClick={() => switchView("portfolio")}
+            aria-label="Portfolio"
           >
-            Portfolio
+            {copy.sidebar.nav.portfolio}
           </button>
           <button
             type="button"
             className={viewMode === "roadmap" ? "nav-chip active" : "nav-chip"}
-            onClick={() => setViewMode("roadmap")}
+            onClick={() => switchView("roadmap")}
+            aria-label="Year / FY"
           >
-            Year / FY
+            {copy.sidebar.nav.roadmap}
           </button>
           <button
             type="button"
             className={viewMode === "project" ? "nav-chip active" : "nav-chip"}
-            onClick={() => setViewMode("project")}
+            onClick={() => switchView("project")}
             disabled={!selectedProjectId}
+            aria-label="Project Detail"
           >
-            Project Detail
+            {copy.sidebar.nav.project}
+          </button>
+          <button
+            type="button"
+            className={viewMode === "settings" ? "nav-chip active" : "nav-chip"}
+            onClick={() => switchView("settings")}
+            aria-label="Settings"
+          >
+            {copy.sidebar.nav.settings}
           </button>
         </div>
 
@@ -580,40 +777,40 @@ export default function App() {
               name: newProjectName.trim(),
               code: newProjectCode.trim() || undefined,
             });
-            setViewMode("project");
+            switchView("project");
             setNewProjectName("");
             setNewProjectCode("");
           }}
         >
           <label>
-            プロジェクト名
+            {copy.sidebar.projectNameLabel}
             <input
               value={newProjectName}
               onChange={(event) => setNewProjectName(event.target.value)}
-              placeholder="例: 基幹刷新"
+              placeholder={copy.sidebar.projectNamePlaceholder}
             />
           </label>
           <label>
-            コード
+            {copy.sidebar.codeLabel}
             <input
               value={newProjectCode}
               onChange={(event) => setNewProjectCode(event.target.value)}
-              placeholder="例: PRJ-001"
+              placeholder={copy.sidebar.codePlaceholder}
             />
           </label>
-          <button type="submit">プロジェクト作成</button>
+          <button type="submit">{copy.sidebar.createProject}</button>
         </form>
 
         <div className="project-list">
           {projects.length === 0 ? (
-            <p className="empty-message">まず1つプロジェクトを作成して下さい</p>
+            <p className="empty-message">{copy.sidebar.emptyProjects}</p>
           ) : (
             projects.map((project) => (
               <button
                 key={project.id}
                 className={project.id === selectedProjectId ? "project-card selected" : "project-card"}
                 onClick={() => {
-                  setViewMode("project");
+                  switchView("project");
                   void selectProject(project.id);
                 }}
                 type="button"
@@ -629,16 +826,16 @@ export default function App() {
         <section className="backup-card" aria-label="Data Protection">
           <div className="section-heading">
             <div>
-              <p className="sidebar-label">Data Protection</p>
-              <strong>Local Backups</strong>
-              <p className="detail-field-hint">自動: 起動時に日次1回 / auto 7件保持</p>
+              <p className="sidebar-label">{copy.sidebar.dataProtectionLabel}</p>
+              <strong>{copy.sidebar.localBackups}</strong>
+              <p className="detail-field-hint">{autoBackupPolicyText}</p>
             </div>
             <button type="button" className="nav-chip active" onClick={() => void createBackup()}>
-              Backup now
+              {copy.sidebar.backupNow}
             </button>
           </div>
           {backups.length === 0 ? (
-            <p className="empty-message">まだ backup はありません。</p>
+            <p className="empty-message">{copy.sidebar.noBackups}</p>
           ) : (
             <div className="backup-list">
               {backups.slice(0, 5).map((backup) => (
@@ -658,7 +855,7 @@ export default function App() {
                     className="nav-chip"
                     onClick={() => void previewBackup(backup)}
                   >
-                    Restore Preview
+                    {copy.sidebar.restorePreview}
                   </button>
                 </div>
               ))}
@@ -666,6 +863,7 @@ export default function App() {
           )}
           {backupPreview ? (
             <BackupPreviewCard
+              language={language}
               preview={backupPreview}
               onRestore={() => void restoreBackup(backupPreview)}
               onClose={clearBackupPreview}
@@ -677,11 +875,34 @@ export default function App() {
       <main className="main-panel">
         {error ? <div className="error-banner">{error}</div> : null}
         {notice ? <div className="notice-banner">{notice}</div> : null}
+        {searchableViewMode ? (
+          <SearchFilterToolbar
+            language={language}
+            viewMode={searchableViewMode}
+            filter={activeSearchFilter}
+            chips={activeSearchFilterChips}
+            isOpen={searchDrawerOpen}
+            onToggle={() => setSearchDrawerOpen((current) => !current)}
+            onClear={clearCurrentSearchFilter}
+          />
+        ) : null}
+        {searchableViewMode && searchDrawerOpen ? (
+          <SearchFilterDrawer
+            language={language}
+            projects={projects}
+            filter={activeSearchFilter}
+            onChange={updateCurrentSearchFilter}
+            onClear={clearCurrentSearchFilter}
+            onClose={() => setSearchDrawerOpen(false)}
+          />
+        ) : null}
 
         {viewMode === "home" ? (
           <HomeView
+            language={language}
             summary={homeSummary}
             projects={projects}
+            searchFilter={searchFiltersByView.home}
             quickCaptureText={quickCaptureText}
             setQuickCaptureText={setQuickCaptureText}
             onQuickCapture={async () => {
@@ -692,7 +913,7 @@ export default function App() {
               setQuickCaptureText("");
             }}
             onOpenProject={(projectId) => {
-              setViewMode("project");
+              switchView("project");
               void selectProject(projectId);
             }}
             onBulkPostpone={(target) => void bulkPostponeOverdue(target)}
@@ -705,22 +926,45 @@ export default function App() {
               })
             }
             onAddInboxTags={(itemId, tags) => void updateItem({ id: itemId, tags })}
+            onConvertInboxToTemplate={async (itemId) => {
+              const result = await convertInboxItemToTemplateProject(itemId);
+              if (!result) {
+                return;
+              }
+              switchView("project");
+              setSelectedItemId(result.itemId);
+              setTemplatePanelOpen(true);
+            }}
           />
         ) : viewMode === "portfolio" ? (
           <PortfolioView
+            language={language}
             summary={portfolioSummary}
+            projects={projects}
+            searchFilter={searchFiltersByView.portfolio}
+            weekStartsOn={settings?.weekStartsOn ?? "monday"}
             onOpenProject={(projectId) => {
-              setViewMode("project");
+              switchView("project");
               void selectProject(projectId);
             }}
           />
         ) : viewMode === "roadmap" ? (
           <RoadmapView
+            language={language}
             projects={projects}
+            searchFilter={searchFiltersByView.roadmap}
+            fyStartMonth={settings?.fyStartMonth ?? 4}
             onOpenProject={(projectId) => {
-              setViewMode("project");
+              switchView("project");
               void selectProject(projectId);
             }}
+          />
+        ) : viewMode === "settings" ? (
+          <SettingsView
+            key={settings?.updatedAt ?? "settings-empty"}
+            settings={settings}
+            language={language}
+            onSave={(input) => updateSettings(input)}
           />
         ) : !projectDetail ? (
           <section className="empty-panel">
@@ -731,10 +975,10 @@ export default function App() {
           <>
             <header className="project-header">
               <div>
-                <p className="sidebar-label">Project Detail</p>
+                <p className="sidebar-label">{copy.project.headerLabel}</p>
                 <div className="project-header-fields">
                   <label>
-                    名前
+                    {copy.project.nameLabel}
                     <input
                       key={`${projectDetail.project.id}-name-${projectDetail.project.updatedAt}`}
                       defaultValue={projectDetail.project.name}
@@ -748,7 +992,7 @@ export default function App() {
                     />
                   </label>
                   <label>
-                    コード
+                    {copy.project.codeLabel}
                     <input
                       key={`${projectDetail.project.id}-code-${projectDetail.project.updatedAt}`}
                       defaultValue={projectDetail.project.code}
@@ -765,14 +1009,14 @@ export default function App() {
               </div>
 
               <div className="stats-grid">
-                <MetricCard label="総タスク" value={String(projectDetail.items.length)} />
-                <MetricCard label="未完了" value={String(openCount)} />
-                <MetricCard label="完了" value={String(completedCount)} />
-                <MetricCard label="進捗" value={`${projectDetail.project.progressCached}%`} />
+                <MetricCard label={copy.project.totalTasks} value={String(projectDetail.items.length)} />
+                <MetricCard label={copy.project.openTasks} value={String(openCount)} />
+                <MetricCard label={copy.project.completedTasks} value={String(completedCount)} />
+                <MetricCard label={copy.project.progress} value={`${projectDetail.project.progressCached}%`} />
               </div>
 
               <div className="timeline-scale-switch">
-                <span>Timeline</span>
+                <span>{copy.project.timeline}</span>
                 <div className="timeline-scale-buttons">
                   {(["day", "week", "month"] as TimelineScale[]).map((scale) => (
                     <button
@@ -781,26 +1025,53 @@ export default function App() {
                       className={timelineScale === scale ? "nav-chip active" : "nav-chip"}
                       onClick={() => setTimelineScale(scale)}
                     >
-                      {scale === "day" ? "日" : scale === "week" ? "週" : "月"}
+                      {scale === "day"
+                        ? copy.project.timelineDay
+                        : scale === "week"
+                          ? copy.project.timelineWeek
+                          : copy.project.timelineMonth}
                     </button>
                   ))}
                 </div>
-                <p className="timeline-keyboard-hint">Alt+←/→ で移動、Alt+Shift+←/→ で右端を調整できます。</p>
+                <p className="timeline-keyboard-hint">{copy.project.timelineKeyboardHint}</p>
               </div>
             </header>
 
             {importPreview ? (
               <ImportPreviewPanel
+                language={language}
                 preview={importPreview}
                 onCommit={() => void commitProjectImport()}
                 onClose={clearImportPreview}
               />
             ) : null}
 
+            {templatePanelOpen ? (
+              <TemplatePanel
+                language={language}
+                templates={templates}
+                project={projectDetail.project}
+                selectedItem={selectedItem}
+                projectCopy={copy.project}
+                loading={loading}
+                onSaveWbs={(rootItemId) => void saveWbsTemplate(rootItemId)}
+                onSaveProject={(projectId) => void saveProjectTemplate(projectId)}
+                onApplyWbs={(templateId) => {
+                  setTemplatePanelOpen(false);
+                  void applyWbsTemplate(templateId);
+                }}
+                onApplyProject={(templateId) => {
+                  setTemplatePanelOpen(false);
+                  void applyProjectTemplate(templateId);
+                }}
+                onClose={() => setTemplatePanelOpen(false)}
+              />
+            ) : null}
+
             <section className="toolbar">
               <div>
-                <strong>WBS Tree</strong>
-                <p>インデント / アウトデント、優先度、担当、日付、タグ表示までをこのグリッドで編集できます。</p>
+                <strong>{copy.project.wbsTree}</strong>
+                <p>{copy.project.wbsTreeCopy}</p>
               </div>
               <div className="toolbar-actions">
                 <button
@@ -809,7 +1080,7 @@ export default function App() {
                   onClick={() => void previewProjectImport()}
                   disabled={!selectedProjectId}
                 >
-                  Excel Import
+                  {copy.project.importWorkbook}
                 </button>
                 <button
                   type="button"
@@ -817,7 +1088,15 @@ export default function App() {
                   onClick={() => void exportProjectWorkbook()}
                   disabled={!selectedProjectId}
                 >
-                  Excel Export
+                  {copy.project.exportWorkbook}
+                </button>
+                <button
+                  type="button"
+                  className={templatePanelOpen ? "nav-chip active" : "nav-chip"}
+                  onClick={() => setTemplatePanelOpen((current) => !current)}
+                  disabled={!selectedProjectId}
+                >
+                  {copy.project.templates}
                 </button>
                 <button type="button" className="nav-chip" onClick={() => void undoItemEdit()} disabled={!canUndoItemEdit}>
                   Undo
@@ -826,7 +1105,7 @@ export default function App() {
                   Redo
                 </button>
                 <button type="button" onClick={() => void createItem(projectDetail.project.id, null)}>
-                  ルート行を追加
+                  {copy.project.addRootRow}
                 </button>
               </div>
             </section>
@@ -861,7 +1140,11 @@ export default function App() {
                   }}
                 >
                   {rows.length === 0 ? (
-                    <div className="empty-table">親・子・孫を作れる最小 CRUD から開始して下さい。</div>
+                    <div className="empty-table">
+                      {hasProjectSearchFilter
+                        ? copy.project.emptyFilteredRows
+                        : copy.project.emptyTreeRows}
+                    </div>
                   ) : (
                     <>
                       {virtualWindow.topSpacerHeight > 0 ? (
@@ -893,8 +1176,71 @@ export default function App() {
                           onAddChild={() => void createItem(projectDetail.project.id, item.id)}
                           onArchive={() => void archiveItem(item.id)}
                           onMoveHierarchy={(direction) => void moveItemHierarchy(item.id, direction)}
+                          onReorderStart={() => {
+                            setSelectedItemId(item.id);
+                            setItemContextMenu(null);
+                            activeRowDragItemIdRef.current = item.id;
+                            setActiveRowDragItemId(item.id);
+                            setPendingRowDrop(null);
+                          }}
+                          onReorderHover={(placement) => {
+                            const draggedItem = activeRowDragItemIdRef.current
+                              ? projectDetail.items.find((entry) => entry.id === activeRowDragItemIdRef.current) ?? null
+                              : null;
+                            if (
+                              !draggedItem ||
+                              draggedItem.id === item.id ||
+                              draggedItem.parentId !== item.parentId
+                            ) {
+                              setPendingRowDrop(null);
+                              return;
+                            }
+                            setPendingRowDrop({
+                              targetItemId: item.id,
+                              placement,
+                            });
+                          }}
+                          onReorderDrop={(placement) => {
+                            const draggedItemId = activeRowDragItemIdRef.current;
+                            const draggedItem = draggedItemId
+                              ? projectDetail.items.find((entry) => entry.id === draggedItemId) ?? null
+                              : null;
+                            if (
+                              !draggedItemId ||
+                              !draggedItem ||
+                              draggedItem.id === item.id ||
+                              draggedItem.parentId !== item.parentId
+                            ) {
+                              setPendingRowDrop(null);
+                              activeRowDragItemIdRef.current = null;
+                              setActiveRowDragItemId(null);
+                              return;
+                            }
+                            setSelectedItemId(draggedItemId);
+                            void reorderItemRow(draggedItemId, item.id, placement);
+                            setPendingRowDrop(null);
+                            activeRowDragItemIdRef.current = null;
+                            setActiveRowDragItemId(null);
+                          }}
+                          onReorderEnd={() => {
+                            setPendingRowDrop(null);
+                            activeRowDragItemIdRef.current = null;
+                            setActiveRowDragItemId(null);
+                          }}
                           onOpenDetail={() => setSelectedItemId(item.id)}
+                          onOpenContextMenu={(position) => {
+                            setSelectedItemId(item.id);
+                            setItemContextMenu({
+                              item,
+                              x: position.x,
+                              y: position.y,
+                            });
+                          }}
                           isSelected={selectedItem?.id === item.id}
+                          isDragSource={activeRowDragItemId === item.id}
+                          dropPlacement={
+                            pendingRowDrop?.targetItemId === item.id ? pendingRowDrop.placement : null
+                          }
                         />
                       ))}
                       {virtualWindow.bottomSpacerHeight > 0 ? (
@@ -937,7 +1283,11 @@ export default function App() {
                   }}
                 >
                   {rows.length === 0 ? (
-                    <div className="empty-table">日付が入った項目を表示します</div>
+                    <div className="empty-table">
+                      {hasProjectSearchFilter
+                        ? copy.project.emptyFilteredRows
+                        : copy.project.emptyTimelineRows}
+                    </div>
                   ) : (
                     <>
                       {virtualWindow.topSpacerHeight > 0 ? (
@@ -1054,6 +1404,8 @@ export default function App() {
               onUpdateItem={(patch) =>
                 selectedItem ? requestProjectItemUpdate(selectedItem, patch) : undefined
               }
+              onUpsertRecurrenceRule={upsertRecurrenceRule}
+              onDeleteRecurrenceRule={deleteRecurrenceRule}
             />
           </>
         )}
@@ -1078,6 +1430,31 @@ export default function App() {
           />
         ) : null}
 
+        {itemContextMenu ? (
+          <ItemContextMenu
+            item={itemContextMenu.item}
+            x={itemContextMenu.x}
+            y={itemContextMenu.y}
+            onClose={() => setItemContextMenu(null)}
+            onOpenDetail={() => {
+              setSelectedItemId(itemContextMenu.item.id);
+              setItemContextMenu(null);
+            }}
+            onAddChild={() => {
+              void createItem(projectDetail!.project.id, itemContextMenu.item.id);
+              setItemContextMenu(null);
+            }}
+            onMoveHierarchy={(direction) => {
+              void moveItemHierarchy(itemContextMenu.item.id, direction);
+              setItemContextMenu(null);
+            }}
+            onArchive={() => {
+              void archiveItem(itemContextMenu.item.id);
+              setItemContextMenu(null);
+            }}
+          />
+        ) : null}
+
         {loading ? <div className="loading-chip">saving...</div> : null}
       </main>
     </div>
@@ -1085,8 +1462,10 @@ export default function App() {
 }
 
 function HomeView(props: {
+  language: AppLanguage;
   summary: HomeSummary | null;
-  projects: Array<{ id: string; name: string; code: string }>;
+  projects: ProjectSummary[];
+  searchFilter: SearchFilterState;
   quickCaptureText: string;
   setQuickCaptureText: (value: string) => void;
   onQuickCapture: () => Promise<void>;
@@ -1095,10 +1474,13 @@ function HomeView(props: {
   onAssignInboxProject: (itemId: string, projectId: string) => void;
   onAddInboxDate: (itemId: string, date: string) => void;
   onAddInboxTags: (itemId: string, tags: string[]) => void;
+  onConvertInboxToTemplate: (itemId: string) => Promise<void>;
 }) {
+  const copy = getUiCopy(props.language);
   const {
     summary,
     projects,
+    searchFilter,
     quickCaptureText,
     setQuickCaptureText,
     onQuickCapture,
@@ -1107,17 +1489,60 @@ function HomeView(props: {
     onAssignInboxProject,
     onAddInboxDate,
     onAddInboxTags,
+    onConvertInboxToTemplate,
   } = props;
+  const projectMap = useMemo(
+    () => new Map(projects.map((project) => [project.id, project])),
+    [projects]
+  );
+  const visibleItems = useMemo(() => {
+    const sections = [
+      ...(summary?.inboxItems ?? []),
+      ...(summary?.todayItems ?? []),
+      ...(summary?.overdueItems ?? []),
+      ...(summary?.weekMilestones ?? []),
+    ];
+    return Array.from(new Map(sections.map((item) => [item.id, item])).values());
+  }, [summary]);
+  const detailItemsByProjectId = useMemo(() => {
+    const next = new Map<string, ItemRecord[]>();
+    for (const item of visibleItems) {
+      const bucket = next.get(item.projectId) ?? [];
+      bucket.push(item);
+      next.set(item.projectId, bucket);
+    }
+    return next;
+  }, [visibleItems]);
+  const filterItems = useCallback(
+    (items: ItemRecord[]) =>
+      items.filter((item) =>
+        itemMatchesSearchFilter({
+          item,
+          project: projectMap.get(item.projectId) ?? null,
+          filter: searchFilter,
+        })
+      ),
+    [projectMap, searchFilter]
+  );
+  const filteredInboxItems = filterItems(summary?.inboxItems ?? []);
+  const filteredTodayItems = filterItems(summary?.todayItems ?? []);
+  const filteredOverdueItems = filterItems(summary?.overdueItems ?? []);
+  const filteredWeekMilestones = filterItems(summary?.weekMilestones ?? []);
+  const filteredRecentProjects = (summary?.recentProjects ?? []).filter((project) =>
+    projectMatchesSearchFilter({
+      project,
+      detailItems: detailItemsByProjectId.get(project.id) ?? [],
+      filter: searchFilter,
+    })
+  );
 
   return (
     <>
       <section className="capture-panel">
         <div>
           <p className="sidebar-label">Quick Capture</p>
-          <h2>今日やることを1行で追加</h2>
-          <p className="capture-copy">
-            例: 見積提出 4/25 #営業 @自分 / 設計レビュー 4/28 15:00 60分
-          </p>
+          <h2>{copy.home.heading}</h2>
+          <p className="capture-copy">{copy.home.copy}</p>
         </div>
         <form
           className="capture-form"
@@ -1129,67 +1554,69 @@ function HomeView(props: {
           <input
             value={quickCaptureText}
             onChange={(event) => setQuickCaptureText(event.target.value)}
-            placeholder="タスクを入力。例: 見積提出 4/25 #営業 @自分"
+            placeholder={copy.home.placeholder}
           />
-          <button type="submit">追加</button>
+          <button type="submit">{copy.home.add}</button>
         </form>
       </section>
 
       <section className="stats-grid">
-        <MetricCard label="Inbox" value={String(summary?.inboxItems.length ?? 0)} />
-        <MetricCard label="Today" value={String(summary?.todayItems.length ?? 0)} />
-        <MetricCard label="Overdue" value={String(summary?.overdueItems.length ?? 0)} />
-        <MetricCard label="今週MS" value={String(summary?.weekMilestones.length ?? 0)} />
+        <MetricCard label="Inbox" value={String(filteredInboxItems.length)} />
+        <MetricCard label="Today" value={String(filteredTodayItems.length)} />
+        <MetricCard label="Overdue" value={String(filteredOverdueItems.length)} />
+        <MetricCard label={copy.home.weekMilestonesMetric} value={String(filteredWeekMilestones.length)} />
       </section>
 
       <section className="home-grid">
-        <SectionCard title="Inbox" subtitle="未計画タスク">
+        <SectionCard title="Inbox" subtitle={copy.home.inboxSubtitle}>
           <InboxTaskList
-            items={summary?.inboxItems ?? []}
+            language={props.language}
+            items={filteredInboxItems}
             projects={projects}
-            emptyMessage="今のところ未整理はありません"
+            emptyMessage={copy.home.inboxEmpty}
             onAssignProject={onAssignInboxProject}
             onAddDate={onAddInboxDate}
             onAddTags={onAddInboxTags}
+            onConvertToTemplate={onConvertInboxToTemplate}
           />
         </SectionCard>
-        <SectionCard title="今日" subtitle="今日にかかるタスク">
-          <TaskList items={summary?.todayItems ?? []} emptyMessage="今日の予定はありません" />
+        <SectionCard title={copy.home.today} subtitle={copy.home.todaySubtitle}>
+          <TaskList items={filteredTodayItems} emptyMessage={copy.home.todayEmpty} />
         </SectionCard>
-        <SectionCard title="期限切れ" subtitle="危険箇所">
+        <SectionCard title={copy.home.overdue} subtitle={copy.home.overdueSubtitle}>
           <div className="bulk-actions">
-            <span>一括延期</span>
+            <span>{copy.home.postpone}</span>
             <div className="bulk-actions-row">
-              <button type="button" onClick={() => onBulkPostpone("today")} disabled={(summary?.overdueItems.length ?? 0) === 0}>
-                今日へ
+              <button type="button" onClick={() => onBulkPostpone("today")} disabled={filteredOverdueItems.length === 0}>
+                {copy.home.postponeToday}
               </button>
-              <button type="button" onClick={() => onBulkPostpone("tomorrow")} disabled={(summary?.overdueItems.length ?? 0) === 0}>
-                明日へ
+              <button type="button" onClick={() => onBulkPostpone("tomorrow")} disabled={filteredOverdueItems.length === 0}>
+                {copy.home.postponeTomorrow}
               </button>
-              <button type="button" onClick={() => onBulkPostpone("week_end")} disabled={(summary?.overdueItems.length ?? 0) === 0}>
-                今週末へ
+              <button type="button" onClick={() => onBulkPostpone("week_end")} disabled={filteredOverdueItems.length === 0}>
+                {copy.home.postponeWeekEnd}
               </button>
             </div>
           </div>
-          <TaskList items={summary?.overdueItems ?? []} emptyMessage="期限切れはありません" />
+          <TaskList items={filteredOverdueItems} emptyMessage={copy.home.overdueEmpty} />
         </SectionCard>
-        <SectionCard title="今週のマイルストーン" subtitle="直近確認">
-          <TaskList items={summary?.weekMilestones ?? []} emptyMessage="今週のマイルストーンはありません" />
+        <SectionCard title={copy.home.weekMilestones} subtitle={copy.home.weekMilestonesSubtitle}>
+          <TaskList items={filteredWeekMilestones} emptyMessage={copy.home.weekMilestonesEmpty} />
         </SectionCard>
       </section>
 
       <section className="recent-projects">
         <div className="section-heading">
           <div>
-            <strong>最近更新したプロジェクト</strong>
-            <p>Project row クリックで Project Detail へ移動します。</p>
+            <strong>{copy.home.recentProjects}</strong>
+            <p>{copy.home.recentProjectsCopy}</p>
           </div>
         </div>
-        {(summary?.recentProjects.length ?? 0) === 0 ? (
-          <div className="empty-table">まず1つプロジェクトを作成して下さい</div>
+        {filteredRecentProjects.length === 0 ? (
+          <div className="empty-table">{copy.home.recentProjectsEmpty}</div>
         ) : (
           <div className="recent-project-list">
-            {summary?.recentProjects.map((project) => (
+            {filteredRecentProjects.map((project) => (
               <button
                 key={project.id}
                 type="button"
@@ -1198,7 +1625,7 @@ function HomeView(props: {
               >
                 <span>{project.code}</span>
                 <strong>{project.name}</strong>
-                <span>進捗 {project.progressCached}%</span>
+                <span>{copy.home.recentProgress} {project.progressCached}%</span>
               </button>
             ))}
           </div>
@@ -1344,29 +1771,31 @@ function SectionCard(props: { title: string; subtitle: string; children: ReactNo
 }
 
 function BackupPreviewCard(props: {
+  language: AppLanguage;
   preview: BackupPreview;
   canRestore?: boolean;
   onRestore: () => void;
   onClose: () => void;
 }) {
   const [confirmingRestore, setConfirmingRestore] = useState(false);
+  const copy = getUiCopy(props.language).backupPreview;
 
   return (
     <section className="backup-preview-card" aria-label="Restore Preview">
       <div className="section-heading">
         <div>
-          <strong>Restore Preview</strong>
-          <p>backup snapshot の内容だけを確認します。まだ current DB は変更しません。</p>
+          <strong>{copy.heading}</strong>
+          <p>{copy.copy}</p>
         </div>
         <button type="button" className="nav-chip" onClick={props.onClose}>
-          閉じる
+          {copy.close}
         </button>
       </div>
       <div className="backup-preview-grid">
-        <MetricCard label="Projects" value={String(props.preview.projectCount)} />
-        <MetricCard label="Items" value={String(props.preview.itemCount)} />
+        <MetricCard label={copy.projectsLabel} value={String(props.preview.projectCount)} />
+        <MetricCard label={copy.itemsLabel} value={String(props.preview.itemCount)} />
         <MetricCard
-          label="Updated"
+          label={copy.updatedLabel}
           value={
             props.preview.latestUpdatedAt
               ? formatBackupCreatedAt(props.preview.latestUpdatedAt)
@@ -1376,31 +1805,31 @@ function BackupPreviewCard(props: {
       </div>
       <div className="backup-preview-meta">
         <div className="backup-preview-meta-row">
-          <span>File</span>
+          <span>{copy.fileLabel}</span>
           <strong>{props.preview.fileName}</strong>
         </div>
         <div className="backup-preview-meta-row">
-          <span>Created</span>
+          <span>{copy.createdLabel}</span>
           <strong>{formatBackupCreatedAt(props.preview.createdAt)}</strong>
         </div>
         <div className="backup-preview-meta-row">
-          <span>Size</span>
+          <span>{copy.sizeLabel}</span>
           <strong>{formatBackupSize(props.preview.sizeBytes)}</strong>
         </div>
       </div>
       {props.canRestore === false ? (
-        <p className="detail-field-hint">recovery mode では preview のみ利用できます。復元実行は後続 slice で対応します。</p>
+        <p className="detail-field-hint">{copy.restoreDisabledNote}</p>
       ) : confirmingRestore ? (
         <div className="backup-restore-confirm">
-          <strong>この backup を current state に戻します。</strong>
-          <p>desktop では restore 前に safety backup を自動作成します。</p>
+          <strong>{copy.confirmHeading}</strong>
+          <p>{copy.confirmCopy}</p>
           <div className="backup-restore-confirm-actions">
             <button
               type="button"
               className="nav-chip"
               onClick={() => setConfirmingRestore(false)}
             >
-              キャンセル
+              {copy.cancel}
             </button>
             <button
               type="button"
@@ -1410,7 +1839,7 @@ function BackupPreviewCard(props: {
                 props.onRestore();
               }}
             >
-              Restore
+              {copy.restore}
             </button>
           </div>
         </div>
@@ -1421,22 +1850,155 @@ function BackupPreviewCard(props: {
             className="danger"
             onClick={() => setConfirmingRestore(true)}
           >
-            Restore
+            {copy.restore}
           </button>
         </div>
       )}
       {props.canRestore === false ? null : (
-        <p className="detail-field-hint">restore 後は app state を再読込し、safety backup から再度戻せます。</p>
+        <p className="detail-field-hint">{copy.afterRestoreNote}</p>
+      )}
+    </section>
+  );
+}
+
+function TemplatePanel(props: {
+  language: AppLanguage;
+  templates: TemplateRecord[];
+  project: ProjectSummary;
+  selectedItem: ItemRecord | null;
+  projectCopy: UiCopy["project"];
+  loading: boolean;
+  onSaveWbs: (rootItemId: string) => void;
+  onSaveProject: (projectId: string) => void;
+  onApplyWbs: (templateId: string) => void;
+  onApplyProject: (templateId: string) => void;
+  onClose: () => void;
+}) {
+  const wbsTemplates = props.templates.filter((template) => template.kind === "wbs");
+  const projectTemplates = props.templates.filter((template) => template.kind === "project");
+  const selectedRootItem = props.selectedItem && !props.selectedItem.parentId ? props.selectedItem : null;
+  const canSaveWbsTemplate = Boolean(selectedRootItem);
+  const wbsTemplateSaveHelp = canSaveWbsTemplate
+    ? props.projectCopy.saveWbsTemplateHelp
+    : props.projectCopy.saveWbsTemplateDisabled;
+
+  return (
+    <section className="template-panel" aria-label={props.projectCopy.templatePanelHeading}>
+      <div className="section-heading">
+        <div>
+          <strong>{props.projectCopy.templatePanelHeading}</strong>
+          <p>{props.projectCopy.templatePanelCopy}</p>
+        </div>
+        <div className="toolbar-actions">
+          <button type="button" className="nav-chip" onClick={props.onClose}>
+            {props.language === "en" ? "Close" : "閉じる"}
+          </button>
+        </div>
+      </div>
+
+      <div className="template-section-grid">
+        <TemplateSection
+          title={props.projectCopy.wbsTemplates}
+          copy={props.projectCopy.wbsTemplatesCopy}
+          saveActionLabel={props.projectCopy.saveWbsTemplate}
+          saveActionHelp={wbsTemplateSaveHelp}
+          saveActionDisabled={!canSaveWbsTemplate}
+          onSave={selectedRootItem ? () => props.onSaveWbs(selectedRootItem.id) : undefined}
+          emptyMessage={props.projectCopy.emptyTemplates}
+          templates={wbsTemplates}
+          updatedAtLabel={props.projectCopy.templateUpdatedAt}
+          actionLabel={props.projectCopy.applyWbsTemplate}
+          language={props.language}
+          loading={props.loading}
+          onApply={props.onApplyWbs}
+        />
+        <TemplateSection
+          title={props.projectCopy.projectTemplates}
+          copy={props.projectCopy.projectTemplatesCopy}
+          saveActionLabel={props.projectCopy.saveProjectTemplate}
+          saveActionHelp={props.projectCopy.saveProjectTemplateHelp}
+          saveActionDisabled={false}
+          onSave={() => props.onSaveProject(props.project.id)}
+          emptyMessage={props.projectCopy.emptyTemplates}
+          templates={projectTemplates}
+          updatedAtLabel={props.projectCopy.templateUpdatedAt}
+          actionLabel={props.projectCopy.applyProjectTemplate}
+          language={props.language}
+          loading={props.loading}
+          onApply={props.onApplyProject}
+        />
+      </div>
+    </section>
+  );
+}
+
+function TemplateSection(props: {
+  title: string;
+  copy: string;
+  saveActionLabel: string;
+  saveActionHelp: string;
+  saveActionDisabled: boolean;
+  onSave?: () => void;
+  emptyMessage: string;
+  templates: TemplateRecord[];
+  updatedAtLabel: string;
+  actionLabel: string;
+  language: AppLanguage;
+  loading: boolean;
+  onApply: (templateId: string) => void;
+}) {
+  return (
+    <section className="template-section">
+      <div className="template-section-header">
+        <div>
+          <strong>{props.title}</strong>
+          <p>{props.copy}</p>
+        </div>
+        <button
+          type="button"
+          className="nav-chip"
+          onClick={() => props.onSave?.()}
+          disabled={props.loading || props.saveActionDisabled || !props.onSave}
+        >
+          {props.saveActionLabel}
+        </button>
+      </div>
+      <div className="template-section-help">{props.saveActionHelp}</div>
+      {props.templates.length === 0 ? (
+        <div className="template-empty">{props.emptyMessage}</div>
+      ) : (
+        <div className="template-list">
+          {props.templates.map((template) => (
+            <div key={template.id} className="template-list-item">
+              <div className="template-list-main">
+                <strong>{template.name}</strong>
+                <span>
+                  {props.updatedAtLabel}: {formatDateTimeText(props.language, template.updatedAt)}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="nav-chip"
+                onClick={() => props.onApply(template.id)}
+                disabled={props.loading}
+              >
+                {props.actionLabel}
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </section>
   );
 }
 
 function ImportPreviewPanel(props: {
+  language: AppLanguage;
   preview: ProjectImportPreview;
   onCommit: () => void;
   onClose: () => void;
 }) {
+  const copy = getUiCopy(props.language).importPreview;
   const [filterMode, setFilterMode] = useState<"all" | "warning" | "error">("all");
   const [expandedCompareKeys, setExpandedCompareKeys] = useState<Set<string>>(new Set());
   const canCommit = props.preview.newCount + props.preview.updateCount > 0;
@@ -1453,24 +2015,24 @@ function ImportPreviewPanel(props: {
   });
   const emptyMessage =
     filterMode === "warning"
-      ? "warning に一致する行はありません"
+      ? copy.emptyWarning
       : filterMode === "error"
-        ? "error に一致する行はありません"
-        : "preview 対象の行はありません";
+        ? copy.emptyError
+        : copy.emptyAll;
 
   return (
     <section className="import-preview-panel">
       <div className="section-heading">
         <div>
-          <strong>Excel Import Preview</strong>
-          <p>{props.preview.sourcePath ?? "選択済み workbook"}</p>
+          <strong>{copy.heading}</strong>
+          <p>{props.preview.sourcePath ?? copy.selectedWorkbook}</p>
         </div>
         <div className="toolbar-actions">
           <button type="button" className="nav-chip" onClick={props.onCommit} disabled={!canCommit}>
-            適用
+            {copy.apply}
           </button>
           <button type="button" className="nav-chip" onClick={props.onClose}>
-            閉じる
+            {copy.close}
           </button>
         </div>
       </div>
@@ -1482,15 +2044,15 @@ function ImportPreviewPanel(props: {
       </div>
       {!props.preview.supportsDependencyImport ? (
         <div className="import-preview-policy-note">
-          Browser fallback では DependsOn は preview / validation のみで、適用時には反映しません。
+          {copy.policyNote}
         </div>
       ) : null}
       {warningRows.length > 0 ? (
         <section className="import-preview-warning-summary" aria-label="Warning Summary">
           <div className="section-heading import-preview-warning-summary-heading">
             <div>
-              <strong>Warning Summary</strong>
-              <p>適用前に確認したい warning 行を先にまとめています。</p>
+              <strong>{copy.warningSummaryHeading}</strong>
+              <p>{copy.warningSummaryCopy}</p>
             </div>
           </div>
           <div className="import-preview-warning-summary-list">
@@ -1523,17 +2085,17 @@ function ImportPreviewPanel(props: {
         <section className="import-preview-warning-only" aria-label="Warning-only Table">
           <div className="section-heading import-preview-warning-summary-heading">
             <div>
-              <strong>Warning-only Table</strong>
-              <p>warning を持つ row だけを横並びで比較できます。</p>
+              <strong>{copy.warningOnlyHeading}</strong>
+              <p>{copy.warningOnlyCopy}</p>
             </div>
           </div>
           <div className="import-preview-warning-table">
             <div className="import-preview-warning-table-row import-preview-warning-table-header">
-              <span>Row</span>
-              <span>Project</span>
-              <span>Title</span>
-              <span>Action</span>
-              <span>Warning</span>
+              <span>{copy.rowLabel}</span>
+              <span>{copy.projectLabel}</span>
+              <span>{copy.titleLabel}</span>
+              <span>{copy.actionLabel}</span>
+              <span>{copy.filterWarning}</span>
             </div>
             {warningRows.map((row) => (
               <div
@@ -1565,10 +2127,10 @@ function ImportPreviewPanel(props: {
         </section>
       ) : null}
       <div className="import-preview-filters">
-        {[
-          { id: "all", label: "全件" },
-          { id: "warning", label: "Warning" },
-          { id: "error", label: "Error" },
+        {[ 
+          { id: "all", label: copy.filterAll },
+          { id: "warning", label: copy.filterWarning },
+          { id: "error", label: copy.filterError },
         ].map((filter) => (
           <button
             key={filter.id}
@@ -1585,11 +2147,11 @@ function ImportPreviewPanel(props: {
       ) : (
         <div className="import-preview-table">
           <div className="import-preview-row import-preview-header">
-            <span>Row</span>
-            <span>Action</span>
-            <span>Project</span>
-            <span>Title</span>
-            <span>Validation</span>
+            <span>{copy.rowLabel}</span>
+            <span>{copy.actionLabel}</span>
+            <span>{copy.projectLabel}</span>
+            <span>{copy.titleLabel}</span>
+            <span>{copy.validationLabel}</span>
           </div>
           {filteredRows.map((row) => {
             const rowKey = `${row.rowNumber}-${row.recordId}-${row.title}`;
@@ -1646,16 +2208,16 @@ function ImportPreviewPanel(props: {
                           })
                         }
                       >
-                        {isCompareExpanded ? "差分を閉じる" : "差分"}
+                        {isCompareExpanded ? copy.compareClose : copy.compareOpen}
                       </button>
                     </div>
                   ) : null}
                   {canCompare && isCompareExpanded ? (
                     <div className="import-preview-compare" aria-label={`Row ${row.rowNumber} compare`}>
                       <div className="import-preview-compare-row import-preview-compare-header">
-                        <span>Field</span>
-                        <span>Before</span>
-                        <span>After</span>
+                        <span>{copy.fieldLabel}</span>
+                        <span>{copy.beforeLabel}</span>
+                        <span>{copy.afterLabel}</span>
                       </div>
                       {row.changes.map((change) => (
                         <div
@@ -1679,24 +2241,490 @@ function ImportPreviewPanel(props: {
   );
 }
 
+function SearchFilterToolbar(props: {
+  language: AppLanguage;
+  viewMode: SearchableViewMode;
+  filter: SearchFilterState;
+  chips: SearchFilterChip[];
+  isOpen: boolean;
+  onToggle: () => void;
+  onClear: () => void;
+}) {
+  const hasFilters = hasActiveSearchFilters(props.filter);
+  const copy = getUiCopy(props.language).searchFilter;
+
+  return (
+    <section className="search-filter-toolbar">
+      <div>
+        <p className="sidebar-label">{copy.toolbarLabel}</p>
+        <strong>{getSearchFilterToolbarTitle(props.language, props.viewMode)}</strong>
+      </div>
+      <div className="search-filter-toolbar-actions">
+        <button
+          type="button"
+          className={props.isOpen ? "nav-chip active" : "nav-chip"}
+          onClick={props.onToggle}
+        >
+          {copy.openButton}
+        </button>
+        <button type="button" className="nav-chip" onClick={props.onClear} disabled={!hasFilters}>
+          {copy.clearButton}
+        </button>
+      </div>
+      {props.chips.length > 0 ? (
+        <div className="search-filter-active-chips">
+          {props.chips.map((chip) => (
+            <span key={chip.key} className="search-filter-chip">
+              {chip.label}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="detail-field-hint">{copy.noActiveFilters}</p>
+      )}
+    </section>
+  );
+}
+
+function SearchFilterDrawer(props: {
+  language: AppLanguage;
+  projects: ProjectSummary[];
+  filter: SearchFilterState;
+  onChange: (patch: Partial<SearchFilterState>) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const copy = getUiCopy(props.language).searchFilter;
+  return (
+    <div className="search-filter-drawer-backdrop" role="presentation" onClick={props.onClose}>
+      <aside
+        className="search-filter-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="search-filter-drawer-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="section-heading">
+          <div>
+            <p className="sidebar-label">{copy.drawerLabel}</p>
+            <strong id="search-filter-drawer-title">{copy.drawerTitle}</strong>
+            <p>{copy.drawerCopy}</p>
+          </div>
+          <div className="toolbar-actions">
+            <button type="button" className="nav-chip" onClick={props.onClear}>
+              {copy.clearButton}
+            </button>
+            <button type="button" className="nav-chip" onClick={props.onClose}>
+              {copy.closeButton}
+            </button>
+          </div>
+        </div>
+        <div className="search-filter-form">
+          <label className="detail-field detail-field-wide">
+            <span>{copy.keywordLabel}</span>
+            <input
+              aria-label={copy.keywordLabel}
+              value={props.filter.keyword}
+              onChange={(event) => props.onChange({ keyword: event.target.value })}
+              placeholder={copy.keywordPlaceholder}
+            />
+          </label>
+          <label className="detail-field">
+            <span>{copy.projectLabel}</span>
+            <select
+              aria-label={copy.projectLabel}
+              value={props.filter.projectId}
+              onChange={(event) => props.onChange({ projectId: event.target.value })}
+            >
+              <option value="">{copy.allOption}</option>
+              {props.projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.code} {project.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="detail-field">
+            <span>{copy.portfolioLabel}</span>
+            <input
+              aria-label={copy.portfolioLabel}
+              value={props.filter.portfolioText}
+              onChange={(event) => props.onChange({ portfolioText: event.target.value })}
+              placeholder="portfolio_id"
+            />
+          </label>
+          <label className="detail-field">
+            <span>{copy.statusLabel}</span>
+            <select
+              aria-label={copy.statusLabel}
+              value={props.filter.status}
+              onChange={(event) =>
+                props.onChange({ status: event.target.value as SearchFilterState["status"] })
+              }
+            >
+              <option value="">{copy.allOption}</option>
+              <option value="not_started">not_started</option>
+              <option value="in_progress">in_progress</option>
+              <option value="blocked">blocked</option>
+              <option value="done">done</option>
+              <option value="archived">archived</option>
+            </select>
+          </label>
+          <label className="detail-field">
+            <span>{copy.priorityLabel}</span>
+            <select
+              aria-label={copy.priorityLabel}
+              value={props.filter.priority}
+              onChange={(event) =>
+                props.onChange({ priority: event.target.value as SearchFilterState["priority"] })
+              }
+            >
+              <option value="">{copy.allOption}</option>
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+              <option value="critical">critical</option>
+            </select>
+          </label>
+          <label className="detail-field">
+            <span>{copy.tagLabel}</span>
+            <input
+              aria-label={copy.tagLabel}
+              value={props.filter.tagText}
+              onChange={(event) => props.onChange({ tagText: event.target.value })}
+              placeholder={copy.tagPlaceholder}
+            />
+          </label>
+          <label className="detail-field">
+            <span>{copy.assigneeLabel}</span>
+            <input
+              aria-label={copy.assigneeLabel}
+              value={props.filter.assigneeText}
+              onChange={(event) => props.onChange({ assigneeText: event.target.value })}
+              placeholder={copy.assigneePlaceholder}
+            />
+          </label>
+          <label className="search-filter-toggle">
+            <input
+              aria-label={copy.overdueOnly}
+              type="checkbox"
+              checked={props.filter.overdueOnly}
+              onChange={(event) => props.onChange({ overdueOnly: event.target.checked })}
+            />
+            <span>{copy.overdueOnly}</span>
+          </label>
+          <label className="search-filter-toggle">
+            <input
+              aria-label={copy.milestoneOnly}
+              type="checkbox"
+              checked={props.filter.milestoneOnly}
+              onChange={(event) => props.onChange({ milestoneOnly: event.target.checked })}
+            />
+            <span>{copy.milestoneOnly}</span>
+          </label>
+          <label className="search-filter-toggle">
+            <input
+              aria-label={copy.roadmapOnly}
+              type="checkbox"
+              checked={props.filter.roadmapOnly}
+              onChange={(event) => props.onChange({ roadmapOnly: event.target.checked })}
+            />
+            <span>{copy.roadmapOnly}</span>
+          </label>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function SettingsView(props: {
+  language: AppLanguage;
+  settings: AppSettings | null;
+  onSave: (input: {
+    language?: AppSettings["language"];
+    theme?: AppSettings["theme"];
+    autoBackupEnabled?: boolean;
+    autoBackupRetentionLimit?: number;
+    excelDefaultPriority?: AppSettings["excelDefaultPriority"];
+    excelDefaultAssignee?: AppSettings["excelDefaultAssignee"];
+    weekStartsOn?: AppSettings["weekStartsOn"];
+    fyStartMonth?: number;
+    workingDayNumbers?: AppSettings["workingDayNumbers"];
+    defaultView?: AppDefaultView;
+  }) => Promise<unknown>;
+}) {
+  const { settings } = props;
+  const copy = getUiCopy(props.language);
+  const workingDayOptions = useMemo(() => getWorkingDayOptions(props.language), [props.language]);
+  const [language, setLanguage] = useState<AppSettings["language"]>(settings?.language ?? "ja");
+  const [theme, setTheme] = useState<AppSettings["theme"]>(settings?.theme ?? "light");
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(settings?.autoBackupEnabled ?? true);
+  const [autoBackupRetentionLimit, setAutoBackupRetentionLimit] = useState(
+    String(settings?.autoBackupRetentionLimit ?? 7)
+  );
+  const [excelDefaultPriority, setExcelDefaultPriority] = useState<AppSettings["excelDefaultPriority"]>(
+    settings?.excelDefaultPriority ?? "medium"
+  );
+  const [excelDefaultAssignee, setExcelDefaultAssignee] = useState(
+    settings?.excelDefaultAssignee ?? ""
+  );
+  const [weekStartsOn, setWeekStartsOn] = useState<AppSettings["weekStartsOn"]>(
+    settings?.weekStartsOn ?? "monday"
+  );
+  const [fyStartMonth, setFyStartMonth] = useState(String(settings?.fyStartMonth ?? 4));
+  const [workingDayNumbers, setWorkingDayNumbers] = useState<AppSettings["workingDayNumbers"]>(
+    settings?.workingDayNumbers ?? [1, 2, 3, 4, 5]
+  );
+  const [defaultView, setDefaultView] = useState<AppDefaultView>(settings?.defaultView ?? "home");
+
+  const handleSubmit = async (event: ReactFormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const parsedAutoBackupRetentionLimit = Number(autoBackupRetentionLimit);
+    const parsedFyStartMonth = Number(fyStartMonth);
+    if (
+      !Number.isInteger(parsedAutoBackupRetentionLimit) ||
+      parsedAutoBackupRetentionLimit < 1 ||
+      parsedAutoBackupRetentionLimit > 30
+    ) {
+      return;
+    }
+    if (!Number.isInteger(parsedFyStartMonth) || parsedFyStartMonth < 1 || parsedFyStartMonth > 12) {
+      return;
+    }
+    if (workingDayNumbers.length === 0) {
+      return;
+    }
+
+    await props.onSave({
+      language,
+      theme,
+      autoBackupEnabled,
+      autoBackupRetentionLimit: parsedAutoBackupRetentionLimit,
+      excelDefaultPriority,
+      excelDefaultAssignee,
+      weekStartsOn,
+      fyStartMonth: parsedFyStartMonth,
+      workingDayNumbers,
+      defaultView,
+    });
+  };
+
+  const toggleWorkingDay = (value: WorkingDayNumber) => {
+    setWorkingDayNumbers((current) => {
+      if (current.includes(value)) {
+        return current.length > 1 ? current.filter((entry) => entry !== value) : current;
+      }
+      return [...current, value].sort((left, right) => left - right);
+    });
+  };
+
+  return (
+    <section className="settings-panel">
+      <div className="section-heading">
+        <div>
+          <p className="sidebar-label">{copy.settings.label}</p>
+          <h2>{copy.settings.heading}</h2>
+          <p className="capture-copy">{copy.settings.copy}</p>
+        </div>
+      </div>
+
+      <form className="settings-form" onSubmit={(event) => void handleSubmit(event)}>
+        <label className="detail-field">
+          {copy.settings.languageLabel}
+          <select value={language} onChange={(event) => setLanguage(event.target.value as AppSettings["language"])}>
+            <option value="ja">{copy.settings.languageJa}</option>
+            <option value="en">{copy.settings.languageEn}</option>
+          </select>
+        </label>
+
+        <label className="detail-field">
+          {copy.settings.themeLabel}
+          <select value={theme} onChange={(event) => setTheme(event.target.value as AppTheme)}>
+            <option value="light">{getThemeLabel(props.language, "light")}</option>
+            <option value="dark">{getThemeLabel(props.language, "dark")}</option>
+          </select>
+        </label>
+
+        <fieldset className="settings-working-day-fieldset">
+          <legend>{copy.settings.autoBackupEnabledLabel}</legend>
+          <label className="settings-toggle-field">
+            <input
+              type="checkbox"
+              aria-label={copy.settings.autoBackupEnabledLabel}
+              checked={autoBackupEnabled}
+              onChange={(event) => setAutoBackupEnabled(event.target.checked)}
+            />
+            <span>{copy.settings.autoBackupEnabledHelp}</span>
+          </label>
+        </fieldset>
+
+        <label className="detail-field">
+          {copy.settings.autoBackupRetentionLabel}
+          <select
+            aria-label={copy.settings.autoBackupRetentionLabel}
+            value={autoBackupRetentionLimit}
+            onChange={(event) => setAutoBackupRetentionLimit(event.target.value)}
+            disabled={!autoBackupEnabled}
+          >
+            {Array.from({ length: 30 }, (_, index) => String(index + 1)).map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="detail-field">
+          {copy.settings.excelDefaultPriorityLabel}
+          <select
+            aria-label={copy.settings.excelDefaultPriorityLabel}
+            value={excelDefaultPriority}
+            onChange={(event) =>
+              setExcelDefaultPriority(event.target.value as AppSettings["excelDefaultPriority"])
+            }
+          >
+            <option value="low">low</option>
+            <option value="medium">medium</option>
+            <option value="high">high</option>
+            <option value="critical">critical</option>
+          </select>
+        </label>
+
+        <label className="detail-field">
+          {copy.settings.excelDefaultAssigneeLabel}
+          <input
+            aria-label={copy.settings.excelDefaultAssigneeLabel}
+            type="text"
+            maxLength={80}
+            value={excelDefaultAssignee}
+            onChange={(event) => setExcelDefaultAssignee(event.target.value)}
+          />
+          <span className="settings-field-help">{copy.settings.excelDefaultsHelp}</span>
+        </label>
+
+        <label className="detail-field">
+          {copy.settings.weekStartsOnLabel}
+          <select value={weekStartsOn} onChange={(event) => setWeekStartsOn(event.target.value as AppSettings["weekStartsOn"])}>
+            <option value="monday">{copy.settings.weekStartsOnMonday}</option>
+            <option value="sunday">{copy.settings.weekStartsOnSunday}</option>
+          </select>
+        </label>
+
+        <label className="detail-field">
+          {copy.settings.fyStartMonthLabel}
+          <select value={fyStartMonth} onChange={(event) => setFyStartMonth(event.target.value)}>
+            {Array.from({ length: 12 }, (_, index) => String(index + 1)).map((month) => (
+              <option key={month} value={month}>
+                {formatMonthLabel(props.language, Number(month))}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <fieldset className="settings-working-day-fieldset">
+          <legend>{copy.settings.workingDaysLegend}</legend>
+          <p className="settings-field-help">{copy.settings.workingDaysHelp}</p>
+          <div className="settings-working-day-grid">
+            {workingDayOptions.map((option) => (
+              <label key={option.value} className="settings-working-day-option">
+                <input
+                  type="checkbox"
+                  checked={workingDayNumbers.includes(option.value)}
+                  onChange={() => toggleWorkingDay(option.value)}
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <label className="detail-field">
+          {copy.settings.defaultViewLabel}
+          <select value={defaultView} onChange={(event) => setDefaultView(event.target.value as AppDefaultView)}>
+            <option value="home">{getDefaultViewLabel(props.language, "home")}</option>
+            <option value="portfolio">{getDefaultViewLabel(props.language, "portfolio")}</option>
+            <option value="roadmap">{getDefaultViewLabel(props.language, "roadmap")}</option>
+          </select>
+        </label>
+
+        <div className="settings-actions">
+          <button type="submit">{copy.settings.save}</button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function PortfolioView(props: {
+  language: AppLanguage;
+  projects: ProjectSummary[];
+  searchFilter: SearchFilterState;
   summary: PortfolioSummary | null;
+  weekStartsOn: AppSettings["weekStartsOn"];
   onOpenProject: (projectId: string) => void;
 }) {
+  const copy = getUiCopy(props.language);
   const projects = props.summary?.projects ?? [];
   const portfolioApi = window.sgc?.portfolio ?? browserApi.portfolio;
+  const projectsApi = window.sgc?.projects ?? browserApi.projects;
   const [filterMode, setFilterMode] = useState<PortfolioFilter>("all");
   const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(new Set());
   const [phaseMap, setPhaseMap] = useState<Record<string, PortfolioPhaseSummary[]>>({});
+  const [projectDetails, setProjectDetails] = useState<Record<string, ProjectDetail>>({});
   const [loadingProjectIds, setLoadingProjectIds] = useState<Set<string>>(new Set());
   const [loadError, setLoadError] = useState<string | null>(null);
-  const filteredProjects = projects.filter((project) => portfolioProjectMatchesFilter(project, filterMode));
+
+  useEffect(() => {
+    if (props.projects.length === 0) {
+      return;
+    }
+
+    let disposed = false;
+    const loadProjectDetails = async () => {
+      try {
+        const details = await Promise.all(props.projects.map((project) => projectsApi.get(project.id)));
+        if (disposed) {
+          return;
+        }
+        setProjectDetails(Object.fromEntries(details.map((detail) => [detail.project.id, detail])));
+      } catch (error) {
+        if (!disposed) {
+          setLoadError(error instanceof Error ? error.message : "Failed to load portfolio filter source");
+        }
+      }
+    };
+
+    void loadProjectDetails();
+
+    return () => {
+      disposed = true;
+    };
+  }, [projectsApi, props.projects]);
+
+  const projectMap = useMemo(
+    () => new Map(props.projects.map((project) => [project.id, project])),
+    [props.projects]
+  );
+  const filteredProjects = projects.filter((project) => {
+    if (!portfolioProjectMatchesFilter(project, filterMode, props.weekStartsOn)) {
+      return false;
+    }
+    const projectRecord = projectMap.get(project.id);
+    if (!projectRecord) {
+      return false;
+    }
+    return projectMatchesSearchFilter({
+      project: projectRecord,
+      detailItems: projectDetails[project.id]?.items ?? [],
+      filter: props.searchFilter,
+    });
+  });
 
   if (projects.length === 0) {
     return (
       <section className="empty-panel">
-        <h2>Portfolio 0件</h2>
-        <p>まず1つプロジェクトを作成して下さい</p>
+        <h2>{copy.portfolio.emptyTitle}</h2>
+        <p>{copy.portfolio.emptyMessage}</p>
       </section>
     );
   }
@@ -1748,10 +2776,8 @@ function PortfolioView(props: {
       <section className="portfolio-overview">
         <div>
           <p className="sidebar-label">Portfolio</p>
-          <h2>複数案件の危険箇所を横断で確認</h2>
-          <p className="capture-copy">
-            project 単位で進捗、期限超過、次マイルストーン、直近7日変更数、risk を一覧できます。
-          </p>
+          <h2>{copy.portfolio.heading}</h2>
+          <p className="capture-copy">{copy.portfolio.copy}</p>
         </div>
         <div className="stats-grid">
           <MetricCard label="Projects" value={String(filteredProjects.length)} />
@@ -1764,15 +2790,15 @@ function PortfolioView(props: {
       <section className="portfolio-panel">
         <div className="section-heading">
           <div>
-            <strong>Portfolio Summary</strong>
-            <p>展開で主要 phase を確認し、行クリックで Project Detail へ移動します。</p>
+            <strong>{copy.portfolio.summaryTitle}</strong>
+            <p>{copy.portfolio.summaryCopy}</p>
           </div>
         </div>
         <div className="roadmap-filter-chips">
           {([
-            ["all", "全案件"],
-            ["overdue", "遅延中"],
-            ["week_milestone", "今週マイルストーン"],
+            ["all", copy.portfolio.filterAll],
+            ["overdue", copy.portfolio.filterOverdue],
+            ["week_milestone", copy.portfolio.filterWeekMilestone],
           ] as const).map(([mode, label]) => (
             <button
               key={mode}
@@ -1798,11 +2824,22 @@ function PortfolioView(props: {
             <span>リスク</span>
           </div>
           {filteredProjects.length === 0 ? (
-            <div className="empty-table">条件に合う project はありません</div>
+            <div className="empty-table">{copy.portfolio.emptyFiltered}</div>
           ) : (
             filteredProjects.map((project) => {
               const isExpanded = expandedProjectIds.has(project.id);
-              const phaseRows = phaseMap[project.id] ?? [];
+              const projectRecord = projectMap.get(project.id) ?? null;
+              const detailItems = projectDetails[project.id]?.items ?? [];
+              const visiblePhaseRows = (phaseMap[project.id] ?? []).filter((phase) => {
+                const phaseItem = detailItems.find((item) => item.id === phase.id);
+                return phaseItem && projectRecord
+                  ? itemMatchesSearchFilter({
+                      item: phaseItem,
+                      project: projectRecord,
+                      filter: props.searchFilter,
+                    })
+                  : true;
+              });
               const isLoading = loadingProjectIds.has(project.id);
 
               return (
@@ -1844,8 +2881,8 @@ function PortfolioView(props: {
                     </button>
                   </div>
                   {isExpanded ? (
-                    phaseRows.length > 0 ? (
-                      phaseRows.map((phase) => (
+                    visiblePhaseRows.length > 0 ? (
+                      visiblePhaseRows.map((phase) => (
                         <div key={phase.id} className="portfolio-table-row portfolio-phase-row">
                           <span />
                           <span className="portfolio-name-cell portfolio-phase-name-cell">
@@ -1893,9 +2930,13 @@ function PortfolioView(props: {
 }
 
 function RoadmapView(props: {
+  language: AppLanguage;
   projects: ProjectSummary[];
+  searchFilter: SearchFilterState;
+  fyStartMonth: number;
   onOpenProject: (projectId: string) => void;
 }) {
+  const copy = getUiCopy(props.language);
   const roadmapApi = window.sgc?.projects ?? browserApi.projects;
   const [scale, setScale] = useState<RoadmapScale>("year");
   const [filterMode, setFilterMode] = useState<RoadmapFilter>("all");
@@ -1954,8 +2995,9 @@ function RoadmapView(props: {
       buildRoadmapBuckets({
         scale,
         anchorYear,
+        fiscalYearStartMonth: props.fyStartMonth,
       }),
-    [anchorYear, scale]
+    [anchorYear, props.fyStartMonth, scale]
   );
   const roadmapRows = useMemo(() => {
     return props.projects.flatMap((project) => {
@@ -1973,11 +3015,20 @@ function RoadmapView(props: {
           childrenByParentId,
           expandedItemIds: expandedRoadmapItemIds,
           filterMode,
+          searchFilter: props.searchFilter,
+          project: project,
           parentId: item.id,
           projectId: project.id,
           depth: 1,
         });
-        const itemMatches = hasRoadmapDate(item) && roadmapItemMatchesFilter(item, filterMode);
+        const itemMatches =
+          hasRoadmapDate(item) &&
+          roadmapItemMatchesFilter(item, filterMode) &&
+          itemMatchesSearchFilter({
+            item,
+            project,
+            filter: props.searchFilter,
+          });
         const includeItem = itemMatches || descendantRows.length > 0;
         const expandable = item.type === "group" && descendantRows.length > 0;
         const expanded = expandable && expandedRoadmapItemIds.has(item.id);
@@ -2005,12 +3056,16 @@ function RoadmapView(props: {
       const rows: RoadmapRow[] = [];
       const projectItem = makeProjectRoadmapItem(project);
       const includeProjectRow =
-        projectItem &&
-        (filterMode === "all" ||
-          roadmapItemMatchesFilter(projectItem, filterMode) ||
-          rootRows.length > 0);
+        rootRows.length > 0 ||
+        (projectItem !== null &&
+          (filterMode === "all" || roadmapItemMatchesFilter(projectItem, filterMode)) &&
+          projectMatchesSearchFilter({
+            project,
+            detailItems: detail?.items ?? [],
+            filter: props.searchFilter,
+          }));
 
-      if (includeProjectRow) {
+      if (projectItem && includeProjectRow) {
         rows.push({
           kind: "project",
           item: projectItem,
@@ -2027,7 +3082,7 @@ function RoadmapView(props: {
 
       return rows;
     });
-  }, [expandedRoadmapItemIds, filterMode, projectDetails, props.projects]);
+  }, [expandedRoadmapItemIds, filterMode, projectDetails, props.projects, props.searchFilter]);
   const roadmapLayout = useMemo(
     () => buildRoadmapLayout(roadmapRows.map((row) => row.item), buckets),
     [buckets, roadmapRows]
@@ -2061,8 +3116,8 @@ function RoadmapView(props: {
   if (props.projects.length === 0) {
     return (
       <section className="empty-panel">
-        <h2>Roadmap 0件</h2>
-        <p>まず1つプロジェクトを作成して下さい</p>
+        <h2>{copy.roadmap.emptyTitle}</h2>
+        <p>{copy.roadmap.emptyMessage}</p>
       </section>
     );
   }
@@ -2072,10 +3127,8 @@ function RoadmapView(props: {
       <section className="roadmap-overview">
         <div>
           <p className="sidebar-label">Year / FY Roadmap</p>
-          <h2>長期計画を月単位で俯瞰</h2>
-          <p className="capture-copy">
-            project と主要 row を month bucket へ載せ、必要時だけ descendant を開いて年間 / FY の見通しを確認できます。
-          </p>
+          <h2>{copy.roadmap.heading}</h2>
+          <p className="capture-copy">{copy.roadmap.copy}</p>
         </div>
         <div className="roadmap-toolbar">
           <div className="timeline-scale-buttons">
@@ -2084,14 +3137,14 @@ function RoadmapView(props: {
               className={scale === "year" ? "nav-chip active" : "nav-chip"}
               onClick={() => setScale("year")}
             >
-              年
+              {copy.roadmap.scaleYear}
             </button>
             <button
               type="button"
               className={scale === "fy" ? "nav-chip active" : "nav-chip"}
               onClick={() => setScale("fy")}
             >
-              FY
+              {copy.roadmap.scaleFy}
             </button>
           </div>
           <div className="roadmap-filter-chips">
@@ -2100,30 +3153,30 @@ function RoadmapView(props: {
               className={filterMode === "all" ? "nav-chip active" : "nav-chip"}
               onClick={() => setFilterMode("all")}
             >
-              全件
+              {copy.roadmap.filterAll}
             </button>
             <button
               type="button"
               className={filterMode === "overdue" ? "nav-chip active" : "nav-chip"}
               onClick={() => setFilterMode("overdue")}
             >
-              期限超過
+              {copy.roadmap.filterOverdue}
             </button>
             <button
               type="button"
               className={filterMode === "milestone" ? "nav-chip active" : "nav-chip"}
               onClick={() => setFilterMode("milestone")}
             >
-              マイルストーン
+              {copy.roadmap.filterMilestone}
             </button>
           </div>
           <div className="roadmap-year-nav">
             <button type="button" className="nav-chip" onClick={() => setAnchorYear((current) => current - 1)}>
-              前年
+              {copy.roadmap.previousYear}
             </button>
             <strong>{rangeLabel}</strong>
             <button type="button" className="nav-chip" onClick={() => setAnchorYear((current) => current + 1)}>
-              次年
+              {copy.roadmap.nextYear}
             </button>
           </div>
         </div>
@@ -2150,7 +3203,7 @@ function RoadmapView(props: {
           className="roadmap-header roadmap-grid"
           style={{ gridTemplateColumns: `280px repeat(${buckets.length}, minmax(56px, 1fr))` }}
         >
-          <span className="roadmap-header-title">項目</span>
+          <span className="roadmap-header-title">{copy.roadmap.itemHeader}</span>
           {buckets.map((bucket) => (
             <div key={bucket.key} className="roadmap-header-cell" title={bucket.label}>
               <span>{bucket.shortLabel}</span>
@@ -2167,9 +3220,9 @@ function RoadmapView(props: {
           }}
         >
           {loading ? (
-            <div className="empty-table">roadmap を読み込み中です</div>
+            <div className="empty-table">{copy.roadmap.loading}</div>
           ) : roadmapRows.length === 0 ? (
-            <div className="empty-table">条件に合う project / root item はありません</div>
+            <div className="empty-table">{copy.roadmap.emptyFiltered}</div>
           ) : (
             <>
               {roadmapVirtualWindow.topSpacerHeight > 0 ? (
@@ -2307,13 +3360,17 @@ function TaskList(props: { items: ItemRecord[]; emptyMessage: string }) {
 }
 
 function InboxTaskList(props: {
+  language: AppLanguage;
   items: ItemRecord[];
   projects: Array<{ id: string; name: string; code: string }>;
   emptyMessage: string;
   onAssignProject: (itemId: string, projectId: string) => void;
   onAddDate: (itemId: string, date: string) => void;
   onAddTags: (itemId: string, tags: string[]) => void;
+  onConvertToTemplate: (itemId: string) => Promise<void>;
 }) {
+  const copy = getUiCopy(props.language);
+
   if (props.items.length === 0) {
     return <div className="empty-list">{props.emptyMessage}</div>;
   }
@@ -2376,6 +3433,18 @@ function InboxTaskList(props: {
                 }}
               />
             </label>
+            <div className="inbox-edit-actions inbox-edit-field inbox-edit-field-wide">
+              <button
+                type="button"
+                className="nav-chip"
+                onClick={() => void props.onConvertToTemplate(item.id)}
+              >
+                {copy.home.inboxTemplateConversion}
+              </button>
+              <span className="inbox-edit-helper">
+                {copy.home.inboxTemplateConversionHelp}
+              </span>
+            </div>
           </div>
           {item.tags.length > 0 ? (
             <div className="tag-row">
@@ -2426,7 +3495,11 @@ function formatPhaseDateRange(startDate: string | null, endDate: string | null):
   return start || end || "日付未設定";
 }
 
-function portfolioProjectMatchesFilter(project: PortfolioProjectSummary, filterMode: PortfolioFilter): boolean {
+function portfolioProjectMatchesFilter(
+  project: PortfolioProjectSummary,
+  filterMode: PortfolioFilter,
+  weekStartsOn: AppSettings["weekStartsOn"]
+): boolean {
   if (filterMode === "all") {
     return true;
   }
@@ -2435,10 +3508,13 @@ function portfolioProjectMatchesFilter(project: PortfolioProjectSummary, filterM
     return project.overdueCount >= 1;
   }
 
-  return isDateTextWithinCurrentWeek(project.nextMilestoneDate);
+  return isDateTextWithinCurrentWeek(project.nextMilestoneDate, weekStartsOn);
 }
 
-function isDateTextWithinCurrentWeek(value: string | null): boolean {
+function isDateTextWithinCurrentWeek(
+  value: string | null,
+  weekStartsOn: AppSettings["weekStartsOn"]
+): boolean {
   if (!value) {
     return false;
   }
@@ -2450,9 +3526,13 @@ function isDateTextWithinCurrentWeek(value: string | null): boolean {
 
   const now = new Date();
   return isWithinInterval(date, {
-    start: startOfWeek(now, { weekStartsOn: 1 }),
-    end: endOfWeek(now, { weekStartsOn: 1 }),
+    start: startOfWeek(now, { weekStartsOn: toDateFnsWeekStartsOn(weekStartsOn) }),
+    end: endOfWeek(now, { weekStartsOn: toDateFnsWeekStartsOn(weekStartsOn) }),
   });
+}
+
+function toDateFnsWeekStartsOn(weekStartsOn: AppSettings["weekStartsOn"]): 0 | 1 {
+  return weekStartsOn === "sunday" ? 0 : 1;
 }
 
 function ItemRow(props: {
@@ -2461,6 +3541,8 @@ function ItemRow(props: {
   hasChildren: boolean;
   expanded: boolean;
   isSelected: boolean;
+  isDragSource: boolean;
+  dropPlacement: RowReorderPlacement | null;
   onToggle: () => void;
   onUpdate: (
     patch: Partial<
@@ -2473,7 +3555,12 @@ function ItemRow(props: {
   onAddChild: () => void;
   onArchive: () => void;
   onMoveHierarchy: (direction: HierarchyMoveDirection) => void;
+  onReorderStart: () => void;
+  onReorderHover: (placement: RowReorderPlacement) => void;
+  onReorderDrop: (placement: RowReorderPlacement) => void;
+  onReorderEnd: () => void;
   onOpenDetail: () => void;
+  onOpenContextMenu: (position: { x: number; y: number }) => void;
 }) {
   const {
     item,
@@ -2481,17 +3568,71 @@ function ItemRow(props: {
     hasChildren,
     expanded,
     isSelected,
+    isDragSource,
+    dropPlacement,
     onToggle,
     onUpdate,
     onAddChild,
     onArchive,
     onMoveHierarchy,
+    onReorderStart,
+    onReorderHover,
+    onReorderDrop,
+    onReorderEnd,
     onOpenDetail,
+    onOpenContextMenu,
   } = props;
 
   return (
-    <div className={isSelected ? "table-row selected" : "table-row"}>
-      <span>{item.wbsCode || "-"}</span>
+    <div
+      className={[
+        "table-row",
+        isSelected ? "selected" : "",
+        isDragSource ? "drag-source" : "",
+        dropPlacement ? `drop-${dropPlacement}` : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        onOpenContextMenu({ x: event.clientX, y: event.clientY });
+      }}
+      onDragOver={(event) => {
+        const placement = getItemRowDropPlacement(event);
+        if (!placement) {
+          return;
+        }
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        onReorderHover(placement);
+      }}
+      onDrop={(event) => {
+        const placement = getItemRowDropPlacement(event);
+        if (!placement) {
+          return;
+        }
+        event.preventDefault();
+        onReorderDrop(placement);
+      }}
+    >
+      <span className="wbs-cell">
+        <button
+          type="button"
+          className="row-drag-handle"
+          draggable
+          aria-label="並び替え"
+          title={`並び替え: ${item.title}`}
+          onDragStart={(event) => {
+            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.setData("text/plain", item.id);
+            onReorderStart();
+          }}
+          onDragEnd={onReorderEnd}
+        >
+          ⋮⋮
+        </button>
+        <span>{item.wbsCode || "-"}</span>
+      </span>
       <span>
         <select value={item.type} onChange={(event) => onUpdate({ type: event.target.value as ItemRecord["type"] })}>
           <option value="group">group</option>
@@ -2613,19 +3754,102 @@ function ItemRow(props: {
   );
 }
 
+function ItemContextMenu(props: {
+  item: ItemRecord;
+  x: number;
+  y: number;
+  onClose: () => void;
+  onOpenDetail: () => void;
+  onAddChild: () => void;
+  onMoveHierarchy: (direction: HierarchyMoveDirection) => void;
+  onArchive: () => void;
+}) {
+  const { left, top } = getItemContextMenuPosition(props.x, props.y);
+
+  return (
+    <div
+      className="item-context-menu-backdrop"
+      onClick={props.onClose}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        props.onClose();
+      }}
+    >
+      <section
+        className="item-context-menu"
+        role="menu"
+        aria-label="Project Detail Context Menu"
+        style={{ left: `${left}px`, top: `${top}px` }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <p className="sidebar-label">Row Actions</p>
+        <strong>{props.item.title}</strong>
+        <button type="button" className="nav-chip" role="menuitem" onClick={props.onOpenDetail}>
+          詳細
+        </button>
+        <button type="button" className="nav-chip" role="menuitem" onClick={props.onAddChild}>
+          子追加
+        </button>
+        <button
+          type="button"
+          className="nav-chip"
+          role="menuitem"
+          onClick={() => props.onMoveHierarchy("indent")}
+        >
+          インデント
+        </button>
+        <button
+          type="button"
+          className="nav-chip"
+          role="menuitem"
+          onClick={() => props.onMoveHierarchy("outdent")}
+        >
+          アウトデント
+        </button>
+        <button type="button" className="nav-chip danger" role="menuitem" onClick={props.onArchive}>
+          アーカイブ
+        </button>
+      </section>
+    </div>
+  );
+}
+
 function DetailDrawer(props: {
   item: ItemRecord | null;
   projectItems: ItemRecord[];
   onSelectItem: (itemId: string) => void;
   onUpdateItem: (patch: Partial<Pick<ItemRecord, "note" | "tags">>) => void;
+  onUpsertRecurrenceRule: (input: {
+    itemId: string;
+    rruleText: string;
+    nextOccurrenceAt: string | null;
+  }) => Promise<RecurrenceRule | null>;
+  onDeleteRecurrenceRule: (itemId: string) => Promise<boolean>;
 }) {
-  const { item, projectItems, onSelectItem, onUpdateItem } = props;
+  const {
+    item,
+    projectItems,
+    onSelectItem,
+    onUpdateItem,
+    onUpsertRecurrenceRule,
+    onDeleteRecurrenceRule,
+  } = props;
   const dependencyApi = typeof window === "undefined" ? null : window.sgc?.dependencies ?? null;
+  const recurrenceApi =
+    typeof window === "undefined"
+      ? null
+      : window.sgc?.recurrenceRules ?? browserApi.recurrenceRules;
   const [dependencies, setDependencies] = useState<DependencyRecord[]>([]);
   const [dependenciesLoading, setDependenciesLoading] = useState(false);
   const [dependencyError, setDependencyError] = useState<string | null>(null);
   const [selectedPredecessorId, setSelectedPredecessorId] = useState("");
   const [lagDaysInput, setLagDaysInput] = useState("0");
+  const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | null>(null);
+  const [recurrenceLoading, setRecurrenceLoading] = useState(false);
+  const [recurrenceError, setRecurrenceError] = useState<string | null>(null);
+  const [recurrencePreset, setRecurrencePreset] =
+    useState<RecurrencePresetKey>("weekly_monday");
+  const [nextOccurrenceAtInput, setNextOccurrenceAtInput] = useState("");
   const itemId = item?.id ?? null;
   const projectId = item?.projectId ?? null;
 
@@ -2655,6 +3879,43 @@ function DetailDrawer(props: {
       active = false;
     };
   }, [dependencyApi, itemId, projectId]);
+
+  useEffect(() => {
+    if (!recurrenceApi || !itemId || item?.type !== "task") {
+      return;
+    }
+
+    let active = true;
+    void recurrenceApi
+      .getByItem(itemId)
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+        setRecurrenceRule(result);
+        setRecurrenceError(null);
+        setRecurrencePreset(mapRecurrenceRuleToPreset(result?.rruleText) ?? "weekly_monday");
+        setNextOccurrenceAtInput(result?.nextOccurrenceAt ?? "");
+      })
+      .catch((error) => {
+        if (!active) {
+          return;
+        }
+        setRecurrenceRule(null);
+        setRecurrenceError(
+          error instanceof Error ? error.message : "Failed to load recurrence rule"
+        );
+      })
+      .finally(() => {
+        if (active) {
+          setRecurrenceLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [item?.type, itemId, recurrenceApi]);
 
   const itemsById = useMemo(
     () => new Map(projectItems.map((projectItem) => [projectItem.id, projectItem])),
@@ -2695,6 +3956,12 @@ function DetailDrawer(props: {
   )
     ? selectedPredecessorId
     : availablePredecessors[0]?.id ?? "";
+  const recurrenceAvailability = getRecurrenceAvailability(item);
+  const supportedRecurrencePreset =
+    mapRecurrenceRuleToPreset(recurrenceRule?.rruleText) ?? null;
+  const supportedRecurrenceRuleLabel = supportedRecurrencePreset
+    ? RECURRENCE_PRESET_LOOKUP[supportedRecurrencePreset].label
+    : null;
 
   if (!item) {
     return (
@@ -2702,7 +3969,7 @@ function DetailDrawer(props: {
         <div>
           <p className="sidebar-label">Detail Drawer</p>
           <h3>行を選ぶと詳細を編集できます</h3>
-          <p>note と tags と dependency はここで整理します。</p>
+          <p>note と tags と dependency と recurrence はここで整理します。</p>
         </div>
         </section>
       );
@@ -2757,6 +4024,55 @@ function DetailDrawer(props: {
       );
     } finally {
       setDependenciesLoading(false);
+    }
+  };
+
+  const handleSaveRecurrence = async () => {
+    if (!item || !recurrenceAvailability.available) {
+      return;
+    }
+
+    if (!nextOccurrenceAtInput) {
+      setRecurrenceError("次回発生日を入力して下さい");
+      return;
+    }
+
+    setRecurrenceLoading(true);
+    try {
+      const saved = await onUpsertRecurrenceRule({
+        itemId: item.id,
+        rruleText: RECURRENCE_PRESET_LOOKUP[recurrencePreset].rruleText,
+        nextOccurrenceAt: nextOccurrenceAtInput,
+      });
+      if (!saved) {
+        return;
+      }
+      setRecurrenceRule(saved);
+      setRecurrencePreset(mapRecurrenceRuleToPreset(saved.rruleText) ?? recurrencePreset);
+      setNextOccurrenceAtInput(saved.nextOccurrenceAt ?? "");
+      setRecurrenceError(null);
+    } finally {
+      setRecurrenceLoading(false);
+    }
+  };
+
+  const handleDeleteRecurrence = async () => {
+    if (!item || !recurrenceRule) {
+      return;
+    }
+
+    setRecurrenceLoading(true);
+    try {
+      const deleted = await onDeleteRecurrenceRule(item.id);
+      if (!deleted) {
+        return;
+      }
+      setRecurrenceRule(null);
+      setRecurrencePreset("weekly_monday");
+      setNextOccurrenceAtInput("");
+      setRecurrenceError(null);
+    } finally {
+      setRecurrenceLoading(false);
     }
   };
 
@@ -2819,6 +4135,93 @@ function DetailDrawer(props: {
           <div className="detail-static">
             {item.assigneeName ? `@${item.assigneeName}` : "未割当"} / {item.priority}
           </div>
+        </div>
+
+        <div className="detail-field detail-field-wide">
+          <span>繰り返し</span>
+          {!recurrenceAvailability.available ? (
+            <div className="detail-placeholder">{recurrenceAvailability.reason}</div>
+          ) : (
+            <div className="recurrence-editor">
+              {recurrenceRule ? (
+                <div className="detail-static recurrence-summary">
+                  <strong>現在の rule</strong>
+                  <span>
+                    {supportedRecurrenceRuleLabel ?? recurrenceRule.rruleText}
+                    {recurrenceRule.nextOccurrenceAt
+                      ? ` / next ${recurrenceRule.nextOccurrenceAt}`
+                      : ""}
+                  </span>
+                </div>
+              ) : (
+                <div className="detail-placeholder">
+                  まだ recurrence rule はありません。
+                </div>
+              )}
+              {recurrenceRule && !supportedRecurrencePreset ? (
+                <div className="detail-placeholder recurrence-unsupported-note">
+                  unsupported rule: {recurrenceRule.rruleText}
+                  {recurrenceRule.nextOccurrenceAt
+                    ? ` / next ${recurrenceRule.nextOccurrenceAt}`
+                    : ""}
+                  。この rule は generation 対象外です。削除するか、supported preset へ置き換えて下さい。
+                </div>
+              ) : null}
+              <div className="recurrence-editor-form">
+                <label className="detail-field">
+                  <span>Preset</span>
+                  <select
+                    aria-label="Recurrence preset"
+                    value={recurrencePreset}
+                    onChange={(event) =>
+                      setRecurrencePreset(event.target.value as RecurrencePresetKey)
+                    }
+                    disabled={recurrenceLoading}
+                  >
+                    {RECURRENCE_PRESET_OPTIONS.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="detail-field">
+                  <span>Next occurrence</span>
+                  <input
+                    aria-label="Next occurrence"
+                    type="date"
+                    value={nextOccurrenceAtInput}
+                    onChange={(event) => setNextOccurrenceAtInput(event.target.value)}
+                    disabled={recurrenceLoading}
+                  />
+                </label>
+                <div className="recurrence-editor-actions">
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveRecurrence()}
+                    disabled={recurrenceLoading}
+                  >
+                    {recurrenceRule ? "更新" : "保存"}
+                  </button>
+                  <button
+                    type="button"
+                    className="nav-chip"
+                    onClick={() => void handleDeleteRecurrence()}
+                    disabled={!recurrenceRule || recurrenceLoading}
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+              <span className="detail-field-hint">
+                generation 対応は `週次(月曜) / 月次 / 平日` の3 rule だけです。
+              </span>
+              {recurrenceLoading ? (
+                <div className="detail-field-hint">recurrence を同期中です。</div>
+              ) : null}
+              {recurrenceError ? <div className="detail-inline-error">{recurrenceError}</div> : null}
+            </div>
+          )}
         </div>
 
         <div className="detail-field detail-field-wide">
@@ -2928,6 +4331,74 @@ function DetailDrawer(props: {
   );
 }
 
+type RecurrencePresetKey = "weekly_monday" | "monthly" | "weekdays";
+
+const RECURRENCE_PRESET_OPTIONS: Array<{
+  key: RecurrencePresetKey;
+  label: string;
+  rruleText: string;
+}> = [
+  {
+    key: "weekly_monday",
+    label: "週次(月曜)",
+    rruleText: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+  },
+  {
+    key: "monthly",
+    label: "月次",
+    rruleText: "FREQ=MONTHLY;INTERVAL=1",
+  },
+  {
+    key: "weekdays",
+    label: "平日",
+    rruleText: "FREQ=DAILY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR",
+  },
+];
+
+const RECURRENCE_PRESET_LOOKUP = Object.fromEntries(
+  RECURRENCE_PRESET_OPTIONS.map((option) => [option.key, option])
+) as Record<RecurrencePresetKey, (typeof RECURRENCE_PRESET_OPTIONS)[number]>;
+
+function mapRecurrenceRuleToPreset(rruleText: string | null | undefined): RecurrencePresetKey | null {
+  if (!rruleText) {
+    return null;
+  }
+
+  const matched = RECURRENCE_PRESET_OPTIONS.find((option) => option.rruleText === rruleText);
+  return matched?.key ?? null;
+}
+
+function getRecurrenceAvailability(item: ItemRecord | null): {
+  available: boolean;
+  reason: string;
+} {
+  if (!item) {
+    return {
+      available: false,
+      reason: "行を選ぶと recurrence を編集できます。",
+    };
+  }
+
+  if (item.type !== "task") {
+    return {
+      available: false,
+      reason: "recurrence editor は task item だけで使えます。",
+    };
+  }
+
+  if (!item.isScheduled || !item.startDate || !item.endDate) {
+    return {
+      available: false,
+      reason: "recurrence editor は日付が入った scheduled task で使えます。",
+    };
+  }
+
+  return {
+    available: true,
+    reason: "",
+  };
+}
+
 function formatDependencyItemLabel(item: ItemRecord): string {
   return `${item.wbsCode || "-"} ${item.title}`;
 }
@@ -2957,19 +4428,23 @@ function normalizeDateInput(value: string | null): string {
   return value ? value.slice(0, 10) : "";
 }
 
-function formatBackupCreatedAt(value: string): string {
+function formatDateTimeText(language: AppLanguage, value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
-  return new Intl.DateTimeFormat("ja-JP", {
+  return new Intl.DateTimeFormat(language === "en" ? "en-US" : "ja-JP", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
+}
+
+function formatBackupCreatedAt(value: string): string {
+  return formatDateTimeText("ja", value);
 }
 
 function formatBackupSize(sizeBytes: number): string {
@@ -2990,6 +4465,22 @@ function getBackupKindLabel(fileName: string): "manual" | "auto" | "safety" {
     return "safety";
   }
   return "manual";
+}
+
+function getSearchFilterToolbarTitle(language: AppLanguage, viewMode: SearchableViewMode): string {
+  const copy = getUiCopy(language).searchFilter;
+  switch (viewMode) {
+    case "home":
+      return copy.titleHome;
+    case "portfolio":
+      return copy.titlePortfolio;
+    case "roadmap":
+      return copy.titleRoadmap;
+    case "project":
+      return copy.titleProject;
+    default:
+      return copy.toolbarLabel;
+  }
 }
 
 function makeProjectRoadmapItem(project: ProjectSummary): ItemRecord | null {
@@ -3048,6 +4539,8 @@ function buildRoadmapDescendantRows(props: {
   childrenByParentId: Map<string, ItemRecord[]>;
   expandedItemIds: Set<string>;
   filterMode: RoadmapFilter;
+  searchFilter: SearchFilterState;
+  project: ProjectSummary;
   parentId: string;
   projectId: string;
   depth: number;
@@ -3061,7 +4554,14 @@ function buildRoadmapDescendantRows(props: {
       parentId: child.id,
       depth: props.depth + 1,
     });
-    const childMatches = hasRoadmapDate(child) && roadmapItemMatchesFilter(child, props.filterMode);
+    const childMatches =
+      hasRoadmapDate(child) &&
+      roadmapItemMatchesFilter(child, props.filterMode) &&
+      itemMatchesSearchFilter({
+        item: child,
+        project: props.project,
+        filter: props.searchFilter,
+      });
     const includeChild = childMatches || descendantRows.length > 0;
     const expandable = child.type === "group" && descendantRows.length > 0;
     const expanded = expandable && props.expandedItemIds.has(child.id);
@@ -3096,7 +4596,7 @@ function compareRoadmapItems(left: ItemRecord, right: ItemRecord): number {
 }
 
 function hasRoadmapDate(item: ItemRecord): boolean {
-  return Boolean(item.startDate || item.endDate || item.dueDate);
+  return isRoadmapEligibleItem(item);
 }
 
 function roadmapItemMatchesFilter(item: ItemRecord, filterMode: RoadmapFilter): boolean {
@@ -3112,16 +4612,7 @@ function roadmapItemMatchesFilter(item: ItemRecord, filterMode: RoadmapFilter): 
 }
 
 function isOverdueRoadmapItem(item: ItemRecord): boolean {
-  if (item.status === "done" || item.status === "archived") {
-    return false;
-  }
-
-  const effectiveDate = item.endDate ?? item.startDate ?? item.dueDate;
-  if (!effectiveDate) {
-    return false;
-  }
-
-  return normalizeDateInput(effectiveDate) < getTodayDateText();
+  return isOverdueItem(item, getTodayDateText());
 }
 
 function getTodayDateText(): string {
@@ -3170,6 +4661,17 @@ type ProjectItemUpdatePatch = Omit<UpdateItemInput, "id" | "rescheduleScope">;
 interface PendingRescheduleChange {
   item: ItemRecord;
   patch: Pick<UpdateItemInput, "startDate" | "endDate">;
+}
+
+interface ItemContextMenuState {
+  item: ItemRecord;
+  x: number;
+  y: number;
+}
+
+interface ItemRowDropTarget {
+  targetItemId: string;
+  placement: RowReorderPlacement;
 }
 
 function syncVerticalScroll(props: {
@@ -3221,6 +4723,31 @@ function getPreviewLayout(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function getItemContextMenuPosition(x: number, y: number): { left: number; top: number } {
+  if (typeof window === "undefined") {
+    return { left: x, top: y };
+  }
+
+  const menuWidth = 220;
+  const menuHeight = 272;
+  const gutter = 12;
+  return {
+    left: clamp(x, gutter, Math.max(window.innerWidth - menuWidth - gutter, gutter)),
+    top: clamp(y, gutter, Math.max(window.innerHeight - menuHeight - gutter, gutter)),
+  };
+}
+
+function getItemRowDropPlacement(
+  event: ReactDragEvent<HTMLDivElement>
+): RowReorderPlacement | null {
+  const bounds = event.currentTarget.getBoundingClientRect();
+  if (bounds.height <= 0) {
+    return null;
+  }
+  const offsetY = event.clientY - bounds.top;
+  return offsetY < bounds.height / 2 ? "before" : "after";
 }
 
 function isTextEditingElement(target: EventTarget | null): boolean {

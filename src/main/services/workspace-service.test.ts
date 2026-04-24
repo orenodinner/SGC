@@ -131,6 +131,48 @@ describe("WorkspaceService quick capture", () => {
     expect(afterOutdent.items.find((item) => item.id === childOfB.id)?.wbsCode).toBe("2.1");
   });
 
+  it("reorders sibling rows while preserving subtree and recalculating WBS codes", () => {
+    const project = service.createProject({
+      name: "並び替えテスト",
+      code: "PRJ-R",
+    });
+
+    const rootA = service.createItem({
+      projectId: project.id,
+      title: "Root A",
+      type: "group",
+    });
+    const rootB = service.createItem({
+      projectId: project.id,
+      title: "Root B",
+      type: "group",
+    });
+    const childOfB = service.createItem({
+      projectId: project.id,
+      parentId: rootB.id,
+      title: "Child B-1",
+      type: "task",
+    });
+    const rootC = service.createItem({
+      projectId: project.id,
+      title: "Root C",
+      type: "task",
+    });
+
+    const reordered = service.reorderItemRow({
+      itemId: rootB.id,
+      targetItemId: rootA.id,
+      placement: "before",
+    });
+    const detail = service.getProjectDetail(project.id);
+
+    expect(reordered.wbsCode).toBe("1");
+    expect(detail.items.find((item) => item.id === rootB.id)?.wbsCode).toBe("1");
+    expect(detail.items.find((item) => item.id === childOfB.id)?.wbsCode).toBe("1.1");
+    expect(detail.items.find((item) => item.id === rootA.id)?.wbsCode).toBe("2");
+    expect(detail.items.find((item) => item.id === rootC.id)?.wbsCode).toBe("3");
+  });
+
   it("updates note and tags for detail drawer edits", () => {
     const project = service.createProject({
       name: "詳細編集",
@@ -221,6 +263,91 @@ describe("WorkspaceService quick capture", () => {
       title: "タグ整理タスク",
       tags: expect.arrayContaining(["設計", "顧客"]),
     });
+  });
+
+  it("persists app settings and reloads them from storage", () => {
+    const defaults = service.getAppSettings();
+    expect(defaults).toMatchObject({
+      language: "ja",
+      theme: "light",
+      autoBackupEnabled: true,
+      autoBackupRetentionLimit: 7,
+      excelDefaultPriority: "medium",
+      excelDefaultAssignee: "",
+      weekStartsOn: "monday",
+      fyStartMonth: 4,
+      workingDayNumbers: [1, 2, 3, 4, 5],
+      defaultView: "home",
+    });
+
+    const updated = service.updateAppSettings({
+      language: "en",
+      theme: "dark",
+      autoBackupEnabled: false,
+      autoBackupRetentionLimit: 3,
+      excelDefaultPriority: "high",
+      excelDefaultAssignee: "田中",
+      weekStartsOn: "sunday",
+      fyStartMonth: 7,
+      workingDayNumbers: [0, 1, 2, 3, 4],
+      defaultView: "roadmap",
+    });
+    const reloadedService = new WorkspaceService(manager);
+
+    expect(updated).toMatchObject({
+      language: "en",
+      theme: "dark",
+      autoBackupEnabled: false,
+      autoBackupRetentionLimit: 3,
+      excelDefaultPriority: "high",
+      excelDefaultAssignee: "田中",
+      weekStartsOn: "sunday",
+      fyStartMonth: 7,
+      workingDayNumbers: [0, 1, 2, 3, 4],
+      defaultView: "roadmap",
+    });
+    expect(reloadedService.getAppSettings()).toMatchObject({
+      language: "en",
+      theme: "dark",
+      autoBackupEnabled: false,
+      autoBackupRetentionLimit: 3,
+      excelDefaultPriority: "high",
+      excelDefaultAssignee: "田中",
+      weekStartsOn: "sunday",
+      fyStartMonth: 7,
+      workingDayNumbers: [0, 1, 2, 3, 4],
+      defaultView: "roadmap",
+    });
+  });
+
+  it("reflects week start settings in home week milestones", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-24T09:00:00+09:00"));
+
+    const project = service.createProject({
+      name: "設定反映",
+      code: "PRJ-SET",
+    });
+    const milestone = service.createItem({
+      projectId: project.id,
+      title: "週初マイルストーン",
+      type: "milestone",
+    });
+    service.updateItem({
+      id: milestone.id,
+      startDate: "2026-04-19",
+      endDate: "2026-04-19",
+    });
+
+    expect(service.getHomeSummary().weekMilestones).toHaveLength(0);
+
+    service.updateAppSettings({
+      weekStartsOn: "sunday",
+    });
+
+    expect(service.getHomeSummary().weekMilestones.map((item) => item.title)).toContain(
+      "週初マイルストーン"
+    );
   });
 
   it("persists a recurrence rule per task item and syncs isRecurring", () => {
@@ -645,6 +772,19 @@ describe("WorkspaceService quick capture", () => {
     expect(entries.get("xl/worksheets/sheet2.xml")).toContain("基本設計");
     expect(entries.get("xl/worksheets/sheet2.xml")).toContain("レビュー完了");
     expect(entries.get("xl/worksheets/sheet2.xml")).toContain(`${item.id}+2`);
+    expect(entries.get("xl/worksheets/sheet4.xml")).toContain("Default");
+    expect(entries.get("xl/worksheets/sheet4.xml")).toContain("medium");
+
+    service.updateAppSettings({
+      excelDefaultPriority: "critical",
+      excelDefaultAssignee: "佐藤",
+    });
+
+    const updatedBytes = service.exportProjectWorkbook(project.id);
+    const updatedEntries = readStoredZipEntries(updatedBytes);
+
+    expect(updatedEntries.get("xl/worksheets/sheet4.xml")).toContain("critical");
+    expect(updatedEntries.get("xl/worksheets/sheet4.xml")).toContain("佐藤");
   });
 
   it("builds import preview counts from an exported workbook", () => {
@@ -797,6 +937,47 @@ describe("WorkspaceService quick capture", () => {
     expect(secondRun.retentionLimit).toBe(7);
     expect(backups.filter((entry) => entry.fileName.startsWith("sgc-auto-backup-"))).toHaveLength(7);
     expect(backups.some((entry) => entry.fileName === manualBackup.fileName)).toBe(true);
+  });
+
+  it("skips auto backup create and prune when auto backup is disabled", () => {
+    service.updateAppSettings({
+      autoBackupEnabled: false,
+      autoBackupRetentionLimit: 3,
+    });
+
+    const result = service.ensureAutoBackup({
+      now: new Date("2026-04-09T09:00:00+09:00"),
+    });
+
+    expect(result.createdBackup).toBeNull();
+    expect(result.prunedFileNames).toEqual([]);
+    expect(result.retentionLimit).toBe(3);
+    expect(service.listBackups()).toEqual([]);
+  });
+
+  it("uses configured retention limit for auto backups", () => {
+    service.updateAppSettings({
+      autoBackupEnabled: true,
+      autoBackupRetentionLimit: 3,
+    });
+
+    for (let index = 0; index < 4; index += 1) {
+      const autoBackup = manager.createBackup({
+        kind: "auto",
+        createdAt: `2026-04-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`,
+      });
+      const datedAt = new Date(`2026-04-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`);
+      fs.utimesSync(autoBackup.filePath, datedAt, datedAt);
+    }
+
+    const result = service.ensureAutoBackup({
+      now: new Date("2026-04-05T09:00:00+09:00"),
+    });
+    const backups = service.listBackups();
+
+    expect(result.retentionLimit).toBe(3);
+    expect(result.prunedFileNames).toHaveLength(2);
+    expect(backups.filter((entry) => entry.fileName.startsWith("sgc-auto-backup-"))).toHaveLength(3);
   });
 
   it("applies import commit for update and new rows while skipping errors", () => {
@@ -2130,6 +2311,55 @@ describe("WorkspaceService quick capture", () => {
     expect(detail.items.find((item) => item.id === successor.id)).toMatchObject({
       startDate: "2026-04-27",
       endDate: "2026-04-27",
+    });
+  });
+
+  it("uses custom working day settings for dependent shift", () => {
+    const project = service.createProject({
+      name: "カスタム営業日案件",
+      code: "PRJ-CBIZ",
+    });
+    const predecessor = service.createItem({
+      projectId: project.id,
+      title: "Task A",
+      type: "task",
+    });
+    const successor = service.createItem({
+      projectId: project.id,
+      title: "Task B",
+      type: "task",
+    });
+
+    service.updateAppSettings({
+      workingDayNumbers: [0, 1, 2, 3, 4],
+    });
+    service.updateItem({
+      id: predecessor.id,
+      startDate: "2026-04-20",
+      endDate: "2026-04-23",
+    });
+    service.updateItem({
+      id: successor.id,
+      startDate: "2026-04-24",
+      endDate: "2026-04-24",
+    });
+    service.createDependency({
+      predecessorItemId: predecessor.id,
+      successorItemId: successor.id,
+      lagDays: 0,
+    });
+
+    service.updateItem({
+      id: predecessor.id,
+      startDate: "2026-04-21",
+      endDate: "2026-04-24",
+      rescheduleScope: "with_dependents",
+    });
+    const detail = service.getProjectDetail(project.id);
+
+    expect(detail.items.find((item) => item.id === successor.id)).toMatchObject({
+      startDate: "2026-04-26",
+      endDate: "2026-04-26",
     });
   });
 

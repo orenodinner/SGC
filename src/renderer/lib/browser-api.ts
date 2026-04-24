@@ -15,7 +15,7 @@ import {
 } from "../../infra/excel/project-workbook-import";
 import { itemStatusSchema, itemTypeSchema, prioritySchema } from "../../shared/contracts";
 import { exportProjectWorkbookXlsx } from "../../infra/excel/project-workbook-export";
-import { normalizeProjectItems } from "../../domain/project-tree";
+import { normalizeProjectItems, resolveSiblingReorder } from "../../domain/project-tree";
 import { parseQuickCapture } from "../../domain/quick-capture";
 import {
   advanceRecurrenceNextOccurrenceAt,
@@ -27,9 +27,10 @@ import {
   buildWbsTemplateApplyNodes,
   buildWbsTemplateBody,
 } from "../../domain/wbs-template";
-import { addWorkingDays } from "../../domain/working-days";
+import { addWorkingDays, normalizeWorkingDayNumbers } from "../../domain/working-days";
 import type {
   BackupAutoResult,
+  AppSettings,
   ApplyProjectTemplateInput,
   BackupEntry,
   BackupPreview,
@@ -54,6 +55,7 @@ import type {
   TemplateRecord,
   RendererApi,
   UpsertRecurrenceRuleInput,
+  UpdateAppSettingsInput,
   UpdateItemInput,
   UpdateProjectInput,
 } from "../../shared/contracts";
@@ -68,18 +70,50 @@ const memory = {
   templates: [] as TemplateRecord[],
   recurrenceRules: [] as RecurrenceRule[],
   backups: [] as BackupEntry[],
+  settings: {
+    workspaceId: "browser",
+    language: "ja",
+    theme: "light",
+    autoBackupEnabled: true,
+    autoBackupRetentionLimit: 7,
+    excelDefaultPriority: "medium",
+    excelDefaultAssignee: "",
+    weekStartsOn: "monday",
+    fyStartMonth: 4,
+    workingDayNumbers: [1, 2, 3, 4, 5],
+    defaultView: "home",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  } as AppSettings,
 };
 const browserBackupSnapshots = new Map<string, BrowserBackupSnapshot>();
 const browserImportSessions = new Map<string, BrowserImportSession>();
 
 export const browserApi: RendererApi = {
+  settings: {
+    async get(): Promise<AppSettings> {
+      return { ...memory.settings };
+    },
+      async update(input: UpdateAppSettingsInput): Promise<AppSettings> {
+        memory.settings = {
+          ...memory.settings,
+          ...input,
+          workingDayNumbers: normalizeWorkingDayNumbers(
+            input.workingDayNumbers ?? memory.settings.workingDayNumbers
+          ),
+          updatedAt: new Date().toISOString(),
+        };
+        return { ...memory.settings };
+    },
+  },
   home: {
     async getSummary(): Promise<HomeSummary> {
       const inboxProject = ensureInboxProject();
       const now = new Date();
       const todayStart = startOfDay(now);
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+      const weekStartsOn = toDateFnsWeekStartsOn(memory.settings.weekStartsOn);
+      const weekStart = startOfWeek(now, { weekStartsOn });
+      const weekEnd = endOfWeek(now, { weekStartsOn });
       const dashboardItems = memory.items.filter(
         (item) => !item.archived && item.projectId !== inboxProject.id
       );
@@ -150,6 +184,7 @@ export const browserApi: RendererApi = {
       memory.dependencies = clonedSnapshot.dependencies;
       memory.templates = clonedSnapshot.templates;
       memory.recurrenceRules = clonedSnapshot.recurrenceRules;
+      memory.settings = clonedSnapshot.settings;
 
       return {
         restoredBackup: entry,
@@ -176,6 +211,7 @@ export const browserApi: RendererApi = {
 
           return {
             id: project.id,
+            portfolioId: project.portfolioId,
             code: project.code,
             name: project.name,
             ownerName: project.ownerName,
@@ -317,6 +353,7 @@ export const browserApi: RendererApi = {
         const project: ProjectSummary = {
           id: crypto.randomUUID(),
           workspaceId: template.workspaceId,
+          portfolioId: null,
           code: `PRJ-${String(listUserProjects().length + 1).padStart(3, "0")}`,
           name: template.body.projectFields.name,
           description: template.body.projectFields.description,
@@ -429,6 +466,7 @@ export const browserApi: RendererApi = {
       const project: ProjectSummary = {
         id: crypto.randomUUID(),
         workspaceId: "browser",
+        portfolioId: null,
         code: input.code ?? `PRJ-${String(listUserProjects().length + 1).padStart(3, "0")}`,
         name: input.name,
         description: "",
@@ -605,6 +643,10 @@ export const browserApi: RendererApi = {
         project,
         items,
         dependencies: memory.dependencies.filter((dependency) => dependency.projectId === projectId),
+        excelDefaults: {
+          priority: memory.settings.excelDefaultPriority,
+          assignee: memory.settings.excelDefaultAssignee,
+        },
       });
       const browserBytes = new Uint8Array(Array.from(bytes));
       const blob = new Blob([browserBytes], {
@@ -739,6 +781,7 @@ export const browserApi: RendererApi = {
           dependencies: memory.dependencies.filter((dependency) => dependency.projectId === item.projectId),
           changedRootIds: [item.id, ...descendantItems.map((entry) => entry.id)],
           updatedAt: item.updatedAt,
+          workingDayNumbers: memory.settings.workingDayNumbers,
         });
       }
       const recurrenceRule =
@@ -810,6 +853,31 @@ export const browserApi: RendererApi = {
       item.parentId = nextHierarchy.parentId;
       item.sortOrder = nextHierarchy.sortOrder;
       item.updatedAt = new Date().toISOString();
+      rebalanceProject(item.projectId);
+      return requireItem(item.id);
+    },
+    async reorderRow(input) {
+      const item = requireItem(input.itemId);
+      const reorderPatches = resolveSiblingReorder({
+        items: memory.items.filter((entry) => entry.projectId === item.projectId && !entry.archived),
+        itemId: input.itemId,
+        targetItemId: input.targetItemId,
+        placement: input.placement,
+      });
+      if (!reorderPatches) {
+        return item;
+      }
+
+      const now = new Date().toISOString();
+      const patchesById = new Map(reorderPatches.map((patch) => [patch.id, patch.sortOrder]));
+      for (const target of memory.items) {
+        const nextSortOrder = patchesById.get(target.id);
+        if (target.projectId !== item.projectId || nextSortOrder === undefined) {
+          continue;
+        }
+        target.sortOrder = nextSortOrder;
+        target.updatedAt = now;
+      }
       rebalanceProject(item.projectId);
       return requireItem(item.id);
     },
@@ -971,6 +1039,7 @@ interface BrowserBackupSnapshot {
   dependencies: DependencyRecord[];
   templates: TemplateRecord[];
   recurrenceRules: RecurrenceRule[];
+  settings: AppSettings;
 }
 
 interface BrowserFileHandleLike {
@@ -1007,6 +1076,7 @@ function createBrowserBackupSnapshot(input: {
     dependencies: memory.dependencies,
     templates: memory.templates,
     recurrenceRules: memory.recurrenceRules,
+    settings: memory.settings,
   });
   const payload = JSON.stringify(snapshot);
 
@@ -1034,6 +1104,14 @@ function createBrowserBackupSnapshot(input: {
 }
 
 function ensureBrowserAutoBackup(): BackupAutoResult {
+  if (!memory.settings.autoBackupEnabled) {
+    return {
+      createdBackup: null,
+      prunedFileNames: [],
+      retentionLimit: memory.settings.autoBackupRetentionLimit,
+    };
+  }
+
   const todayKey = formatBrowserLocalDateKey(new Date());
   const hasAutoBackupToday = memory.backups.some(
     (backup) =>
@@ -1051,7 +1129,7 @@ function ensureBrowserAutoBackup(): BackupAutoResult {
   const autoBackups = [...memory.backups].filter(
     (backup) => getBrowserBackupKind(backup.fileName) === "auto"
   );
-  const prunedEntries = autoBackups.slice(7);
+  const prunedEntries = autoBackups.slice(memory.settings.autoBackupRetentionLimit);
 
   for (const backup of prunedEntries) {
     browserBackupSnapshots.delete(buildBrowserBackupSnapshotKey(backup));
@@ -1067,7 +1145,7 @@ function ensureBrowserAutoBackup(): BackupAutoResult {
   return {
     createdBackup,
     prunedFileNames: prunedEntries.map((backup) => backup.fileName),
-    retentionLimit: 7,
+    retentionLimit: memory.settings.autoBackupRetentionLimit,
   };
 }
 
@@ -1536,6 +1614,7 @@ function ensureInboxProject(): ProjectSummary {
   const project: ProjectSummary = {
     id: crypto.randomUUID(),
     workspaceId: "browser",
+    portfolioId: null,
     code: INBOX_PROJECT_CODE,
     name: INBOX_PROJECT_NAME,
     description: "",
@@ -1708,7 +1787,7 @@ function getPostponeDate(target: PostponeTarget, now: Date): Date {
     case "tomorrow":
       return startOfDay(addDays(now, 1));
     case "week_end":
-      return startOfDay(endOfWeek(now, { weekStartsOn: 1 }));
+      return startOfDay(endOfWeek(now, { weekStartsOn: toDateFnsWeekStartsOn(memory.settings.weekStartsOn) }));
   }
 }
 
@@ -1716,6 +1795,10 @@ function formatDateOnly(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
     date.getDate()
   ).padStart(2, "0")}`;
+}
+
+function toDateFnsWeekStartsOn(weekStartsOn: AppSettings["weekStartsOn"]): 0 | 1 {
+  return weekStartsOn === "sunday" ? 0 : 1;
 }
 
 function resolveHierarchyMove(
@@ -1850,6 +1933,7 @@ function applyDependentShift(input: {
   dependencies: DependencyRecord[];
   changedRootIds: string[];
   updatedAt: string;
+  workingDayNumbers: AppSettings["workingDayNumbers"];
 }): void {
   const dependenciesByPredecessor = new Map<string, DependencyRecord[]>();
   for (const dependency of input.dependencies) {
@@ -1878,7 +1962,11 @@ function applyDependentShift(input: {
       }
 
       const earliestSuccessorStart = formatDateOnly(
-        addWorkingDays(parseISO(predecessorEndDate), dependency.lagDays + 1)
+        addWorkingDays(
+          parseISO(predecessorEndDate),
+          dependency.lagDays + 1,
+          input.workingDayNumbers
+        )
       );
       const deltaDays = differenceInCalendarDays(
         parseISO(earliestSuccessorStart),

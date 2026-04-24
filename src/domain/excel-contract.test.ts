@@ -190,4 +190,23 @@ describe("Excel workbook contract", () => {
       LastModifiedAt: "2026-04-22T10:00:00.000Z",
     });
   });
+
+  it("adds Excel default hints to MasterData rows when settings are provided", () => {
+    const workbook = buildExcelWorkbookContract({
+      project: makeProject(),
+      items: [makeItem()],
+      dependencies: [],
+      excelDefaults: {
+        priority: "critical",
+        assignee: "佐藤",
+      },
+    });
+
+    expect(workbook.sheets[3].rows).toEqual(
+      expect.arrayContaining([
+        { Category: "Default", Code: "Priority", Label: "critical" },
+        { Category: "Default", Code: "Assignee", Label: "佐藤" },
+      ])
+    );
+  });
 });

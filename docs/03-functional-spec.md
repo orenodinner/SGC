@@ -51,6 +51,9 @@
 - Inbox の `タグ追加` は free-text 1欄で受ける
 - タグはスペースまたはカンマ区切りで複数入力でき、`#` は省略可
 - タグ追加だけでは item は Inbox に残る
+- Inbox の `テンプレート変換` 初期 slice は current Inbox item から draft project を1件作成し、その item を root row として移してから Project Detail の template workflow を開く
+- draft project の既定名には Inbox item の title を使い、template conversion 後はその project を選択状態にする
+- template conversion は Inbox item を削除せず、`projectId` を draft project へ更新して Inbox 一覧から外す
 
 ### FS-003 Project Detail
 目的: プロジェクト内訳と日程を同時に扱う
@@ -174,6 +177,11 @@
 - 期限超過のみ
 - マイルストーンのみ
 - 年間表示対象のみ
+- Search / Filter Drawer は Home / Portfolio / Year-FY Roadmap に加えて Project Detail にも client-side で適用する
+- Project Detail では direct match の row だけでなく、その row へ辿る ancestor path も表示対象に残して hierarchy 文脈を保持する
+- Project Detail では descendant match を表示するために必要な ancestor は一時的に見えるようにしてよいが、expanded state 自体は書き換えない
+- initial slice の `Portfolio` 条件は project の `portfolio_id` を free-text で照合する
+- initial slice の `年間表示対象のみ` は roadmap に載る日付付き row (`startDate / endDate / dueDate` または project の `startDate / endDate / targetDate` を持つ row) に限定する
 
 ### FS-007 Import / Export
 目的: Excel 往復と一括投入
@@ -226,6 +234,20 @@
 - 既定表示
 - 自動バックアップ設定
 - Excel テンプレート既定値
+- `TASK-1001` の first slice では Settings 画面を追加し、`週開始曜日 / FY開始月 / 既定表示` の3項目を user-facing に編集 / 永続化できるようにする
+- first slice の `週開始曜日` は `日曜始まり / 月曜始まり` の2値とし、Home / Today の `今週` 集計と `今週マイルストーン` 判定に反映する
+- first slice の `FY 開始月` は 1-12 月から選択でき、Year / FY Roadmap の FY bucket と quarter header に反映する
+- first slice の `既定表示` は `Home / Portfolio / Year-FY Roadmap / Project Detail` ではなく、`Home / Portfolio / Year-FY Roadmap` の3値に限定する
+- first slice では起動直後の初期 view に `既定表示` を反映し、Project Detail は project selection が必要なため既定表示候補に含めない
+- follow-up slice の `稼働日` は weekly checkbox set とし、`日-土` のうち1日以上を選択必須とする
+- follow-up slice の `稼働日` 既定値は `月-金` とし、dependency による自動後ろ倒しで次の稼働日計算へ反映する
+- follow-up slice の `表示言語` は `ja / en` の2値とし、保存後は sidebar navigation、Settings 見出し、主要 view 見出し、主要 action label に反映する
+- 初期の `表示言語` slice では日本語 / 英語の手動切替だけを扱い、日付書式や入力補助、domain value の完全翻訳は後続 slice とする
+- `TASK-1201` では major heading だけでなく、Search / Filter Drawer、Import Preview、recovery / restore overlay、helper / empty copy まで `ja / en` 切替対象を広げる
+- `TASK-1201` の初期対象では generic i18n framework 化までは要求せず、既存 copy registry に寄せた段階的な多言語化でよい
+- `テーマ` は `TASK-1001` の残り slice で Settings へ追加し、初期対応は `light / dark` の2値に限定する
+- `テーマ` の初期 slice では shell、sidebar、主要 card、button、input の配色を theme token に寄せ、保存後は即時反映と再起動保持を行う
+- 初期の `テーマ` slice では chart color や item status color、import preview の細かい装飾色までは完全 theme 化しなくてよい
 - 初期 hardening では settings 画面より先に `Backup now` を sidebar utility として提供する
 - `Backup now` は現在の SQLite DB を timestamp 付きローカル backup ファイルとして保存する
 - 初期 backup UI では recent backups を新しい順に表示する
@@ -239,6 +261,14 @@
 - 初期 auto backup slice では app bootstrap 時に local day あたり1回だけ `sgc-auto-backup-*` を自動作成する
 - auto backup の retention は `sgc-auto-backup-*` 系列にだけ適用し、最新7件を超えた古い auto backup を削除する
 - manual backup (`sgc-backup-*`) と safety backup (`sgc-safety-backup-*`) はこの retention では削除しない
+- `TASK-1002` の first slice では Settings から `自動バックアップ` の `有効/無効` と `保持件数` だけを編集できるようにする
+- `保持件数` は `1-30` の整数に限定し、適用対象は `sgc-auto-backup-*` 系列だけとする
+- `TASK-1002` の follow-up slice では `Excel テンプレート既定値` として `優先度既定値` と `担当既定値` を Settings から編集できるようにする
+- `優先度既定値` は `low / medium / high / critical` の4値に限定する
+- `担当既定値` は free-text 1欄とし、空文字を許可する
+- 初期の Excel defaults slice は import 振る舞いを変えず、project 単位 export の `MasterData` sheet に `Default` category のヒントとして反映する
+- `自動バックアップ` を無効にした場合、app bootstrap 時の auto backup create と auto backup retention は実行しない
+- `自動バックアップ` 設定は sidebar の Data Protection helper copy にも反映してよい
 - 初期 recovery prompt slice では DB 初期化や bootstrap 失敗を検知した場合でも app window 自体は開き、通常 workspace の代わりに recovery screen を表示する
 - recovery screen では startup error message と recent backups を表示し、backup preview を経由した restore を許可する
 - recovery screen から restore を実行する場合も desktop では apply 前に current DB file の safety backup を自動作成する
@@ -259,6 +289,11 @@
 - 初期 recurring generation では recurrence rule を完了済み occurrence から新しい occurrence へ移し、古い item の `isRecurring` は false、新しい item の `isRecurring` は true にする
 - 初期 recurring generation の rule advance は `FREQ=WEEKLY`, `FREQ=MONTHLY`, `FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR` のみに対応する
 - unsupported な `rrule_text` は永続化はするが、この slice では occurrence 自動生成を行わない
+- `TASK-1102` の first user-facing slice では Detail drawer に recurrence section を追加し、scheduled task に対して `週次(月曜) / 月次 / 平日` の3 preset だけを先に user-facing にする
+- first user-facing recurrence section では `next_occurrence_at` を date input で編集し、保存時の `rrule_text` は preset selection から組み立てる
+- first user-facing recurrence section では existing unsupported rule を raw `rrule_text` と `next_occurrence_at` 付きで read-only 表示し、generation 対象外であることを明示する
+- first user-facing recurrence section では unsupported rule でも preset への置換保存か削除はできる
+- first user-facing recurrence section では group / milestone / unscheduled item に recurrence editor を出さず、理由付き note を表示する
 - 初期 WBS template は selected root item 1件とその非 archived descendants を subtree ごとに保存する
 - 初期 WBS template の保存対象フィールドは `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` とする
 - 初期 WBS template は hierarchy だけを保存し、`status / percentComplete / actualHours / startDate / endDate / dueDate / dependency / recurrence` は保存しない
@@ -279,6 +314,16 @@
 - 初期 project template apply の item-level 復元対象は `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` に限定する
 - 初期 project template apply で生成される item は `status=not_started`, `percentComplete=0`, `actualHours=0`, `completedAt=null`, `isScheduled=false`, `isRecurring=false` とする
 - 初期 project template apply では `startDate / endDate / dueDate / dependency / recurrence` は復元しない
+- `TASK-1101` の first slice では Project Detail toolbar に `Templates` button を追加し、saved template の list と apply 導線だけを先に user-facing にする
+- first slice の template panel では `kind=wbs` と `kind=project` を分けて表示し、`kind=wbs` は current project へ apply、`kind=project` は新しい project 作成として apply する
+- first slice の template panel には保存済み template の `name / kind / updatedAt` を表示し、apply 成功後は current workspace summary と project selection を再読込する
+- `TASK-1101` の follow-up slice では同じ template panel に `Save current project as template` と `Save selected root as WBS template` を追加する
+- follow-up slice の WBS save は selected item が root row (`parentId=null`) の時だけ有効にし、既定 template 名には selected root title を使ってよい
+- follow-up slice の project save は current project をそのまま `kind=project` template として保存し、既定 template 名には current project 名を使ってよい
+- follow-up slice の save 成功後は panel を閉じず、その場で template list を再読込して新規 row を確認できるようにする
+- `TASK-1101` の最後の slice では Inbox card から `テンプレート変換` を実行できるようにする
+- Inbox の `テンプレート変換` 初期 UI は Inbox item から draft project を1件作成し、その item を root row として移したうえで Project Detail を開き、`Templates` panel を自動で開く
+- この conversion 導線では既存の template save UI を再利用し、専用 modal や template type 選択は初期 slice では追加しない
 
 ## 3.3 ドメインルール
 

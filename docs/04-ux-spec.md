@@ -25,8 +25,11 @@
 ```
 
 - Inbox card には最小編集導線として `プロジェクト割当` と `日付追加` と `タグ追加` を置く
+- Inbox card には follow-up 導線として `テンプレート変換` button を置いてよい
 - `日付追加` は単日 picker とし、選択時に1日タスクとして計画へ載せる
 - `タグ追加` は inline text field とし、blur で自動保存する
+- `テンプレート変換` の初期挙動は current Inbox item から draft project を作成し、その item を root row として移したうえで Project Detail を開き、`Templates` panel を自動で開く
+- 初期の `テンプレート変換` では専用 modal を増やさず、既存の `Save current project as template` / `Save selected root as template` をそのまま使う
 - sidebar 下部には `Data Protection` card を置き、`Backup now` と recent backup list を表示してよい
 - `Backup now` 成功時は notice banner に保存先パスを短く表示する
 - `Data Protection` card には `自動: 起動時に日次1回 / auto 7件保持` のような policy copy を置いてよい
@@ -77,6 +80,20 @@
 - 適用成功時は短い通知を出し、Project Detail と Home / Portfolio 集計を再読込する
 - error row では summary message に加えて、`列名: 理由` の issue list を同じ row 内に表示する
 - warning row では warning chip を同じ row 内に表示する
+- `Templates` の first slice は Project Detail toolbar の button から開く panel として置いてよい
+- template panel では `WBS Templates` と `Project Templates` の2 section を分け、保存済み template の `name / updatedAt` と short helper copy を表示する
+- `WBS Templates` の row action は `Apply to current project` に限定し、current project root 直下へ subtree を追加する
+- `Project Templates` の row action は `Create project` に限定し、新しい project を作成したらその project を選択状態にして Project Detail を開く
+- follow-up slice では同じ panel の各 section header に save action を追加してよい
+- `WBS Templates` の save action は `Save selected root as template` とし、selected row が root でない時は disabled にして helper copy で理由を示す
+- `Project Templates` の save action は `Save current project as template` とし、名前入力 modal は使わず current project 名を既定名として保存する
+- save 成功後は panel を開いたままにして新しい template row を一覧の先頭で確認できるようにする
+- `TASK-1102` の first slice では detail drawer の既存 grid に recurrence section を追加し、別 modal は作らない
+- recurrence section の入力要素は `preset select / next occurrence date / 保存 / 削除` に限定する
+- unsupported rule が入っている時は editable form の上に `unsupported rule / generation 対象外` の read-only note を出す
+- unscheduled item と group / milestone では recurrence editor の代わりに unavailable note を出す
+- Inbox の `テンプレート変換` はまだ出さず、save/list/apply が揃ってから別導線で追加する
+- 最後の follow-up では Inbox の `テンプレート変換` からこの panel を起動できるようにする
 - detail drawer の dependency セクションには `先行タスク追加` と `既存 dependency 一覧` を置く
 - 初期 dependency editor では selected item を successor とする先行タスクだけを追加できる
 - linked dependency 一覧では predecessor / successor の向きを示し、各 row から削除できる
@@ -88,6 +105,7 @@
 - item 数が多い場合、Project Detail の WBS と timeline は同じ visible window だけを描画してよい
 - 初期 virtualization では row 高さを固定し、top / bottom spacer で scroll continuity を保つ
 - virtualization 中も WBS と timeline の縦スクロール同期、selected row の見た目、timeline focus traversal を維持する
+- Search / Filter Drawer の initial slice は Project Detail へはまだ接続せず、follow-up で hierarchy 文脈保持と合わせて追加する
 
 ### Portfolio
 ```text
@@ -134,6 +152,37 @@
 - Portfolio の `遅延中` は overdue project のみを残し、`今週マイルストーン` は今週内に milestone を持つ project のみを残す
 
 ## 4.3 Interaction 設計
+
+### Search / Filter Drawer
+- Home / Portfolio / Year-FY Roadmap に加えて Project Detail の project header 直下にも `Search / Filter` button を置いてよい
+- drawer には `全文 / プロジェクト / Portfolio / 状態 / 優先度 / タグ / 担当 / 期限超過のみ / マイルストーンのみ / 年間表示対象のみ` を置く
+- initial slice の `Portfolio` は `portfolio_id` を free-text で受ける
+- initial slice の `Clear` は current view 用の drawer 条件を既定値へ戻す
+- active filter は drawer 外にも chip で見せ、current view にだけ効いていることが分かるようにする
+- Portfolio と Roadmap の既存 quick filter chip は drawer 条件と AND で併用してよい
+- Project Detail では child row だけが一致した場合でも ancestor row を同時表示し、孤立した child だけを見せない
+- Project Detail では WBS と timeline の filtered row window を同じ集合に保つ
+
+### Settings
+- sidebar navigation に `Settings` を追加してよい
+- first slice の Settings は 1 画面 1 column の軽量 form とし、`週開始曜日 / FY開始月 / 既定表示` だけを編集対象にする
+- `週開始曜日` は segmented control または select で `月曜始まり / 日曜始まり` を選べるようにする
+- `FY開始月` は 1-12 月の select とする
+- follow-up slice の `表示言語` は `日本語 / English` の select または segmented control とし、保存後は sidebar navigation と Settings 自身の文言、主要 view 見出し、主要 action label に即時反映してよい
+- 初期の `表示言語` slice では一部の深い詳細文言や domain value の翻訳は placeholder のままでもよいが、ユーザーが切り替わったことを主要導線で確認できることを優先する
+- follow-up slice の `稼働日` は `月曜-日曜` の checkbox row とし、1日以上を選ばない状態では保存できないようにする
+- `稼働日` helper copy では `dependency 自動後ろ倒しで使用` を短く案内してよい
+- follow-up slice の `テーマ` は `ライト / ダーク` の select とし、保存後は shell 背景、sidebar、主要 card、button、input の配色が即時に切り替わるようにする
+- 初期の `テーマ` slice では複雑な chart 系や item status color の完全 theme 対応までは要求しない
+- `既定表示` は `Home / Portfolio / Year-FY` の radio または select とする
+- `TASK-1002` の first slice では `自動バックアップ` を checkbox または switch、`保持件数` を `1-30` の select とする
+- `自動バックアップ` を off にした場合でも `Backup now` と recent backup list はそのまま使えるようにする
+- sidebar の `Data Protection` card にある policy copy は current settings に合わせて `有効/無効` と保持件数が分かるようにする
+- Excel defaults の first slice では `優先度既定値` を select、`担当既定値` を text input とする
+- Excel defaults の helper copy では `project export の MasterData に既定ヒントとして出力` を短く案内してよい
+- 保存は explicit button を置き、保存成功時は notice banner で短く知らせてよい
+- 再起動後も保持されることが分かる短い helper copy を置いてよい
+- auto backup は user-facing 設定を提供済みとし、Excel defaults の first slice 以降は placeholder copy に戻さない
 
 ### 行操作
 - Enter: 新規行

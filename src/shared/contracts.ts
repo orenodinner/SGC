@@ -11,9 +11,48 @@ export const itemStatusSchema = z.enum([
 export const prioritySchema = z.enum(["low", "medium", "high", "critical"]);
 export const postponeTargetSchema = z.enum(["today", "tomorrow", "week_end"]);
 export const hierarchyMoveDirectionSchema = z.enum(["indent", "outdent"]);
+export const rowReorderPlacementSchema = z.enum(["before", "after"]);
 export const dependencyTypeSchema = z.enum(["finish_to_start"]);
 export const rescheduleScopeSchema = z.enum(["single", "with_descendants", "with_dependents"]);
 export const templateKindSchema = z.enum(["wbs", "project"]);
+export const appLanguageSchema = z.enum(["ja", "en"]);
+export const appThemeSchema = z.enum(["light", "dark"]);
+export const weekStartsOnSchema = z.enum(["monday", "sunday"]);
+export const appDefaultViewSchema = z.enum(["home", "portfolio", "roadmap"]);
+export const autoBackupRetentionLimitSchema = z.number().int().min(1).max(30);
+export const workingDayNumberSchema = z.number().int().min(0).max(6);
+export const workingDayNumbersSchema = z
+  .array(workingDayNumberSchema)
+  .min(1)
+  .max(7)
+  .refine((values) => new Set(values).size === values.length, "working day numbers must be unique");
+export const appSettingsSchema = z.object({
+  workspaceId: z.string(),
+  language: appLanguageSchema,
+  theme: appThemeSchema,
+  autoBackupEnabled: z.boolean(),
+  autoBackupRetentionLimit: autoBackupRetentionLimitSchema,
+  excelDefaultPriority: prioritySchema,
+  excelDefaultAssignee: z.string().max(80),
+  weekStartsOn: weekStartsOnSchema,
+  fyStartMonth: z.number().int().min(1).max(12),
+  workingDayNumbers: workingDayNumbersSchema,
+  defaultView: appDefaultViewSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export const updateAppSettingsInputSchema = z.object({
+  language: appLanguageSchema.optional(),
+  theme: appThemeSchema.optional(),
+  autoBackupEnabled: z.boolean().optional(),
+  autoBackupRetentionLimit: autoBackupRetentionLimitSchema.optional(),
+  excelDefaultPriority: prioritySchema.optional(),
+  excelDefaultAssignee: z.string().max(80).optional(),
+  weekStartsOn: weekStartsOnSchema.optional(),
+  fyStartMonth: z.number().int().min(1).max(12).optional(),
+  workingDayNumbers: workingDayNumbersSchema.optional(),
+  defaultView: appDefaultViewSchema.optional(),
+});
 export const recurrenceRuleSchema = z.object({
   id: z.string(),
   itemId: z.string(),
@@ -112,6 +151,7 @@ export const applyProjectTemplateInputSchema = z.object({
 export const projectSummarySchema = z.object({
   id: z.string(),
   workspaceId: z.string(),
+  portfolioId: z.string().nullable(),
   code: z.string(),
   name: z.string(),
   description: z.string(),
@@ -232,6 +272,7 @@ export const homeSummarySchema = z.object({
 
 export const portfolioProjectSummarySchema = z.object({
   id: z.string(),
+  portfolioId: z.string().nullable(),
   code: z.string(),
   name: z.string(),
   ownerName: z.string(),
@@ -294,6 +335,11 @@ export const bulkPostponeInputSchema = z.object({
 export const hierarchyMoveInputSchema = z.object({
   itemId: z.string(),
   direction: hierarchyMoveDirectionSchema,
+});
+export const rowReorderInputSchema = z.object({
+  itemId: z.string(),
+  targetItemId: z.string(),
+  placement: rowReorderPlacementSchema,
 });
 
 export const projectExportResultSchema = z.object({
@@ -387,9 +433,17 @@ export type ItemStatus = z.infer<typeof itemStatusSchema>;
 export type Priority = z.infer<typeof prioritySchema>;
 export type PostponeTarget = z.infer<typeof postponeTargetSchema>;
 export type HierarchyMoveDirection = z.infer<typeof hierarchyMoveDirectionSchema>;
+export type RowReorderPlacement = z.infer<typeof rowReorderPlacementSchema>;
 export type DependencyType = z.infer<typeof dependencyTypeSchema>;
 export type RescheduleScope = z.infer<typeof rescheduleScopeSchema>;
 export type TemplateKind = z.infer<typeof templateKindSchema>;
+export type AppLanguage = z.infer<typeof appLanguageSchema>;
+export type AppTheme = z.infer<typeof appThemeSchema>;
+export type WeekStartsOn = z.infer<typeof weekStartsOnSchema>;
+export type AppDefaultView = z.infer<typeof appDefaultViewSchema>;
+export type WorkingDayNumber = z.infer<typeof workingDayNumberSchema>;
+export type AppSettings = z.infer<typeof appSettingsSchema>;
+export type UpdateAppSettingsInput = z.infer<typeof updateAppSettingsInputSchema>;
 export type RecurrenceRule = z.infer<typeof recurrenceRuleSchema>;
 export type WbsTemplateNode = z.infer<typeof wbsTemplateNodeSchema>;
 export type WbsTemplateBody = z.infer<typeof wbsTemplateBodySchema>;
@@ -419,6 +473,7 @@ export type DependencyRecord = z.infer<typeof dependencyRecordSchema>;
 export type CreateDependencyInput = z.infer<typeof createDependencyInputSchema>;
 export type BulkPostponeInput = z.infer<typeof bulkPostponeInputSchema>;
 export type HierarchyMoveInput = z.infer<typeof hierarchyMoveInputSchema>;
+export type RowReorderInput = z.infer<typeof rowReorderInputSchema>;
 export type ProjectExportResult = z.infer<typeof projectExportResultSchema>;
 export type ProjectImportCommitResult = z.infer<typeof projectImportCommitResultSchema>;
 export type ImportPreviewAction = z.infer<typeof importPreviewActionSchema>;
@@ -434,6 +489,10 @@ export type BackupAutoResult = z.infer<typeof backupAutoResultSchema>;
 export type StartupContext = z.infer<typeof startupContextSchema>;
 
 export interface RendererApi {
+  settings: {
+    get: () => Promise<AppSettings>;
+    update: (input: UpdateAppSettingsInput) => Promise<AppSettings>;
+  };
   home: {
     getSummary: () => Promise<HomeSummary>;
   };
@@ -486,6 +545,7 @@ export interface RendererApi {
     archive: (itemId: string) => Promise<void>;
     bulkPostponeOverdue: (input: BulkPostponeInput) => Promise<ItemRecord[]>;
     moveHierarchy: (input: HierarchyMoveInput) => Promise<ItemRecord>;
+    reorderRow: (input: RowReorderInput) => Promise<ItemRecord>;
   };
   quickCapture: {
     create: (input: QuickCaptureInput) => Promise<ItemRecord>;

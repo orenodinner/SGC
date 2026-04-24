@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { addWorkingDays, isWorkingDay, moveToWorkingDay } from "./working-days";
+import {
+  addWorkingDays,
+  isWorkingDay,
+  moveToWorkingDay,
+  normalizeWorkingDayNumbers,
+  parseWorkingDayNumbers,
+  serializeWorkingDayNumbers,
+} from "./working-days";
 
 describe("working day utilities", () => {
   it("detects monday to friday as working days by default", () => {
@@ -21,5 +28,15 @@ describe("working day utilities", () => {
     expect(addWorkingDays(new Date("2026-04-24T09:00:00+09:00"), 2).toISOString().slice(0, 10)).toBe(
       "2026-04-28"
     );
+  });
+
+  it("normalizes working day numbers and falls back to monday-friday", () => {
+    expect(normalizeWorkingDayNumbers([5, 1, 5, 3])).toEqual([1, 3, 5]);
+    expect(normalizeWorkingDayNumbers([])).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("serializes and parses working day numbers", () => {
+    expect(serializeWorkingDayNumbers([4, 0, 1, 4])).toBe("0,1,4");
+    expect(parseWorkingDayNumbers("4,0,1,4")).toEqual([0, 1, 4]);
   });
 });

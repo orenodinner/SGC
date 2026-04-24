@@ -26,6 +26,8 @@ export function registerIpcHandlers(
     return runtime.service;
   };
 
+  ipcMain.handle("settings:get", () => requireService().getAppSettings());
+  ipcMain.handle("settings:update", (_event, input) => requireService().updateAppSettings(input));
   ipcMain.handle("system:getStartupContext", () => runtime.startupContext);
   ipcMain.handle("home:getSummary", () => requireService().getHomeSummary());
   ipcMain.handle("backup:list", () =>
@@ -169,6 +171,7 @@ export function registerIpcHandlers(
   ipcMain.handle("item:archive", (_event, itemId: string) => requireService().archiveItem(itemId));
   ipcMain.handle("item:bulkPostponeOverdue", (_event, input) => requireService().bulkPostponeOverdue(input));
   ipcMain.handle("item:moveHierarchy", (_event, input) => requireService().moveItemHierarchy(input));
+  ipcMain.handle("item:reorderRow", (_event, input) => requireService().reorderItemRow(input));
   ipcMain.handle("quickCapture:create", (_event, input) => requireService().createQuickCapture(input));
 }
 

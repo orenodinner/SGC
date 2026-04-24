@@ -4,6 +4,7 @@ import type { ProjectSummary } from "../../shared/contracts";
 interface ProjectRow {
   id: string;
   workspace_id: string;
+  portfolio_id: string | null;
   code: string;
   name: string;
   description: string;
@@ -51,6 +52,7 @@ export class ProjectRepository {
         `SELECT
           id,
           workspace_id,
+          portfolio_id,
           code,
           name,
           description,
@@ -79,6 +81,7 @@ export class ProjectRepository {
       `SELECT
         id,
         workspace_id,
+        portfolio_id,
         code,
         name,
         description,
@@ -107,6 +110,7 @@ export class ProjectRepository {
       `SELECT
         id,
         workspace_id,
+        portfolio_id,
         code,
         name,
         description,
@@ -190,6 +194,7 @@ function mapProjectRow(row: ProjectRow): ProjectSummary {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
+    portfolioId: row.portfolio_id,
     code: row.code,
     name: row.name,
     description: row.description,

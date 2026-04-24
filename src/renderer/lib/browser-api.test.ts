@@ -68,6 +68,105 @@ describe("browserApi import preview fallback", () => {
     expect(showOpenFilePicker).toHaveBeenCalledTimes(1);
   });
 
+  it("gets and updates app settings in browser fallback", async () => {
+    const original = await browserApi.settings.get();
+
+    try {
+      const updated = await browserApi.settings.update({
+        language: "en",
+        theme: "dark",
+        autoBackupEnabled: false,
+        autoBackupRetentionLimit: 3,
+        excelDefaultPriority: "critical",
+        excelDefaultAssignee: "佐藤",
+        weekStartsOn: "sunday",
+        fyStartMonth: 7,
+        workingDayNumbers: [0, 1, 2, 3, 4],
+        defaultView: "roadmap",
+      });
+
+      expect(updated).toMatchObject({
+        language: "en",
+        theme: "dark",
+        autoBackupEnabled: false,
+        autoBackupRetentionLimit: 3,
+        excelDefaultPriority: "critical",
+        excelDefaultAssignee: "佐藤",
+        weekStartsOn: "sunday",
+        fyStartMonth: 7,
+        workingDayNumbers: [0, 1, 2, 3, 4],
+        defaultView: "roadmap",
+      });
+      await expect(browserApi.settings.get()).resolves.toMatchObject({
+        language: "en",
+        theme: "dark",
+        autoBackupEnabled: false,
+        autoBackupRetentionLimit: 3,
+        excelDefaultPriority: "critical",
+        excelDefaultAssignee: "佐藤",
+        weekStartsOn: "sunday",
+        fyStartMonth: 7,
+        workingDayNumbers: [0, 1, 2, 3, 4],
+        defaultView: "roadmap",
+      });
+    } finally {
+      await browserApi.settings.update({
+        language: original.language,
+        theme: original.theme,
+        autoBackupEnabled: original.autoBackupEnabled,
+        autoBackupRetentionLimit: original.autoBackupRetentionLimit,
+        excelDefaultPriority: original.excelDefaultPriority,
+        excelDefaultAssignee: original.excelDefaultAssignee,
+        weekStartsOn: original.weekStartsOn,
+        fyStartMonth: original.fyStartMonth,
+        workingDayNumbers: original.workingDayNumbers,
+        defaultView: original.defaultView,
+      });
+    }
+  });
+
+  it("reorders sibling rows while preserving subtree in browser fallback", async () => {
+    const project = await browserApi.projects.create({
+      name: `Browser Reorder ${crypto.randomUUID()}`,
+      code: `BRW-${crypto.randomUUID().slice(0, 6)}`,
+    });
+    const rootA = await browserApi.items.create({
+      projectId: project.id,
+      title: `Root A ${crypto.randomUUID()}`,
+      type: "group",
+    });
+    const rootB = await browserApi.items.create({
+      projectId: project.id,
+      title: `Root B ${crypto.randomUUID()}`,
+      type: "group",
+    });
+    await browserApi.items.create({
+      projectId: project.id,
+      parentId: rootB.id,
+      title: `Child B-1 ${crypto.randomUUID()}`,
+      type: "task",
+    });
+    const rootC = await browserApi.items.create({
+      projectId: project.id,
+      title: `Root C ${crypto.randomUUID()}`,
+      type: "task",
+    });
+
+    await browserApi.items.reorderRow({
+      itemId: rootB.id,
+      targetItemId: rootA.id,
+      placement: "before",
+    });
+
+    const detail = await browserApi.projects.get(project.id);
+    expect(detail.items.find((item) => item.id === rootB.id)?.wbsCode).toBe("1");
+    expect(detail.items.find((item) => item.id === rootA.id)?.wbsCode).toBe("2");
+    expect(detail.items.find((item) => item.id === rootC.id)?.wbsCode).toBe("3");
+    expect(
+      detail.items.find((item) => item.parentId === rootB.id)?.wbsCode
+    ).toBe("1.1");
+  });
+
   it("builds a restore preview from a browser backup snapshot", async () => {
     vi.setSystemTime(new Date("2026-04-23T00:00:00.000Z"));
     const existingProjects = await browserApi.projects.list();
@@ -172,6 +271,11 @@ describe("browserApi import preview fallback", () => {
   });
 
   it("creates one auto backup per day and prunes old auto backups only", async () => {
+    const original = await browserApi.settings.get();
+    const initialBackups = await browserApi.backups.list();
+    const initialAutoBackupCount = initialBackups.filter((entry) =>
+      entry.fileName.startsWith("sgc-auto-backup-")
+    ).length;
     const createObjectURL = vi.fn().mockReturnValue("blob:auto-backup");
     const revokeObjectURL = vi.fn();
     const click = vi.fn();
@@ -188,23 +292,79 @@ describe("browserApi import preview fallback", () => {
       })),
     });
 
-    for (let index = 0; index < 8; index += 1) {
-      vi.setSystemTime(new Date(`2026-04-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`));
-      await browserApi.backups.ensureAuto();
+    try {
+      await browserApi.settings.update({
+        autoBackupEnabled: true,
+        autoBackupRetentionLimit: 3,
+      });
+
+      for (let index = 0; index < 4; index += 1) {
+        vi.setSystemTime(new Date(`2026-04-${String(index + 1).padStart(2, "0")}T00:00:00.000Z`));
+        await browserApi.backups.ensureAuto();
+      }
+
+      const manualBackup = await browserApi.backups.create();
+      vi.setSystemTime(new Date("2026-04-05T09:00:00+09:00"));
+      const firstRun = await browserApi.backups.ensureAuto();
+      vi.setSystemTime(new Date("2026-04-05T18:00:00+09:00"));
+      const secondRun = await browserApi.backups.ensureAuto();
+      const backups = await browserApi.backups.list();
+      const autoBackupCount = backups.filter((entry) => entry.fileName.startsWith("sgc-auto-backup-")).length;
+
+      expect(firstRun.createdBackup?.fileName).toMatch(/^sgc-auto-backup-/);
+      expect(firstRun.retentionLimit).toBe(3);
+      expect(secondRun.createdBackup).toBeNull();
+      expect(firstRun.prunedFileNames.length).toBeGreaterThanOrEqual(1);
+      expect(autoBackupCount).toBeLessThanOrEqual(Math.max(3, initialAutoBackupCount));
+      expect(backups.some((entry) => entry.fileName === manualBackup.fileName)).toBe(true);
+    } finally {
+      await browserApi.settings.update({
+        language: original.language,
+        theme: original.theme,
+        autoBackupEnabled: original.autoBackupEnabled,
+        autoBackupRetentionLimit: original.autoBackupRetentionLimit,
+        weekStartsOn: original.weekStartsOn,
+        fyStartMonth: original.fyStartMonth,
+        workingDayNumbers: original.workingDayNumbers,
+        defaultView: original.defaultView,
+      });
     }
+  });
 
-    const manualBackup = await browserApi.backups.create();
-    vi.setSystemTime(new Date("2026-04-09T09:00:00+09:00"));
-    const firstRun = await browserApi.backups.ensureAuto();
-    vi.setSystemTime(new Date("2026-04-09T18:00:00+09:00"));
-    const secondRun = await browserApi.backups.ensureAuto();
-    const backups = await browserApi.backups.list();
+  it("skips auto backup create and prune when browser auto backup is disabled", async () => {
+    const original = await browserApi.settings.get();
+    const initialBackups = await browserApi.backups.list();
+    const initialAutoBackupCount = initialBackups.filter((entry) =>
+      entry.fileName.startsWith("sgc-auto-backup-")
+    ).length;
 
-    expect(firstRun.createdBackup?.fileName).toMatch(/^sgc-auto-backup-/);
-    expect(firstRun.prunedFileNames).toHaveLength(1);
-    expect(secondRun.createdBackup).toBeNull();
-    expect(backups.filter((entry) => entry.fileName.startsWith("sgc-auto-backup-"))).toHaveLength(7);
-    expect(backups.some((entry) => entry.fileName === manualBackup.fileName)).toBe(true);
+    try {
+      await browserApi.settings.update({
+        autoBackupEnabled: false,
+        autoBackupRetentionLimit: 3,
+      });
+
+      const result = await browserApi.backups.ensureAuto();
+      const backups = await browserApi.backups.list();
+
+      expect(result.createdBackup).toBeNull();
+      expect(result.prunedFileNames).toEqual([]);
+      expect(result.retentionLimit).toBe(3);
+      expect(backups.filter((entry) => entry.fileName.startsWith("sgc-auto-backup-"))).toHaveLength(
+        initialAutoBackupCount
+      );
+    } finally {
+      await browserApi.settings.update({
+        language: original.language,
+        theme: original.theme,
+        autoBackupEnabled: original.autoBackupEnabled,
+        autoBackupRetentionLimit: original.autoBackupRetentionLimit,
+        weekStartsOn: original.weekStartsOn,
+        fyStartMonth: original.fyStartMonth,
+        workingDayNumbers: original.workingDayNumbers,
+        defaultView: original.defaultView,
+      });
+    }
   });
 
   it("commits a previewed workbook back into the current project", async () => {

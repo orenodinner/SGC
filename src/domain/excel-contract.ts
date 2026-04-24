@@ -1,4 +1,4 @@
-import type { DependencyRecord, ItemRecord, ProjectSummary } from "../shared/contracts";
+import type { AppSettings, DependencyRecord, ItemRecord, ProjectSummary } from "../shared/contracts";
 
 export const EXCEL_WORKBOOK_SHEETS = [
   "Dashboard",
@@ -88,6 +88,10 @@ interface BuildExcelWorkbookContractInput {
   project: Pick<ProjectSummary, "code" | "name">;
   items: ItemRecord[];
   dependencies: DependencyRecord[];
+  excelDefaults?: {
+    priority: AppSettings["excelDefaultPriority"];
+    assignee: AppSettings["excelDefaultAssignee"];
+  };
 }
 
 export function serializeDependsOn(dependencies: DependencyRecord[]): string {
@@ -145,7 +149,7 @@ export function buildExcelWorkbookContract(
       {
         name: "MasterData",
         columns: ["Category", "Code", "Label"],
-        rows: buildMasterDataRows(),
+        rows: buildMasterDataRows(input.excelDefaults),
       },
     ],
   };
@@ -184,8 +188,10 @@ function buildGanttRows(
   }));
 }
 
-function buildMasterDataRows(): Array<Record<string, string | number>> {
-  return [
+function buildMasterDataRows(
+  excelDefaults?: BuildExcelWorkbookContractInput["excelDefaults"]
+): Array<Record<string, string | number>> {
+  const rows = [
     { Category: "ItemType", Code: "group", Label: "group" },
     { Category: "ItemType", Code: "task", Label: "task" },
     { Category: "ItemType", Code: "milestone", Label: "milestone" },
@@ -201,6 +207,15 @@ function buildMasterDataRows(): Array<Record<string, string | number>> {
     { Category: "Hint", Code: "DependsOn", Label: "itm_101,itm_102+2" },
     { Category: "Hint", Code: "Dates", Label: "Use ISO date format yyyy-mm-dd" },
   ];
+
+  if (excelDefaults) {
+    rows.push(
+      { Category: "Default", Code: "Priority", Label: excelDefaults.priority },
+      { Category: "Default", Code: "Assignee", Label: excelDefaults.assignee }
+    );
+  }
+
+  return rows;
 }
 
 function buildTasksSheetRow(input: {

@@ -356,6 +356,512 @@ test("detail drawer dependency editor adds and removes predecessor links", async
   }
 });
 
+test("project detail row context menu opens and triggers row actions", async () => {
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+  });
+
+  try {
+    const page = await app.firstWindow();
+    const timestamp = Date.now();
+    const projectName = `E2E Context Menu ${timestamp}`;
+    const firstTitle = `Context Root A ${timestamp}`;
+    const secondTitle = `Context Root B ${timestamp}`;
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByLabel("プロジェクト名").fill(projectName);
+    await page.getByRole("button", { name: "プロジェクト作成" }).click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "ルート行を追加" }).click();
+    const firstRow = page.locator(".table-body .table-row").first();
+    await firstRow.locator('input[value="新しいタスク"]').first().fill(firstTitle);
+    await firstRow.locator('input[value="新しいタスク"]').first().press("Tab");
+
+    await page.getByRole("button", { name: "ルート行を追加" }).click();
+    const secondRow = page.locator(".table-body .table-row").last();
+    await secondRow.locator('input[value="新しいタスク"]').first().fill(secondTitle);
+    await secondRow.locator('input[value="新しいタスク"]').first().press("Tab");
+
+    const targetRow = page.locator(".table-body .table-row").filter({
+      has: page.locator(`input[value="${secondTitle}"]`),
+    }).first();
+
+    await targetRow.click({ button: "right" });
+    const contextMenu = page.getByRole("menu", { name: "Project Detail Context Menu" });
+    await expect(contextMenu).toBeVisible();
+    await expect(contextMenu).toContainText(secondTitle);
+    await contextMenu.getByRole("menuitem", { name: "詳細" }).click();
+    await expect(contextMenu).toHaveCount(0);
+    await expect(page.locator(".detail-drawer")).toContainText(secondTitle);
+
+    const rowCountBeforeChild = await page.locator(".table-body .table-row").count();
+    await targetRow.click({ button: "right" });
+    await expect(contextMenu).toBeVisible();
+    await contextMenu.getByRole("menuitem", { name: "子追加" }).click();
+    await expect(contextMenu).toHaveCount(0);
+    await expect(page.locator(".table-body .table-row")).toHaveCount(rowCountBeforeChild + 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test("project detail row drag reorder moves sibling subtree", async () => {
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+  });
+
+  try {
+    const page = await app.firstWindow();
+    const timestamp = Date.now();
+    const projectName = `E2E Row Reorder ${timestamp}`;
+    const rootATitle = `Reorder Root A ${timestamp}`;
+    const rootBTitle = `Reorder Root B ${timestamp}`;
+    const childBTitle = `Reorder Child B-1 ${timestamp}`;
+    const rootCTitle = `Reorder Root C ${timestamp}`;
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByLabel("プロジェクト名").fill(projectName);
+    await page.getByRole("button", { name: "プロジェクト作成" }).click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "ルート行を追加" }).click();
+    const firstRow = page.locator(".table-body .table-row").first();
+    await firstRow.locator('input[value="新しいタスク"]').first().fill(rootATitle);
+    await firstRow.locator('input[value="新しいタスク"]').first().press("Tab");
+
+    await page.getByRole("button", { name: "ルート行を追加" }).click();
+    const secondRow = page.locator(".table-body .table-row").last();
+    await secondRow.locator('input[value="新しいタスク"]').first().fill(rootBTitle);
+    await secondRow.locator('input[value="新しいタスク"]').first().press("Tab");
+
+    const rootBRow = page.locator(".table-body .table-row").filter({
+      has: page.locator(`input[value="${rootBTitle}"]`),
+    }).first();
+    const rowCountBeforeChild = await page.locator(".table-body .table-row").count();
+    await rootBRow.click({ button: "right" });
+    const contextMenu = page.getByRole("menu", { name: "Project Detail Context Menu" });
+    await contextMenu.getByRole("menuitem", { name: "子追加" }).click();
+    await expect(page.locator(".table-body .table-row")).toHaveCount(rowCountBeforeChild + 1);
+    const childTitleInput = page.locator(".table-body .table-row").last().locator("input").first();
+    await childTitleInput.fill(childBTitle);
+    await childTitleInput.press("Tab");
+
+    const rowCountBeforeRootC = await page.locator(".table-body .table-row").count();
+    await page.getByRole("button", { name: "ルート行を追加" }).click();
+    await expect(page.locator(".table-body .table-row")).toHaveCount(rowCountBeforeRootC + 1);
+    const rootCTitleInput = page.locator(".table-body .table-row").last().locator("input").first();
+    await rootCTitleInput.fill(rootCTitle);
+    await rootCTitleInput.press("Tab");
+
+    const rootARow = page.locator(".table-body .table-row").filter({
+      has: page.locator(`input[value="${rootATitle}"]`),
+    }).first();
+
+    const reorderHandle = rootBRow.getByRole("button", { name: "並び替え" });
+    const targetBounds = await rootARow.boundingBox();
+    if (!targetBounds) {
+      throw new Error("Target row bounds unavailable");
+    }
+    const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+    await reorderHandle.dispatchEvent("dragstart", { dataTransfer });
+    await rootARow.dispatchEvent("dragover", {
+      dataTransfer,
+      clientY: targetBounds.y + 4,
+    });
+    await rootARow.dispatchEvent("drop", {
+      dataTransfer,
+      clientY: targetBounds.y + 4,
+    });
+    await reorderHandle.dispatchEvent("dragend", { dataTransfer });
+
+    await expect
+      .poll(async () =>
+        page
+          .locator(".table-body .table-row .title-cell input")
+          .evaluateAll((inputs) =>
+            inputs.map((input) => (input instanceof HTMLInputElement ? input.value : ""))
+          )
+      )
+      .toEqual([rootBTitle, childBTitle, rootATitle, rootCTitle]);
+  } finally {
+    await app.close();
+  }
+});
+
+test("project detail search filter preserves ancestor path and shared row window", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-project-filter-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const projectName = `Project Filter ${timestamp}`;
+  const parentTitle = `Filter Parent ${timestamp}`;
+  const matchingChildTitle = `Matched Child ${timestamp}`;
+  const siblingTitle = `Sibling Hidden ${timestamp}`;
+  const project = bootstrapService.createProject({
+    name: projectName,
+    code: `FLT-${timestamp}`,
+  });
+  const parent = bootstrapService.createItem({
+    projectId: project.id,
+    title: parentTitle,
+    type: "group",
+  });
+  bootstrapService.createItem({
+    projectId: project.id,
+    parentId: parent.id,
+    title: matchingChildTitle,
+    type: "task",
+  });
+  bootstrapService.createItem({
+    projectId: project.id,
+    parentId: parent.id,
+    title: siblingTitle,
+    type: "task",
+  });
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    const projectCard = page.locator(".project-card").filter({ hasText: projectName }).first();
+    await expect(projectCard).toBeVisible();
+    await projectCard.click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Search / Filter" }).click();
+    const drawer = page.getByRole("dialog", { name: "current view を絞り込みます" });
+    await drawer.getByLabel("全文").fill("Matched Child");
+    await drawer.getByRole("button", { name: "閉じる" }).click();
+
+    await expect(page.locator(`.table-body input[value="${parentTitle}"]`).first()).toBeVisible();
+    await expect(page.locator(`.table-body input[value="${matchingChildTitle}"]`).first()).toBeVisible();
+    await expect(page.locator(`.table-body input[value="${siblingTitle}"]`)).toHaveCount(0);
+    await expect(page.locator(".search-filter-chip").filter({ hasText: "全文: Matched Child" })).toBeVisible();
+    await expect(page.locator(".table-body .table-row")).toHaveCount(2);
+    await expect(page.locator(".timeline-body .timeline-row")).toHaveCount(2);
+
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(page.locator(`.table-body input[value="${siblingTitle}"]`).first()).toBeVisible();
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("settings shell persists week start, FY start month, and default view", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-settings-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const project = bootstrapService.createProject({
+    name: `Settings Project ${timestamp}`,
+    code: `SET-${String(timestamp).slice(-6)}`,
+  });
+  const milestoneTitle = `Sunday Milestone ${timestamp}`;
+  const milestone = bootstrapService.createItem({
+    projectId: project.id,
+    title: milestoneTitle,
+    type: "milestone",
+  });
+  bootstrapService.updateItem({
+    id: milestone.id,
+    startDate: "2026-04-19",
+    endDate: "2026-04-19",
+  });
+
+  const launchApp = () =>
+    electron.launch({
+      executablePath: electronExecutable,
+      args: [path.join(process.cwd(), ".")],
+      env: {
+        ...process.env,
+        SGC_USER_DATA_DIR: userDataDir,
+      },
+    });
+
+  const firstApp = await launchApp();
+
+  try {
+    const page = await firstApp.firstWindow();
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "主要設定" })).toBeVisible();
+
+    await page.getByLabel("保持件数").selectOption("3");
+    await page.getByRole("checkbox", { name: "自動バックアップ" }).uncheck();
+    await page.getByLabel("優先度既定値").selectOption("critical");
+    await page.getByLabel("担当既定値").fill("佐藤");
+    await page.getByLabel("週開始曜日").selectOption("sunday");
+    await page.getByLabel("FY開始月").selectOption("7");
+    await page.getByRole("checkbox", { name: "金曜" }).uncheck();
+    await page.getByRole("checkbox", { name: "日曜" }).check();
+    await page.getByLabel("既定表示").selectOption("roadmap");
+    await page.getByRole("button", { name: "設定を保存" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Settings saved");
+    await expect(page.getByText("自動: 無効 / manual と safety backup は保持").first()).toBeVisible();
+  } finally {
+    await firstApp.close();
+  }
+
+  const secondApp = await launchApp();
+
+  try {
+    const page = await secondApp.firstWindow();
+
+    await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toBeVisible();
+    await page.getByRole("button", { name: "FY", exact: true }).click();
+    await expect(page.locator(".roadmap-header-cell").first()).toContainText("7");
+
+    await page.getByRole("button", { name: "Home / Today" }).click();
+    await expect(page.getByText(milestoneTitle).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("checkbox", { name: "自動バックアップ" })).not.toBeChecked();
+    await expect(page.getByLabel("保持件数")).toHaveValue("3");
+    await expect(page.getByLabel("優先度既定値")).toHaveValue("critical");
+    await expect(page.getByLabel("担当既定値")).toHaveValue("佐藤");
+    await expect(page.getByLabel("週開始曜日")).toHaveValue("sunday");
+    await expect(page.getByLabel("FY開始月")).toHaveValue("7");
+    await expect(page.getByRole("checkbox", { name: "日曜" })).toBeChecked();
+    await expect(page.getByRole("checkbox", { name: "金曜" })).not.toBeChecked();
+    await expect(page.getByLabel("既定表示")).toHaveValue("roadmap");
+    await expect(page.getByText("自動: 無効 / manual と safety backup は保持").first()).toBeVisible();
+  } finally {
+    await secondApp.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("settings language persists and switches major UI copy to English", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-settings-language-e2e-"));
+
+  const launchApp = () =>
+    electron.launch({
+      executablePath: electronExecutable,
+      args: [path.join(process.cwd(), ".")],
+      env: {
+        ...process.env,
+        SGC_USER_DATA_DIR: userDataDir,
+      },
+    });
+
+  const firstApp = await launchApp();
+
+  try {
+    const page = await firstApp.firstWindow();
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "主要設定" })).toBeVisible();
+
+    await page.getByLabel("表示言語").selectOption("en");
+    await page.getByRole("button", { name: "設定を保存" }).click();
+
+    await expect(page.locator(".notice-banner")).toContainText("Settings saved");
+    await expect(page.getByRole("heading", { name: "Core Preferences" })).toBeVisible();
+    await expect(page.locator(".nav-stack")).toContainText("Project Detail");
+
+    await page.getByRole("button", { name: "Home / Today" }).click();
+    await expect(page.getByRole("heading", { name: "Add what you need to do today in one line" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Year / FY" }).click();
+    await expect(page.getByRole("heading", { name: "No Roadmap Projects" })).toBeVisible();
+  } finally {
+    await firstApp.close();
+  }
+
+  const secondApp = await launchApp();
+
+  try {
+    const page = await secondApp.firstWindow();
+
+    await expect(page.getByRole("heading", { name: "Add what you need to do today in one line" })).toBeVisible();
+    await expect(page.locator(".nav-stack")).toContainText("Settings");
+
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Core Preferences" })).toBeVisible();
+    await expect(page.getByLabel("Language")).toHaveValue("en");
+    await expect(page.getByLabel("Week Starts On")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save Settings" })).toBeVisible();
+  } finally {
+    await secondApp.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("english mode localizes search drawer, import preview, and restore preview", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-language-overlay-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const projectName = `Overlay Language ${timestamp}`;
+  const taskTitle = `Overlay Task ${timestamp}`;
+  const project = bootstrapService.createProject({
+    name: projectName,
+    code: `OVR-${String(timestamp).slice(-6)}`,
+  });
+  const task = bootstrapService.createItem({
+    projectId: project.id,
+    title: taskTitle,
+    type: "task",
+  });
+  bootstrapService.updateItem({
+    id: task.id,
+    startDate: "2026-05-01",
+    endDate: "2026-05-03",
+  });
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+    const exportPath = path.join(os.tmpdir(), `sgc-language-overlay-${Date.now()}.xlsx`);
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByLabel("表示言語").selectOption("en");
+    await page.getByRole("button", { name: "設定を保存" }).click();
+    await expect(page.getByRole("heading", { name: "Core Preferences" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Home / Today" }).click();
+    await page.getByRole("button", { name: "Search / Filter" }).click();
+    const drawer = page.getByRole("dialog", { name: "Filter the current view" });
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByLabel("Keyword")).toBeVisible();
+    await expect(drawer.getByLabel("Project")).toBeVisible();
+    await drawer.getByLabel("Keyword").fill(taskTitle);
+    await expect(page.locator(".search-filter-chip").filter({ hasText: `Keyword: ${taskTitle}` })).toBeVisible();
+    await drawer.getByRole("button", { name: "Close" }).click();
+
+    const projectCard = page.locator(".project-card").filter({ hasText: projectName }).first();
+    await projectCard.click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    await app.evaluate(
+      async ({ dialog }, filePath) => {
+        dialog.showSaveDialog = async () => ({
+          canceled: false,
+          filePath,
+        });
+      },
+      exportPath
+    );
+    await page.getByRole("button", { name: "Excel Export" }).click();
+    await expect.poll(() => fs.existsSync(exportPath)).toBe(true);
+
+    await app.evaluate(
+      async ({ dialog }, filePath) => {
+        dialog.showOpenDialog = async () => ({
+          canceled: false,
+          filePaths: [filePath],
+        });
+      },
+      exportPath
+    );
+    await page.getByRole("button", { name: "Excel Import" }).click();
+    const importPreview = page.locator(".import-preview-panel");
+    await expect(importPreview).toContainText("Excel Import Preview");
+    await expect(importPreview.getByRole("button", { name: "Apply" })).toBeVisible();
+    await expect(importPreview.getByRole("button", { name: "Close" })).toBeVisible();
+    await importPreview.getByRole("button", { name: "Close" }).click();
+
+    await page.getByRole("button", { name: "Backup now" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Backup created:");
+    const backupRow = page.locator(".backup-list-item").first();
+    await backupRow.getByRole("button", { name: "Restore Preview" }).click();
+    const backupPreview = page.locator(".backup-preview-card");
+    await expect(backupPreview).toContainText("Restore Preview");
+    await expect(backupPreview).toContainText("Review the backup snapshot only. The current database is not changed yet.");
+    await expect(backupPreview.getByRole("button", { name: "Close" })).toBeVisible();
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("settings theme persists and switches major shell palette", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-settings-theme-e2e-"));
+
+  const launchApp = () =>
+    electron.launch({
+      executablePath: electronExecutable,
+      args: [path.join(process.cwd(), ".")],
+      env: {
+        ...process.env,
+        SGC_USER_DATA_DIR: userDataDir,
+      },
+    });
+
+  const firstApp = await launchApp();
+
+  try {
+    const page = await firstApp.firstWindow();
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "主要設定" })).toBeVisible();
+
+    await page.getByLabel("テーマ").selectOption("dark");
+    await page.getByRole("button", { name: "設定を保存" }).click();
+
+    await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+    await expect(page.getByLabel("テーマ")).toHaveValue("dark");
+    await expect(page.locator(".sidebar")).toHaveCSS("background-color", "rgba(34, 28, 24, 0.9)");
+    await expect(page.getByRole("button", { name: "設定を保存" })).toHaveCSS(
+      "background-color",
+      "rgb(137, 169, 141)"
+    );
+  } finally {
+    await firstApp.close();
+  }
+
+  const secondApp = await launchApp();
+
+  try {
+    const page = await secondApp.firstWindow();
+
+    await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await expect(page.getByLabel("テーマ")).toHaveValue("dark");
+
+    await page.getByLabel("テーマ").selectOption("light");
+    await page.getByRole("button", { name: "設定を保存" }).click();
+
+    await expect(page.locator(".shell")).toHaveAttribute("data-theme", "light");
+    await expect(page.getByLabel("テーマ")).toHaveValue("light");
+    await expect(page.locator(".sidebar")).toHaveCSS("background-color", "rgba(250, 244, 234, 0.84)");
+  } finally {
+    await secondApp.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
 test("timeline bar supports keyboard move and resize", async () => {
   const app = await electron.launch({
     executablePath: electronExecutable,
@@ -686,7 +1192,9 @@ test("project detail virtualizes large row sets", async () => {
   try {
     const page = await app.firstWindow();
     await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
-    await page.locator(".project-card").filter({ hasText: projectName }).first().click();
+    const projectCard = page.locator(".project-card").filter({ hasText: projectName }).first();
+    await expect(projectCard).toBeVisible();
+    await projectCard.click();
     await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
 
     const tableRows = page.locator(".table-body .table-row");
@@ -756,8 +1264,8 @@ test("roadmap virtualizes large row sets while keeping headers visible", async (
   try {
     const page = await app.firstWindow();
     await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
-    await page.getByRole("button", { name: "Year / FY" }).click();
-    await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toBeVisible();
+    await page.getByRole("button", { name: /^(Year \/ FY|年次 \/ FY)$/ }).click();
+    await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q1" }).first()).toBeVisible();
 
     const roadmapRows = page.locator(".roadmap-body .roadmap-row");
     const initialRowCount = await roadmapRows.count();
@@ -831,11 +1339,429 @@ test("recovery screen restores a backup and returns to normal workspace", async 
     await expect(restorePreview).toContainText("safety backup");
     await restorePreview.getByRole("button", { name: "Restore" }).last().click();
 
-    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible({ timeout: 15000 });
     await expect(page.locator(".notice-banner")).toContainText("Backup restored:");
     await expect(
       page.locator(".project-card").filter({ hasText: projectName }).first()
     ).toBeVisible();
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("search and filter drawer narrows home, portfolio, and roadmap views", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-search-filter-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const currentDateText = formatDateInput(new Date());
+  const alphaProjectName = `Alpha Search ${timestamp}`;
+  const betaProjectName = `Beta Search ${timestamp}`;
+  const alphaTaskTitle = `Alpha Filter Task ${timestamp}`;
+  const betaTaskTitle = `Beta Filter Task ${timestamp}`;
+  const alphaProject = bootstrapService.createProject({
+    name: alphaProjectName,
+    code: `ALP-${timestamp}`,
+  });
+  const betaProject = bootstrapService.createProject({
+    name: betaProjectName,
+    code: `BET-${timestamp}`,
+  });
+  bootstrapManager.run("UPDATE project SET portfolio_id = ? WHERE id = ?", [
+    "portfolio-alpha",
+    alphaProject.id,
+  ]);
+  bootstrapManager.run("UPDATE project SET portfolio_id = ? WHERE id = ?", [
+    "portfolio-beta",
+    betaProject.id,
+  ]);
+  const alphaTask = bootstrapService.createItem({
+    projectId: alphaProject.id,
+    title: alphaTaskTitle,
+    type: "task",
+  });
+  bootstrapService.updateItem({
+    id: alphaTask.id,
+    startDate: currentDateText,
+    endDate: currentDateText,
+  });
+  const betaTask = bootstrapService.createItem({
+    projectId: betaProject.id,
+    title: betaTaskTitle,
+    type: "task",
+  });
+  bootstrapService.updateItem({
+    id: betaTask.id,
+    startDate: currentDateText,
+    endDate: currentDateText,
+  });
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByRole("button", { name: /^(Home|Home \/ Today|ホーム \/ 今日)$/ }).click();
+
+    await expect(page.locator(".task-card").filter({ hasText: alphaTaskTitle }).first()).toBeVisible();
+    await expect(page.locator(".task-card").filter({ hasText: betaTaskTitle }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Search / Filter" }).click();
+    const homeDrawer = page.getByRole("dialog", { name: "current view を絞り込みます" });
+    await homeDrawer.getByLabel("全文").fill("Alpha Filter");
+    await expect(page.locator(".search-filter-chip").filter({ hasText: "全文: Alpha Filter" })).toBeVisible();
+    await homeDrawer.getByRole("button", { name: "閉じる" }).click();
+    await expect(page.locator(".task-card").filter({ hasText: alphaTaskTitle }).first()).toBeVisible();
+    await expect(page.locator(".task-card").filter({ hasText: betaTaskTitle })).toHaveCount(0);
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(page.locator(".task-card").filter({ hasText: betaTaskTitle }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /^(Portfolio|ポートフォリオ)$/ }).click();
+    await expect(page.locator(".portfolio-table-button").filter({ hasText: alphaProjectName }).first()).toBeVisible();
+    await expect(page.locator(".portfolio-table-button").filter({ hasText: betaProjectName }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Search / Filter" }).click();
+    const portfolioDrawer = page.getByRole("dialog", { name: "current view を絞り込みます" });
+    await portfolioDrawer.getByLabel("Portfolio").fill("portfolio-alpha");
+    await expect(page.locator(".search-filter-chip").filter({ hasText: "Portfolio: portfolio-alpha" })).toBeVisible();
+    await portfolioDrawer.getByRole("button", { name: "閉じる" }).click();
+    await expect(page.locator(".portfolio-table-button").filter({ hasText: alphaProjectName }).first()).toBeVisible();
+    await expect(page.locator(".portfolio-table-button").filter({ hasText: betaProjectName })).toHaveCount(0);
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(page.locator(".portfolio-table-button").filter({ hasText: betaProjectName }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: /^(Year \/ FY|年次 \/ FY)$/ }).click();
+    await expect(
+      page.getByRole("heading", { name: /^(長期計画を月単位で俯瞰|No Roadmap Projects)$/ })
+    ).toBeVisible();
+    await expect(page.locator(".roadmap-title-cell").filter({ hasText: alphaTaskTitle }).first()).toBeVisible();
+    await expect(page.locator(".roadmap-title-cell").filter({ hasText: betaTaskTitle }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Search / Filter" }).click();
+    const roadmapDrawer = page.getByRole("dialog", { name: "current view を絞り込みます" });
+    await roadmapDrawer.getByLabel("全文").fill("Alpha Filter");
+    await roadmapDrawer.getByRole("button", { name: "閉じる" }).click();
+    await expect(page.locator(".roadmap-title-cell").filter({ hasText: alphaTaskTitle }).first()).toBeVisible();
+    await expect(page.locator(".roadmap-title-cell").filter({ hasText: betaTaskTitle })).toHaveCount(0);
+    await page.getByRole("button", { name: "Clear" }).click();
+    await expect(page.locator(".roadmap-title-cell").filter({ hasText: betaTaskTitle }).first()).toBeVisible();
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("template panel lists saved templates and applies WBS and project templates", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-template-ui-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const currentProjectName = `Template Current ${timestamp}`;
+  const currentRootTitle = `Current Root ${timestamp}`;
+  const currentChildTitle = `Current Child ${timestamp}`;
+  const wbsTemplateName = `WBS Template ${timestamp}`;
+  const wbsRootTitle = `WBS Root ${timestamp}`;
+  const wbsChildTitle = `WBS Child ${timestamp}`;
+  const appliedProjectName = `Applied Project ${timestamp}`;
+  const projectTemplateName = `Project Template ${timestamp}`;
+  const projectTemplateRenamedSource = `Project Template Source Renamed ${timestamp}`;
+  const projectTemplateRootTitle = `Project Template Root ${timestamp}`;
+
+  const currentProject = bootstrapService.createProject({
+    name: currentProjectName,
+    code: `TMP-${timestamp}`,
+  });
+  const currentRoot = bootstrapService.createItem({
+    projectId: currentProject.id,
+    title: currentRootTitle,
+    type: "group",
+  });
+  bootstrapService.createItem({
+    projectId: currentProject.id,
+    parentId: currentRoot.id,
+    title: currentChildTitle,
+    type: "task",
+  });
+
+  const wbsSourceProject = bootstrapService.createProject({
+    name: `WBS Source ${timestamp}`,
+    code: `WBS-${timestamp}`,
+  });
+  const wbsRoot = bootstrapService.createItem({
+    projectId: wbsSourceProject.id,
+    title: wbsRootTitle,
+    type: "group",
+  });
+  bootstrapService.createItem({
+    projectId: wbsSourceProject.id,
+    parentId: wbsRoot.id,
+    title: wbsChildTitle,
+    type: "task",
+  });
+  bootstrapService.saveWbsTemplate({
+    rootItemId: wbsRoot.id,
+    name: wbsTemplateName,
+  });
+
+  const projectTemplateSource = bootstrapService.createProject({
+    name: appliedProjectName,
+    code: `PRT-${timestamp}`,
+  });
+  bootstrapService.createItem({
+    projectId: projectTemplateSource.id,
+    title: projectTemplateRootTitle,
+    type: "task",
+  });
+  bootstrapService.saveProjectTemplate({
+    projectId: projectTemplateSource.id,
+    name: projectTemplateName,
+  });
+  bootstrapService.updateProject({
+    id: projectTemplateSource.id,
+    name: projectTemplateRenamedSource,
+    code: projectTemplateSource.code,
+  });
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    const currentProjectCard = page.locator(".project-card").filter({ hasText: currentProjectName }).first();
+    await expect(currentProjectCard).toBeVisible();
+    await currentProjectCard.click();
+    await expect(page.locator(`input[value="${currentProjectName}"]`).first()).toBeVisible();
+
+    const currentChildRow = page
+      .locator(".table-body .table-row")
+      .filter({ has: page.locator(`input[value="${currentChildTitle}"]`).first() })
+      .first();
+    await currentChildRow.getByRole("button", { name: "詳細" }).evaluate((button: HTMLButtonElement) => {
+      button.click();
+    });
+    await expect(page.locator(".detail-drawer")).toContainText(currentChildTitle);
+    await page.getByRole("button", { name: "Templates" }).click();
+    const templatePanel = page.locator(".template-panel");
+    await expect(templatePanel).toBeVisible();
+    await expect(templatePanel).toContainText("Template Library");
+    await expect(templatePanel).toContainText(wbsTemplateName);
+    await expect(templatePanel).toContainText(projectTemplateName);
+    await expect(templatePanel.getByRole("button", { name: "selected root を保存" })).toBeDisabled();
+    await expect(templatePanel).toContainText("WBS template を保存するには root row を選択して下さい。");
+    await templatePanel.getByRole("button", { name: "current project を保存" }).click();
+    await expect(page.locator(".notice-banner")).toContainText(`Project template saved: ${currentProjectName}`);
+    await expect(templatePanel).toContainText(currentProjectName);
+    await templatePanel.getByRole("button", { name: "閉じる" }).click();
+
+    const currentRootRow = page
+      .locator(".table-body .table-row")
+      .filter({ has: page.locator(`input[value="${currentRootTitle}"]`).first() })
+      .first();
+    await currentRootRow.getByRole("button", { name: "詳細" }).evaluate((button: HTMLButtonElement) => {
+      button.click();
+    });
+    await expect(page.locator(".detail-drawer")).toContainText(currentRootTitle);
+    await page.getByRole("button", { name: "Templates" }).click();
+    await expect(templatePanel.getByRole("button", { name: "selected root を保存" })).toBeEnabled();
+    await templatePanel.getByRole("button", { name: "selected root を保存" }).click();
+    await expect(page.locator(".notice-banner")).toContainText(`WBS template saved: ${currentRootTitle}`);
+    await expect(templatePanel).toContainText(currentRootTitle);
+
+    const wbsTemplateRow = templatePanel.locator(".template-list-item").filter({ hasText: wbsTemplateName }).first();
+    await wbsTemplateRow.getByRole("button", { name: "current project へ適用" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("WBS template applied");
+    await expect(page.locator(`.table-body input[value="${wbsRootTitle}"]`).first()).toBeVisible();
+    await expect(page.locator(`.table-body input[value="${wbsChildTitle}"]`).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Templates" }).click();
+    const projectTemplateRow = page
+      .locator(".template-list-item")
+      .filter({ hasText: projectTemplateName })
+      .first();
+    await projectTemplateRow.getByRole("button", { name: "新しい project を作成" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Project template created:");
+    await expect(page.locator(`input[value="${appliedProjectName}"]`).first()).toBeVisible();
+    await expect(page.locator(`.table-body input[value="${projectTemplateRootTitle}"]`).first()).toBeVisible();
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("inbox template conversion opens project detail templates workflow", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-inbox-template-conversion-e2e-"));
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+    const timestamp = Date.now();
+    const inboxTitle = `Inbox Template ${timestamp}`;
+
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByPlaceholder("タスクを入力。例: 見積提出 4/25 #営業 @自分").fill(inboxTitle);
+    await page.getByRole("button", { name: "追加" }).click();
+
+    const inboxCard = page.locator(".task-card").filter({ hasText: inboxTitle }).first();
+    await expect(inboxCard).toBeVisible();
+    await inboxCard.getByRole("button", { name: "テンプレート変換" }).click();
+
+    await expect(page.locator(".notice-banner")).toContainText(`Template conversion ready: ${inboxTitle}`);
+    await expect(page.locator(`input[value="${inboxTitle}"]`).first()).toBeVisible();
+
+    const templatePanel = page.locator(".template-panel");
+    await expect(templatePanel).toBeVisible();
+    await expect(templatePanel.getByRole("button", { name: "current project を保存" })).toBeVisible();
+    await expect(templatePanel.getByRole("button", { name: "selected root を保存" })).toBeEnabled();
+
+    await templatePanel.getByRole("button", { name: "selected root を保存" }).click();
+    await expect(page.locator(".notice-banner")).toContainText(`WBS template saved: ${inboxTitle}`);
+    await expect(templatePanel).toContainText(inboxTitle);
+    await expect(page.locator(".task-card").filter({ hasText: inboxTitle })).toHaveCount(0);
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
+test("detail drawer recurrence editor saves, replaces, and removes recurrence rules", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-recurrence-ui-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const projectName = `Recurrence UI ${timestamp}`;
+  const scheduledTitle = `Scheduled Recurrence ${timestamp}`;
+  const unsupportedTitle = `Unsupported Recurrence ${timestamp}`;
+  const unscheduledTitle = `Unscheduled Recurrence ${timestamp}`;
+  const project = bootstrapService.createProject({
+    name: projectName,
+    code: `RUI-${timestamp}`,
+  });
+  const scheduledTask = bootstrapService.createItem({
+    projectId: project.id,
+    title: scheduledTitle,
+    type: "task",
+  });
+  bootstrapService.updateItem({
+    id: scheduledTask.id,
+    startDate: "2026-05-01",
+    endDate: "2026-05-03",
+  });
+  const unsupportedTask = bootstrapService.createItem({
+    projectId: project.id,
+    title: unsupportedTitle,
+    type: "task",
+  });
+  bootstrapService.updateItem({
+    id: unsupportedTask.id,
+    startDate: "2026-06-01",
+    endDate: "2026-06-02",
+  });
+  bootstrapService.upsertRecurrenceRule({
+    itemId: unsupportedTask.id,
+    rruleText: "FREQ=YEARLY;INTERVAL=1",
+    nextOccurrenceAt: "2027-06-01",
+  });
+  bootstrapService.createItem({
+    projectId: project.id,
+    title: unscheduledTitle,
+    type: "task",
+  });
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.locator(".project-card").filter({ hasText: projectName }).first().click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    const detailDrawer = page.locator(".detail-drawer");
+
+    const scheduledRow = page
+      .locator(".table-body .table-row")
+      .filter({ has: page.locator(`input[value="${scheduledTitle}"]`).first() })
+      .first();
+    await scheduledRow.getByRole("button", { name: "詳細" }).evaluate((button: HTMLButtonElement) => {
+      button.click();
+    });
+    await expect(detailDrawer).toContainText(scheduledTitle);
+    await expect(detailDrawer).toContainText("まだ recurrence rule はありません。");
+    await detailDrawer.getByLabel("Next occurrence").fill("2026-05-11");
+    await detailDrawer.getByRole("button", { name: "保存" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Recurrence saved");
+    await expect(detailDrawer).toContainText("週次(月曜)");
+    await expect(detailDrawer).toContainText("2026-05-11");
+
+    await detailDrawer.getByLabel("Recurrence preset").selectOption("weekdays");
+    await detailDrawer.getByLabel("Next occurrence").fill("2026-05-12");
+    await detailDrawer.getByRole("button", { name: "更新" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Recurrence saved");
+    await expect(detailDrawer).toContainText("平日");
+    await expect(detailDrawer).toContainText("2026-05-12");
+
+    await detailDrawer.getByRole("button", { name: "削除" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Recurrence removed");
+    await expect(detailDrawer).toContainText("まだ recurrence rule はありません。");
+
+    const unsupportedRow = page
+      .locator(".table-body .table-row")
+      .filter({ has: page.locator(`input[value="${unsupportedTitle}"]`).first() })
+      .first();
+    await unsupportedRow.getByRole("button", { name: "詳細" }).evaluate((button: HTMLButtonElement) => {
+      button.click();
+    });
+    await expect(detailDrawer).toContainText(unsupportedTitle);
+    await expect(detailDrawer).toContainText("unsupported rule: FREQ=YEARLY;INTERVAL=1");
+    await expect(detailDrawer).toContainText("generation 対象外");
+    await detailDrawer.getByLabel("Recurrence preset").selectOption("monthly");
+    await detailDrawer.getByLabel("Next occurrence").fill("2026-07-01");
+    await detailDrawer.getByRole("button", { name: "更新" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Recurrence saved");
+    await expect(detailDrawer).toContainText("月次");
+    await expect(detailDrawer).not.toContainText("unsupported rule:");
+
+    const unscheduledRow = page
+      .locator(".table-body .table-row")
+      .filter({ has: page.locator(`input[value="${unscheduledTitle}"]`).first() })
+      .first();
+    await unscheduledRow.getByRole("button", { name: "詳細" }).evaluate((button: HTMLButtonElement) => {
+      button.click();
+    });
+    await expect(detailDrawer).toContainText("recurrence editor は日付が入った scheduled task で使えます。");
   } finally {
     await app.close();
     fs.rmSync(userDataDir, { recursive: true, force: true });

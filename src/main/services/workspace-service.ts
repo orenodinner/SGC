@@ -15,16 +15,21 @@ import {
   deriveRecurringOccurrenceEndDate,
 } from "../../domain/recurrence";
 import { buildProjectTemplateBody } from "../../domain/project-template";
-import { buildVisibleRows, normalizeProjectItems } from "../../domain/project-tree";
+import {
+  buildVisibleRows,
+  normalizeProjectItems,
+  resolveSiblingReorder,
+} from "../../domain/project-tree";
 import { parseQuickCapture } from "../../domain/quick-capture";
 import {
   buildTemplateApplyNodes,
   buildWbsTemplateApplyNodes,
   buildWbsTemplateBody,
 } from "../../domain/wbs-template";
-import { addWorkingDays } from "../../domain/working-days";
+import { addWorkingDays, normalizeWorkingDayNumbers } from "../../domain/working-days";
 import {
   backupAutoResultSchema,
+  appSettingsSchema,
   backupEntrySchema,
   backupPreviewSchema,
   backupRestoreResultSchema,
@@ -32,6 +37,7 @@ import {
   createDependencyInputSchema,
   createItemInputSchema,
   createProjectInputSchema,
+  updateAppSettingsInputSchema,
   applyProjectTemplateInputSchema,
   applyWbsTemplateInputSchema,
   itemStatusSchema,
@@ -46,6 +52,7 @@ import {
   projectDetailSchema,
   quickCaptureInputSchema,
   recurrenceRuleSchema,
+  rowReorderInputSchema,
   saveProjectTemplateInputSchema,
   saveWbsTemplateInputSchema,
   templateRecordSchema,
@@ -56,6 +63,7 @@ import {
   type BackupAutoResult,
   type BackupPreview,
   type BackupRestoreResult,
+  type AppSettings,
   type ApplyProjectTemplateInput,
   type ApplyWbsTemplateInput,
   type BulkPostponeInput,
@@ -74,10 +82,12 @@ import {
   type ProjectSummary,
   type QuickCaptureInput,
   type RecurrenceRule,
+  type RowReorderInput,
   type SaveProjectTemplateInput,
   type SaveWbsTemplateInput,
   type TemplateRecord,
   type UpsertRecurrenceRuleInput,
+  type UpdateAppSettingsInput,
   type UpdateItemInput,
   type UpdateProjectInput,
 } from "../../shared/contracts";
@@ -91,6 +101,7 @@ import { DependencyRepository } from "../repositories/dependency-repository";
 import { ItemRepository } from "../repositories/item-repository";
 import { ProjectRepository } from "../repositories/project-repository";
 import { RecurrenceRuleRepository } from "../repositories/recurrence-rule-repository";
+import { SettingsRepository } from "../repositories/settings-repository";
 import { TagRepository } from "../repositories/tag-repository";
 import { TemplateRepository } from "../repositories/template-repository";
 
@@ -104,6 +115,7 @@ export class WorkspaceService {
   private readonly dependencies: DependencyRepository;
   private readonly templates: TemplateRepository;
   private readonly recurrenceRules: RecurrenceRuleRepository;
+  private readonly settings: SettingsRepository;
 
   constructor(private readonly db: DatabaseManager) {
     this.projects = new ProjectRepository(db);
@@ -112,6 +124,42 @@ export class WorkspaceService {
     this.dependencies = new DependencyRepository(db);
     this.templates = new TemplateRepository(db);
     this.recurrenceRules = new RecurrenceRuleRepository(db);
+    this.settings = new SettingsRepository(db);
+  }
+
+  getAppSettings(): AppSettings {
+    return appSettingsSchema.parse(this.ensureAppSettings());
+  }
+
+  updateAppSettings(input: UpdateAppSettingsInput): AppSettings {
+    const parsed = updateAppSettingsInputSchema.parse(input);
+    const current = this.ensureAppSettings();
+    const nextSettings = {
+      ...current,
+      ...parsed,
+      workingDayNumbers: normalizeWorkingDayNumbers(
+        parsed.workingDayNumbers ?? current.workingDayNumbers
+      ),
+      updatedAt: new Date().toISOString(),
+    };
+
+    this.db.withTransaction(() => {
+        this.settings.update({
+          language: nextSettings.language,
+          theme: nextSettings.theme,
+          autoBackupEnabled: nextSettings.autoBackupEnabled,
+          autoBackupRetentionLimit: nextSettings.autoBackupRetentionLimit,
+          excelDefaultPriority: nextSettings.excelDefaultPriority,
+          excelDefaultAssignee: nextSettings.excelDefaultAssignee,
+          weekStartsOn: nextSettings.weekStartsOn,
+          fyStartMonth: nextSettings.fyStartMonth,
+          workingDayNumbers: nextSettings.workingDayNumbers,
+          defaultView: nextSettings.defaultView,
+          updatedAt: nextSettings.updatedAt,
+        });
+    });
+
+    return appSettingsSchema.parse(nextSettings);
   }
 
   listProjects(): ProjectSummary[] {
@@ -127,7 +175,21 @@ export class WorkspaceService {
   }
 
   ensureAutoBackup(input: { now?: Date } = {}): BackupAutoResult {
-    return backupAutoResultSchema.parse(this.db.ensureAutoBackup(input));
+    const settings = this.ensureAppSettings();
+    if (!settings.autoBackupEnabled) {
+      return backupAutoResultSchema.parse({
+        createdBackup: null,
+        prunedFileNames: [],
+        retentionLimit: settings.autoBackupRetentionLimit,
+      });
+    }
+
+    return backupAutoResultSchema.parse(
+      this.db.ensureAutoBackup({
+        now: input.now,
+        retentionLimit: settings.autoBackupRetentionLimit,
+      })
+    );
   }
 
   async previewBackup(entry: BackupEntry): Promise<BackupPreview> {
@@ -162,8 +224,9 @@ export class WorkspaceService {
     const dashboardItems = this.items.listForDashboard();
     const now = new Date();
     const todayStart = startOfDay(now);
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const weekStartsOn = toDateFnsWeekStartsOn(this.ensureAppSettings().weekStartsOn);
+    const weekStart = startOfWeek(now, { weekStartsOn });
+    const weekEnd = endOfWeek(now, { weekStartsOn });
 
     return homeSummarySchema.parse({
       inboxItems: inboxItems
@@ -204,6 +267,7 @@ export class WorkspaceService {
 
         return {
           id: project.id,
+          portfolioId: project.portfolioId,
           code: project.code,
           name: project.name,
           ownerName: project.ownerName,
@@ -447,10 +511,15 @@ export class WorkspaceService {
 
   exportProjectWorkbook(projectId: string): Uint8Array {
     const project = this.mustGetProject(projectId);
+    const settings = this.ensureAppSettings();
     return exportProjectWorkbookXlsx({
       project,
       items: this.items.listByProject(projectId),
       dependencies: this.dependencies.listByProject(projectId),
+      excelDefaults: {
+        priority: settings.excelDefaultPriority,
+        assignee: settings.excelDefaultAssignee,
+      },
     });
   }
 
@@ -812,7 +881,9 @@ export class WorkspaceService {
   bulkPostponeOverdue(input: BulkPostponeInput): ItemRecord[] {
     const parsed = bulkPostponeInputSchema.parse(input);
     const now = new Date();
-    const targetDateText = formatDateOnly(getPostponeDate(parsed.target, now));
+    const targetDateText = formatDateOnly(
+      getPostponeDate(parsed.target, now, this.ensureAppSettings().weekStartsOn)
+    );
     const overdueItems = this.items
       .listForDashboard()
       .filter((item) => isOverdue(item, startOfDay(now)));
@@ -870,6 +941,41 @@ export class WorkspaceService {
 
     this.db.withTransaction(() => {
       this.items.updateDerived(nextItem);
+      this.rebalanceProject(item.projectId);
+    });
+
+    return this.mustGetItem(item.id);
+  }
+
+  reorderItemRow(input: RowReorderInput): ItemRecord {
+    const parsed = rowReorderInputSchema.parse(input);
+    const item = this.mustGetItem(parsed.itemId);
+    const items = this.items.listByProject(item.projectId);
+    const reorderPatches = resolveSiblingReorder({
+      items,
+      itemId: parsed.itemId,
+      targetItemId: parsed.targetItemId,
+      placement: parsed.placement,
+    });
+    if (!reorderPatches) {
+      return item;
+    }
+
+    const itemsById = new Map(items.map((entry) => [entry.id, entry]));
+    const now = new Date().toISOString();
+
+    this.db.withTransaction(() => {
+      for (const patch of reorderPatches) {
+        const target = itemsById.get(patch.id);
+        if (!target) {
+          continue;
+        }
+        this.items.updateDerived({
+          ...target,
+          sortOrder: patch.sortOrder,
+          updatedAt: now,
+        });
+      }
       this.rebalanceProject(item.projectId);
     });
 
@@ -936,16 +1042,17 @@ export class WorkspaceService {
     for (const descendant of shiftedDescendants) {
       itemStateById.set(descendant.id, descendant);
     }
-    const dependencyItemsById =
-      parsed.rescheduleScope === "with_dependents" && rescheduleDeltaDays !== 0 && !targetProject
-        ? buildDependentShiftItemsById({
-            itemsById: itemStateById,
-            projectItems,
-            dependencies: this.dependencies.listByProject(existing.projectId),
-            changedRootIds: [existing.id, ...descendantItems.map((item) => item.id)],
-            updatedAt: now,
-          })
-        : new Map<string, ItemRecord>();
+      const dependencyItemsById =
+        parsed.rescheduleScope === "with_dependents" && rescheduleDeltaDays !== 0 && !targetProject
+          ? buildDependentShiftItemsById({
+              itemsById: itemStateById,
+              projectItems,
+              dependencies: this.dependencies.listByProject(existing.projectId),
+              changedRootIds: [existing.id, ...descendantItems.map((item) => item.id)],
+              updatedAt: now,
+              workingDayNumbers: this.ensureAppSettings().workingDayNumbers,
+            })
+          : new Map<string, ItemRecord>();
     for (const [itemId, item] of dependencyItemsById.entries()) {
       itemStateById.set(itemId, item);
     }
@@ -1122,6 +1229,49 @@ export class WorkspaceService {
     }
 
     return item;
+  }
+
+  private ensureAppSettings(): AppSettings {
+    const existing = this.settings.get();
+    if (existing) {
+      return existing;
+    }
+
+    const now = new Date().toISOString();
+      const defaults: AppSettings = {
+        workspaceId: "ws-default",
+        language: "ja",
+        theme: "light",
+        autoBackupEnabled: true,
+        autoBackupRetentionLimit: 7,
+        excelDefaultPriority: "medium",
+        excelDefaultAssignee: "",
+        weekStartsOn: "monday",
+        fyStartMonth: 4,
+        workingDayNumbers: [1, 2, 3, 4, 5],
+        defaultView: "home",
+        createdAt: now,
+        updatedAt: now,
+    };
+
+    this.db.withTransaction(() => {
+        this.settings.insert({
+          language: defaults.language,
+          theme: defaults.theme,
+          autoBackupEnabled: defaults.autoBackupEnabled,
+          autoBackupRetentionLimit: defaults.autoBackupRetentionLimit,
+          excelDefaultPriority: defaults.excelDefaultPriority,
+          excelDefaultAssignee: defaults.excelDefaultAssignee,
+          weekStartsOn: defaults.weekStartsOn,
+          fyStartMonth: defaults.fyStartMonth,
+          workingDayNumbers: defaults.workingDayNumbers,
+          defaultView: defaults.defaultView,
+          createdAt: defaults.createdAt,
+          updatedAt: defaults.updatedAt,
+      });
+    });
+
+    return defaults;
   }
 }
 
@@ -1536,14 +1686,18 @@ function deriveDurationDays(startDate: string | null, endDate: string | null): n
   return Math.max(differenceInCalendarDays(parseISO(endDate), parseISO(startDate)) + 1, 1);
 }
 
-function getPostponeDate(target: PostponeTarget, now: Date): Date {
+function getPostponeDate(
+  target: PostponeTarget,
+  now: Date,
+  weekStartsOn: AppSettings["weekStartsOn"]
+): Date {
   switch (target) {
     case "today":
       return startOfDay(now);
     case "tomorrow":
       return startOfDay(addDays(now, 1));
     case "week_end":
-      return startOfDay(endOfWeek(now, { weekStartsOn: 1 }));
+      return startOfDay(endOfWeek(now, { weekStartsOn: toDateFnsWeekStartsOn(weekStartsOn) }));
   }
 }
 
@@ -1551,6 +1705,10 @@ function formatDateOnly(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
     date.getDate()
   ).padStart(2, "0")}`;
+}
+
+function toDateFnsWeekStartsOn(weekStartsOn: AppSettings["weekStartsOn"]): 0 | 1 {
+  return weekStartsOn === "sunday" ? 0 : 1;
 }
 
 function stripMatchedProjectPrefix(title: string, project: ProjectSummary | null): string {
@@ -1688,6 +1846,7 @@ function buildDependentShiftItemsById(input: {
   dependencies: DependencyRecord[];
   changedRootIds: string[];
   updatedAt: string;
+  workingDayNumbers: AppSettings["workingDayNumbers"];
 }): Map<string, ItemRecord> {
   const changedItemsById = new Map<string, ItemRecord>();
   const dependenciesByPredecessor = new Map<string, DependencyRecord[]>();
@@ -1717,7 +1876,11 @@ function buildDependentShiftItemsById(input: {
       }
 
       const earliestSuccessorStart = formatDateOnly(
-        addWorkingDays(parseISO(predecessorEndDate), dependency.lagDays + 1)
+        addWorkingDays(
+          parseISO(predecessorEndDate),
+          dependency.lagDays + 1,
+          input.workingDayNumbers
+        )
       );
       const deltaDays = differenceInCalendarDays(
         parseISO(earliestSuccessorStart),

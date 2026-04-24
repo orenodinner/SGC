@@ -31,7 +31,19 @@ describe("DatabaseManager", () => {
     expect(tables.map((table) => table.name)).toContain("dependency");
     expect(tables.map((table) => table.name)).toContain("recurrence_rule");
     expect(tables.map((table) => table.name)).toContain("template");
+    expect(tables.map((table) => table.name)).toContain("app_settings");
     expect(tables.map((table) => table.name)).toContain("workspace");
+
+    const appSettingsColumns = manager.query<{ name: string }>(
+      "PRAGMA table_info(app_settings)"
+    );
+    expect(appSettingsColumns.map((column) => column.name)).toContain("working_day_numbers");
+    expect(appSettingsColumns.map((column) => column.name)).toContain("language");
+    expect(appSettingsColumns.map((column) => column.name)).toContain("theme");
+    expect(appSettingsColumns.map((column) => column.name)).toContain("auto_backup_enabled");
+    expect(appSettingsColumns.map((column) => column.name)).toContain("auto_backup_retention_limit");
+    expect(appSettingsColumns.map((column) => column.name)).toContain("excel_default_priority");
+    expect(appSettingsColumns.map((column) => column.name)).toContain("excel_default_assignee");
   });
 
   it("creates and lists timestamped backup files", async () => {

@@ -60,6 +60,25 @@
 **Then**
 - データが保持される
 
+### ACC-044 Project detail drag reorder and context menu
+**Given** Project Detail に sibling row と child row がある  
+**When** 1行を別の sibling の上下へドラッグし、その後 row を右クリックする  
+**Then**
+- row の sort order が更新される
+- parent と一緒に child subtree も移動する
+- WBS code が再計算される
+- 再読込後も順序が保持される
+- row-scoped の最小コンテキストメニューが開く
+
+### ACC-049 Project detail context menu
+**Given** Project Detail に item row がある  
+**When** row を右クリックして最小コンテキストメニューを開き、`子追加` または `詳細` を選ぶ  
+**Then**
+- row-scoped の最小コンテキストメニューが開く
+- `子追加` で対象 row 配下に child item が追加される
+- `詳細` で対象 row が selected item になる
+- menu を閉じると project detail の通常操作へ戻る
+
 ### ACC-021 Detail drawer note and tags
 **Given** Project Detail でタスクを選択済み  
 **When** Detail drawer で note と tags を編集  
@@ -227,6 +246,14 @@
 - top / bottom spacer により scroll height は維持される
 - expand/collapse と project open の click target は virtualization 後も維持される
 
+### ACC-048 Excel default settings
+**Given** Settings 画面を開いている  
+**When** `優先度既定値` と `担当既定値` を保存してからアプリを再起動し、project export を実行する  
+**Then**
+- 設定値が再起動後も保持される
+- project export の `MasterData` sheet に `Default / Priority / <saved value>` が出る
+- project export の `MasterData` sheet に `Default / Assignee / <saved value>` が出る
+
 ### ACC-038 Portable build artifact
 **Given** Windows desktop build 環境で依存関係が解決済み  
 **When** `powershell -ExecutionPolicy Bypass -File scripts/build.ps1` を実行  
@@ -236,6 +263,100 @@
 - staging folder には `dist/`, `dist-electron/`, `node_modules/sql.js/dist/sql-wasm.wasm`, `Launch SGC.cmd`, Electron runtime が含まれる
 - zip を展開しても同じ構成が得られる
 - `Launch SGC.cmd` は bundled Electron runtime を使って app root を起動する
+
+### ACC-045 Search and filter drawer
+**Given** 複数 project / item があり、title / note / project / portfolio / status / priority / tag / assignee / overdue / milestone 条件で差が出る  
+**When** Search / Filter Drawer を開いて条件を組み合わせる  
+**Then**
+- current view の一覧または roadmap が条件に合う行だけへ絞り込まれる
+- active filter が見える
+- `clear` で既定表示へ戻せる
+- `年間表示対象のみ` を有効にすると roadmap 向け対象だけへ絞り込める
+
+### ACC-050 Search and filter drawer first slice
+**Given** Home / Portfolio / Year-FY Roadmap を開けるデータがあり、project の一部には `portfolio_id` が入っている  
+**When** current view で Search / Filter Drawer を開き、全文、project、portfolio、status、priority、tag、assignee、overdue、milestone、年間表示対象のみ を組み合わせる  
+**Then**
+- current view が条件に合う row だけへ絞り込まれる
+- existing quick filter chip がある view では drawer 条件と AND で併用される
+- active filter chip が drawer 外にも見える
+- `Clear` で drawer 条件が初期値へ戻る
+
+### ACC-051 Project detail search and filter drawer preserves hierarchy context
+**Given** Project Detail に parent / child / sibling row があり、child row だけが全文条件に一致する  
+**When** Search / Filter Drawer を開いて全文または status / tag / assignee 条件を指定する  
+**Then**
+- 一致した child row は表示される
+- その child へ辿る ancestor row も同時に表示される
+- 一致しない sibling subtree は hidden になる
+- WBS と timeline は同じ filtered row window を共有する
+- `Clear` で元の visible row へ戻る
+
+### ACC-046 Settings core preferences
+**Given** Settings 画面があり、既定値から変更可能な設定がある  
+**When** 表示言語 / 週開始曜日 / FY開始月 / 稼働日 / テーマ / 既定表示 / 自動バックアップ設定 / Excel テンプレート既定値 を変更して保存し、アプリを再起動する  
+**Then**
+- 変更内容が再起動後も保持される
+- FY開始月は roadmap 表示へ反映される
+- 稼働日は dependency 自動シフトへ反映される
+- 既定表示は起動直後の初期 view に反映される
+
+### ACC-052 Settings shell first slice
+**Given** sidebar から開ける Settings 画面がある  
+**When** `週開始曜日 / FY開始月 / 既定表示` を変更して保存し、同じ user data でアプリを再起動する  
+**Then**
+- 3項目の変更内容が再起動後も保持される
+- `FY開始月` は Year / FY Roadmap の FY month bucket と quarter header に反映される
+- `週開始曜日` は Home / Today の `今週マイルストーン` 判定に反映される
+- `既定表示` は起動直後の初期 view に反映される
+- first slice では `表示言語 / 稼働日 / テーマ / 自動バックアップ設定 / Excel テンプレート既定値` は placeholder または未実装表示でもよい
+
+### ACC-053 Settings custom working days
+**Given** Settings 画面と dependency を持つ project detail がある  
+**When** `稼働日` を `日-木` に変更して保存し、その後 predecessor の終了日を木曜へ動かして `with_dependents` を適用する  
+**Then**
+- `稼働日` の選択内容が再起動後も保持される
+- dependency 自動後ろ倒しの next working day 計算に `日-木` が使われる
+- 金土をまたぐ場合、successor は次の日曜以降へ送られる
+- `稼働日` を0件にする保存はできない
+
+### ACC-054 Settings language first slice
+**Given** Settings 画面と sidebar navigation がある  
+**When** `表示言語` を `English` へ変更して保存し、同じ user data でアプリを再起動する  
+**Then**
+- `表示言語` の選択内容が再起動後も保持される
+- sidebar navigation の主要 view label が英語へ切り替わる
+- Settings 自身の見出しと主要 field label が英語へ切り替わる
+- Home / Portfolio / Year-FY Roadmap / Project Detail の主要見出しまたは主要 action label の少なくとも一部で英語切替を確認できる
+- initial slice では全 UI 文言の完全翻訳までは要求しない
+
+### ACC-055 Settings theme first slice
+**Given** Settings 画面と sidebar navigation がある  
+**When** `テーマ` を `ダーク` へ変更して保存し、同じ user data でアプリを再起動する  
+**Then**
+- `テーマ` の選択内容が再起動後も保持される
+- shell root に dark theme が反映される
+- sidebar、主要 card、button、input の少なくとも一部で dark palette を確認できる
+- `ライト` に戻して保存すると同じ user data 上で light palette に戻る
+- initial slice では chart や status color の完全な theme 対応までは要求しない
+
+### ACC-060 Multilingual overlay and drawer parity
+**Given** `表示言語` を `English` へ変更済みの workspace がある  
+**When** Search / Filter Drawer、Excel Import Preview、recovery / restore overlay の主要 panel を開く  
+**Then**
+- panel heading と primary action が英語で見える
+- helper copy と empty copy の主要文言も英語へ切り替わる
+- active filter chip は英語ラベルで見える
+- `表示言語` を `日本語` へ戻すと同じ panel 群が日本語で見える
+
+### ACC-056 Auto backup settings first slice
+**Given** Settings 画面と Data Protection card がある  
+**When** `自動バックアップ` を off にし、`保持件数` を `3` に変更して保存し、同じ user data でアプリを再起動する  
+**Then**
+- `自動バックアップ` の on/off と `保持件数` が再起動後も保持される
+- sidebar の Data Protection policy copy に current settings が反映される
+- service / browser fallback では `自動バックアップ` off 中の bootstrap で auto backup create / retention を実行しない
+- `自動バックアップ` を on に戻すと、以後の bootstrap では `保持件数` を使って `sgc-auto-backup-*` 系列だけへ retention が適用される
 
 ### ACC-016 Excel export workbook
 **Given** プロジェクトデータあり  
@@ -352,6 +473,59 @@
 - 生成 project の `status=not_started`, `startDate=null`, `endDate=null`, `targetDate=null`, `progressCached=0` になる
 - 生成 item の `status=not_started`, `percentComplete=0`, `actualHours=0`, `completedAt=null`, `isScheduled=false`, `isRecurring=false` になる
 - `startDate / endDate / dueDate / dependency / recurrence` は復元されない
+
+### ACC-047 Template UI flow
+**Given** Inbox item、WBS root item、project template source project、保存済み template がある  
+**When** UI から template save / list / apply / template conversion を行う  
+**Then**
+- WBS template と project template を UI から保存できる
+- 保存済み template を UI 一覧から選べる
+- WBS template を current project へ apply できる
+- project template から新しい project を作成できる
+- Inbox の `テンプレート変換` から template workflow を起動できる
+
+### ACC-057 Template apply UI first slice
+**Given** Project Detail を開いており、saved `kind=wbs` template と saved `kind=project` template が1件以上ある  
+**When** toolbar の `Templates` button から panel を開き、`kind=wbs` template を current project へ apply し、その後 `kind=project` template から新しい project を作成する  
+**Then**
+- template panel に `WBS Templates` と `Project Templates` が分かれて表示される
+- 各 template row では `name` と `updatedAt` が見える
+- `kind=wbs` template の apply 後、current project の root 直下へ subtree が追加される
+- `kind=project` template の apply 後、新しい project が作成されて selection がその project に切り替わる
+- first slice では save action と Inbox の `テンプレート変換` は UI に含めない
+
+### ACC-058 Template save UI follow-up
+**Given** Project Detail を開いており、current project と selected root row がある  
+**When** toolbar の `Templates` button から panel を開き、`Save current project as template` と `Save selected root as WBS template` を実行する  
+**Then**
+- panel を閉じずに `kind=project` template と `kind=wbs` template が一覧へ追加される
+- project template の既定名には current project 名が使われる
+- WBS template の既定名には selected root title が使われる
+- selected row が root でない時は WBS save action は disabled になり、helper copy で理由が見える
+- follow-up slice では name 入力 modal や Inbox の `テンプレート変換` はまだ要求しない
+
+### ACC-059 Inbox template conversion
+**Given** Inbox に未計画 item が1件あり、template save/list/apply UI は既に使える  
+**When** Inbox card の `テンプレート変換` を実行する  
+**Then**
+- item title を既定名にした draft project が1件作成される
+- 対象 item は draft project の root row として移動し、Inbox 一覧から外れる
+- view は Project Detail へ切り替わる
+- `Templates` panel が自動で開く
+- panel 内では `Save current project as template` と `Save selected root as WBS template` の両方をそのまま使える
+
+### ACC-048 Recurrence UI flow
+**Given** Detail drawer を開ける scheduled task がある  
+**When** UI から recurrence rule を追加、更新、削除する  
+**Then**
+- recurrence rule が永続化される
+- task の `isRecurring` が UI と同期する
+- first slice では `週次(月曜) / 月次 / 平日` preset だけを選べる
+- first slice では `next_occurrence_at` を date input で保存できる
+- unsupported rule は保存できても generation 対象外であることが見える
+- unsupported rule が既にある場合でも UI から削除できる
+- group / milestone / unscheduled item では recurrence editor は unavailable note に置き換わる
+- recurring task を `done` にすると既存 MVP ルールどおり次の occurrence が1件生成される
 
 ### ACC-020 Backup recovery
 **Given** 直近バックアップあり  

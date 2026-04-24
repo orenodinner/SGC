@@ -1,5 +1,5 @@
 version: 1
-last_updated: 2026-04-23
+last_updated: 2026-04-25
 decisions:
   - id: DEC-001
     topic: Desktop stack
@@ -259,6 +259,12 @@ decisions:
     decision: import preview panel の最初の warning 集約は renderer 内の local aggregation に限定し、既存 preview row contract はそのまま使う。summary では warning を持つ row の `row number / title / warning reason` を上部へ一覧表示し、row table と filter は併存させる
     rationale: backend contract を広げずに stale workbook や dependency cycle の注意点を先に拾えるようにする最短手であり、Phase 6 の import 体験を小さな差分で改善できるため。
 
+  - id: DEC-062
+    topic: Initial Excel default settings scope
+    status: accepted
+    decision: `TASK-1002` の Excel defaults は first slice では `優先度既定値` と `担当既定値` の2項目だけを app settings に保存し、Excel export の `MasterData` sheet に `Default` category のヒントとして出力する。import や task 作成既定値の振る舞いはこの slice では変えない
+    rationale: Settings parity を最小の縦切りで閉じるには、既存の export contract を壊さずに user-facing な保存と workbook 反映を 1 往復で確認できる範囲へ絞るのが安全であり、テンプレート生成や import 既定値まで同時に広げると責務が過大になるため。
+
   - id: DEC-044
     topic: Initial browser fallback import preview
     status: accepted
@@ -420,3 +426,87 @@ decisions:
     status: accepted
     decision: `TASK-0704` の apply 側は saved `kind=project` template から新しい project を1件生成し、その project 配下へ saved root item / descendants を復元する MVP に限定する。復元対象は project-level の `name / description / ownerName / priority / color` と、item-level の `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` のみとし、`code / status / schedule / progress / dependency / recurrence` は初期値へ戻す
     rationale: project template を実用化する最短手は project-level metadata と root subtree 再利用をまとめて小さく閉じることであり、source project の schedule や dependency まで持ち込むと recurrence / import と責務が重なる。新規 project 採番と item 初期化に限定すれば、既存 WBS template apply の実装資産を再利用しつつ安全に縦切りできる。
+
+  - id: DEC-071
+    topic: Initial Project Detail context menu scope
+    status: accepted
+    decision: `TASK-0901` の最初の slice では row-scoped context menu を先に追加し、対象 action は `詳細 / 子追加 / インデント / アウトデント / アーカイブ` に限定する。menu は右クリック位置に開く軽量 overlay とし、drag reorder は後続 slice へ送る
+    rationale: Project Detail interaction parity を一度に drag reorder まで広げると scope が大きくなるため。既存 button action を context menu へ再利用すれば、小さい差分で FS-003 の右クリック導線を先に user-facing に閉じられる。
+
+  - id: DEC-072
+    topic: Initial Project Detail drag reorder scope
+    status: accepted
+    decision: `TASK-0901` の drag reorder は最初の slice では same-parent sibling reorder に限定し、drop 先 row の上半分を `before`、下半分を `after` として扱う。parent row を動かした時の descendant は subtree のまま追従し、cross-parent move や arbitrary nesting change は扱わない
+    rationale: FS-003 の drag reorder を最短で閉じるには、既存の hierarchy model と WBS rebalance を保ったまま sibling order だけを変更する方が安全である。same-parent に絞れば persistence と Playwright 検証を小さく保て、parent row を動かした時の subtree move も自然に満たせる。
+
+  - id: DEC-073
+    topic: Initial search and filter drawer scope
+    status: accepted
+    decision: `TASK-0902` の first slice では Search / Filter Drawer を Home / Portfolio / Year-FY Roadmap に接続し、filter は client-side で current view にだけ適用する。Project Detail への適用は hierarchy 文脈保持を含む follow-up slice へ送る。`Portfolio` 条件は project の `portfolio_id` を free-text で照合し、`年間表示対象のみ` は roadmap eligible な日付付き row に限定する
+    rationale: Search / Filter Drawer を一度に Project Detail まで広げると hierarchy 文脈保持と drag reorder の相互作用まで抱えるため scope が大きい。まず list / summary 系 view で current-view filtering を先に成立させる方が small vertical slice として安全で、DB に既にある `portfolio_id` もこの範囲なら軽く再利用できる。
+
+  - id: DEC-074
+    topic: Project Detail search and filter hierarchy preservation
+    status: accepted
+    decision: `TASK-0902` の follow-up slice では Search / Filter Drawer を Project Detail に接続し、filter は client-side で WBS / timeline の shared visible row window に適用する。一致した row へ辿る ancestor path は表示対象に残すが、expanded state 自体は永続 state としては変更しない
+    rationale: Project Detail では child match だけを単独表示すると hierarchy 文脈が壊れ、WBS と timeline の同期も見失いやすい。ancestor path だけを追加表示する方式なら current virtualization と row identity を保ったまま FS-006 を閉じられる。
+
+  - id: DEC-075
+    topic: Initial settings shell scope
+    status: accepted
+    decision: `TASK-1001` の first slice では Settings 画面を追加し、`週開始曜日 / FY開始月 / 既定表示` の3項目だけを user-facing に編集 / 永続化する。`既定表示` は `Home / Portfolio / Year-FY Roadmap` に限定し、`表示言語 / 稼働日 / テーマ` は follow-up slice へ送る
+    rationale: Settings parity を一度に full spec まで広げると working day editor、theme、i18n まで責務が大きくなるため。まず roadmap と startup behavior に直結する3項目だけを先に閉じると、Phase 10 を小さい縦切りで安全に前進できる。
+
+  - id: DEC-076
+    topic: Settings working day follow-up scope
+    status: accepted
+    decision: `TASK-1001` の follow-up slice では `稼働日` だけを先に Settings へ追加し、保存形式は weekly checkbox set とする。選択は `0-6` の weekday number 配列として永続化し、初期既定値は `月-金`、実動作への反映先は dependency 自動後ろ倒しに限定する
+    rationale: `表示言語 / テーマ` まで同時に広げると i18n と visual system の責務が混ざるため。`稼働日` は既に scheduler domain に helper があり、Settings parity の done condition に直結するため、単独 slice として安全に縦切りできる。
+
+  - id: DEC-077
+    topic: Settings language first slice
+    status: accepted
+    decision: `TASK-1001` の次 slice では `表示言語` を `ja / en` の2値だけ先に Settings へ追加し、保存後は sidebar navigation、Settings 見出し、主要 view 見出し、主要 action label に反映する。full i18n、日付書式、domain value の完全翻訳、theme との統合は後続 slice へ送る
+    rationale: Settings parity の残りを最小で前に進めるには、theme より先に language toggle を主要 UI 文言へ接続するのが user-facing value と E2E 検証の両面で小さい。対象を主要導線に限定すれば既存 App.tsx 単一ファイル構成のまま安全に縦切りできる。
+
+  - id: DEC-078
+    topic: Settings theme first slice
+    status: accepted
+    decision: `TASK-1001` の次 slice では `テーマ` を `light / dark` の2値だけ先に Settings へ追加し、保存後は shell root に theme attribute を設定して sidebar、主要 card、button、input を CSS variable で切り替える。system theme、status color、chart color の完全 theme 対応は後続 slice へ送る
+    rationale: Settings parity の残りを小さく進めるには、まず persistence と major surface の theme 切替だけを成立させるのが安全である。`light / dark` の2値に絞れば migration、browser fallback、E2E を小さい差分で閉じられ、既存 CSS を token 化する入口にもなる。
+
+  - id: DEC-079
+    topic: Auto backup settings first slice
+    status: accepted
+    decision: `TASK-1002` の first slice では Settings から `自動バックアップ` の `有効/無効` と `保持件数` だけを編集できるようにし、scheduler 自体は既存どおり `app bootstrap 時に local day あたり1回` のまま据え置く。`保持件数` は `1-30` に限定し、適用対象は `sgc-auto-backup-*` 系列のみとする
+    rationale: auto backup を user-facing にする最短経路は、既存 hardening で実装済みの startup trigger と retention を settings 化することである。frequency や idle scheduler まで広げると責務が急に大きくなるため、この slice では gate と retention だけを UI / persistence / bootstrap に接続する。
+
+  - id: DEC-080
+    topic: Initial template apply UI scope
+    status: accepted
+    decision: `TASK-1101` の first slice では template の save UI や Inbox conversion まで広げず、Project Detail toolbar に `Templates` button を追加して saved template の list と apply だけを先に user-facing にする。`kind=wbs` は current project への apply、`kind=project` は新しい project 作成として扱う
+    rationale: template service は既に save/list/apply まで実装済みであり、最短で価値を出すには UI を apply 側から接続するのが安全である。save UI と Inbox conversion を同時に載せると placement と flow の責務が大きくなるため、この cycle では project 文脈で完結する最小 apply panel に限定する。
+
+  - id: DEC-081
+    topic: Initial template save UI scope
+    status: accepted
+    decision: `TASK-1101` の follow-up slice では template save UI を Project Detail の既存 `Templates` panel に同居させ、`Save current project as template` と `Save selected root as WBS template` の2 action だけを追加する。WBS save は selected row が root item の時だけ有効にし、どちらも既定名を current project 名または selected root title から自動採用する。name 入力 modal と Inbox の `テンプレート変換` は後続 slice へ送る
+    rationale: 既存 service は save/list/apply まで揃っているため、別画面や modal を増やさず同じ panel に save を載せるのが最短である。WBS save を root row に限定すれば subtree save contract と自然に一致し、UI と E2E の差分も小さく保てる。
+
+  - id: DEC-082
+    topic: Initial Inbox template conversion scope
+    status: accepted
+    decision: `TASK-1101` の最後の slice では Inbox card に `テンプレート変換` button を追加し、押下時は対象 item の title を既定名にした draft project を1件作成してその item を root row として移し、Project Detail の既存 `Templates` panel を自動で開く。専用 modal や template type 選択は追加しない
+    rationale: Inbox item を直接 template として保存する専用契約はまだ無いため、既存の project / WBS template save UI を再利用するのが最小で安全である。draft project 化に寄せれば service 追加を避けつつ `Inbox から template workflow を起動できる` 受け入れ条件を小さな差分で満たせる。
+
+  - id: DEC-083
+    topic: Recurrence editor first slice scope
+    status: accepted
+    decision: `TASK-1102` の first slice では detail drawer に recurrence section を追加し、scheduled task に対して `週次(月曜) / 月次 / 平日` の3 preset と `next_occurrence_at` date input だけを user-facing にする。既存 unsupported rule は raw `rrule_text` を read-only 表示して generation 対象外であることを明示し、削除または supported preset への置換だけを許可する。group / milestone / unscheduled item には editor を出さず理由付き note を表示する
+    rationale: service 側は raw `rrule_text` persistence と generation MVP を既に持っているが、汎用 rrule editor を一度に載せると validation と UX の責務が大きい。generation が実際に対応している3 rule だけを preset 化し、unsupported rule は見える化と delete/replace に留めることで、user-facing parity を小さく安全に閉じられる。
+
+  - id: DEC-084
+    topic: Multilingual UI parity follow-up scope
+    status: accepted
+    decision: backlog 完了後の follow-up は `TASK-1201` として、日本語 / 英語切替の対象を major heading から overlay / drawer / import preview / recovery / helper copy へ広げる。初期実装は既存 `ui-copy` registry へ段階的に寄せる方式とし、full i18n framework 化や locale-specific formatting の全面見直しは後続へ送る
+    rationale: `表示言語` first slice は主要見出しと主要 action に限定していたため、実運用で触る panel 群には直書き copy が残っていた。既存 copy registry を広げる方式なら app 全体の構造変更なしで user-facing 多言語対応を前進でき、英語 mode でも日本語固定になる surface を小さく安全に減らせる。
