@@ -336,7 +336,7 @@
 3. upload が認証 / 権限 / release policy で止まる場合は blocker をここへ具体的に追記する
 
 ## 現在の blocker
-- なし
+- GitHub release upload は未完了。`artifacts/sgc-portable-win-x64-v0.1.0.zip` は生成済みだが、この環境では `gh` CLI が PATH 上に無く、GitHub connector 側にも release asset upload 用 tool が露出していないためアップロードできない
 
 ## 既知のリスク
 - 現在の DB は SQL.js を同期 API として使っており、大量件数では書込コスト評価が未実施
