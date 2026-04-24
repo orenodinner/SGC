@@ -510,3 +510,9 @@ decisions:
     status: accepted
     decision: backlog 完了後の follow-up は `TASK-1201` として、日本語 / 英語切替の対象を major heading から overlay / drawer / import preview / recovery / helper copy へ広げる。初期実装は既存 `ui-copy` registry へ段階的に寄せる方式とし、full i18n framework 化や locale-specific formatting の全面見直しは後続へ送る
     rationale: `表示言語` first slice は主要見出しと主要 action に限定していたため、実運用で触る panel 群には直書き copy が残っていた。既存 copy registry を広げる方式なら app 全体の構造変更なしで user-facing 多言語対応を前進でき、英語 mode でも日本語固定になる surface を小さく安全に減らせる。
+
+  - id: DEC-085
+    topic: Autonomous completion sequence
+    status: accepted
+    decision: Phase 12 の残作業は `TASK-1202` generic recurrence editor、`TASK-1203` theme token coverage、`TASK-1204` installer / regression hardening の順で実装する。各 slice は UI / service or fallback / test / tracker update を同時に閉じ、外部契約や署名証明書が必要な配布判断は blocker ではなく docs 上の対象外リスクとして扱う
+    rationale: 残作業のうち recurrence は既存 detail drawer と service contract に最も近く、次に theme の見た目破綻を閉じ、最後に配布と回帰網を固める順が最も再開しやすい。外部依存を blocker にすると完走が止まるため、ローカル Windows 配布として成立する範囲を先に閉じる。

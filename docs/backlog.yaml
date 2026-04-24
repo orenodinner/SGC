@@ -261,7 +261,7 @@ epics:
     tasks:
       - id: TASK-1201
         title: Expand multilingual UI beyond major headings
-        status: in_progress
+        status: done
         done_when:
           - `ja / en` 切替で Search / Filter Drawer、Import Preview、recovery / restore overlay の主要 copy が切り替わる
           - active filter chip と empty / helper copy の主要文言が major-copy only から外れて多言語対応になる

@@ -1,17 +1,21 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-25 00:52 JST
+最終更新日時: 2026-04-25 01:20 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 86
-- 今回完了したサイクル: Multilingual overlay and drawer parity slice
+- 完了サイクル数: 87
+- 今回完了したサイクル: Autonomous completion preparation
 
 ## 現在フェーズ
-- Phase 12 `Multilingual UI parity and deferred polish` を再開
-- `TASK-1201 Expand multilingual UI beyond major headings` が進行中
+- Phase 12 `Multilingual UI parity and deferred polish` を継続
+- `TASK-1201 Expand multilingual UI beyond major headings` は完了扱いへ整理済み
+- 次の実装開始点は `TASK-1202 Add generic recurrence editor and unsupported rule builder`
 
 ## 直近で完了したもの
+- `docs/14-autonomous-completion-plan.md` を追加し、自律完走までの実装順、検証ゲート、停止条件を固定した
+- `docs/backlog.yaml` の `TASK-1201` を、既存の Playwright smoke 固定済み状態に合わせて `done` へ整理した
+- `docs/decisions.yaml` に Phase 12 残作業の実装順を `DEC-085` として記録した
 - deferred scope を `EPIC-12` として backlog / implementation plan へ再登録した
 - `表示言語` の follow-up として Search / Filter Drawer、Import Preview、restore preview / recovery copy の主要文言を `ui-copy` registry へ寄せた
 - Search / Filter の active chip label を `ja / en` で切り替えられるようにした
