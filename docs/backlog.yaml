@@ -257,7 +257,7 @@ epics:
   - id: EPIC-12
     name: Multilingual UI parity and deferred polish
     priority: P1
-    status: in_progress
+    status: done
     tasks:
       - id: TASK-1201
         title: Expand multilingual UI beyond major headings
@@ -280,7 +280,7 @@ epics:
           - import / roadmap / portfolio の色面が light/dark で破綻しない
       - id: TASK-1204
         title: Add fuller installer and regression hardening
-        status: pending
+        status: done
         done_when:
           - portable zip 以外の配布 / 更新方針が tracker 上で閉じる
           - desktop E2E の coverage が smoke より一段広がる

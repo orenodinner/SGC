@@ -1156,6 +1156,82 @@ test("sidebar backup action creates a local backup file", async () => {
   }
 });
 
+test("desktop regression journey preserves project, settings, backup, and export", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-regression-journey-e2e-"));
+  const exportPath = path.join(os.tmpdir(), `sgc-regression-export-${Date.now()}.xlsx`);
+  const timestamp = Date.now();
+  const projectName = `E2E Regression ${timestamp}`;
+
+  const launchApp = () =>
+    electron.launch({
+      executablePath: electronExecutable,
+      args: [path.join(process.cwd(), ".")],
+      env: {
+        ...process.env,
+        SGC_USER_DATA_DIR: userDataDir,
+      },
+    });
+
+  const firstApp = await launchApp();
+  let backupFileName = "";
+  try {
+    const page = await firstApp.firstWindow();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await page.getByLabel("プロジェクト名").fill(projectName);
+    await page.getByRole("button", { name: "プロジェクト作成" }).click();
+    await expect(page.locator(`input[value="${projectName}"]`).first()).toBeVisible();
+
+    await firstApp.evaluate(
+      async ({ dialog }, filePath) => {
+        dialog.showSaveDialog = async () => ({
+          canceled: false,
+          filePath,
+        });
+      },
+      exportPath
+    );
+    await page.getByRole("button", { name: "Excel Export" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Excel export:");
+    await expect.poll(() => fs.existsSync(exportPath)).toBe(true);
+    expect(fs.readFileSync(exportPath).subarray(0, 2)).toEqual(Buffer.from([0x50, 0x4b]));
+
+    await page.getByRole("button", { name: "Backup now" }).click();
+    const notice = page.locator(".notice-banner");
+    await expect(notice).toContainText("Backup created:");
+    const backupPath = ((await notice.textContent()) ?? "").replace(/^Backup created:\s*/u, "").trim();
+    backupFileName = path.basename(backupPath);
+    await expect.poll(() => fs.existsSync(backupPath)).toBe(true);
+    await expect(page.locator(".backup-list-item").filter({ hasText: backupFileName }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Settings" }).click();
+    await page.getByLabel("テーマ").selectOption("dark");
+    await page.getByLabel("表示言語").selectOption("en");
+    await page.getByRole("button", { name: "設定を保存" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Settings saved");
+    await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
+    await expect(page.getByRole("button", { name: "Home" })).toBeVisible();
+  } finally {
+    await firstApp.close();
+  }
+
+  const secondApp = await launchApp();
+  try {
+    const page = await secondApp.firstWindow();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
+    await expect(page.getByRole("button", { name: "Settings" })).toBeVisible();
+    await expect(page.locator(".project-card").filter({ hasText: projectName }).first()).toBeVisible();
+    const backupRow = page.locator(".backup-list-item").filter({ hasText: backupFileName }).first();
+    await expect(backupRow).toBeVisible();
+    await backupRow.getByRole("button", { name: "Restore Preview" }).click();
+    await expect(page.locator('[aria-label="Restore Preview"]')).toContainText(backupFileName);
+  } finally {
+    await secondApp.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+    fs.rmSync(exportPath, { force: true });
+  }
+});
+
 test("project detail virtualizes large row sets", async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-virtualization-e2e-"));
   const dbPath = path.join(userDataDir, "data", "sgc.sqlite");

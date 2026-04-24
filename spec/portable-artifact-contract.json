@@ -1,0 +1,31 @@
+{
+  "artifactPrefix": "sgc-portable-win-x64",
+  "channel": "portable_zip",
+  "updateMode": "manual_replace",
+  "rollbackMode": "keep_previous_unzipped_folder",
+  "unsupportedDistribution": [
+    "msi",
+    "auto_updater",
+    "code_signing",
+    "store_distribution"
+  ],
+  "runtimeDependencies": [
+    "date-fns",
+    "sql.js",
+    "zod"
+  ],
+  "requiredPaths": [
+    "dist",
+    "dist-electron",
+    "node_modules/date-fns",
+    "node_modules/sql.js",
+    "node_modules/sql.js/dist/sql-wasm.wasm",
+    "node_modules/zod",
+    "runtime",
+    "runtime/electron.exe",
+    "Launch SGC.cmd",
+    "package.json",
+    "build-manifest.json",
+    "DISTRIBUTION.txt"
+  ]
+}

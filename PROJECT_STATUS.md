@@ -1,20 +1,27 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-25 03:10 JST
+最終更新日時: 2026-04-25 03:40 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 89
-- 今回完了したサイクル: Theme token coverage slice
+- 完了サイクル数: 90
+- 今回完了したサイクル: Windows portable distribution and regression hardening slice
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` を継続
 - `TASK-1201 Expand multilingual UI beyond major headings` は完了扱いへ整理済み
 - `TASK-1202 Add generic recurrence editor and unsupported rule builder` は完了
 - `TASK-1203 Broaden theme and visual token coverage` は完了
-- 次の実装開始点は `TASK-1204 Add fuller installer and regression hardening`
+- `TASK-1204 Add fuller installer and regression hardening` は完了
+- Phase 12 backlog は全 task 完了。次の実装開始点は final acceptance / release upload verification
 
 ## 直近で完了したもの
+- `spec/portable-artifact-contract.json` を追加し、portable zip の required path と配布 / 更新 / rollback 方針を契約化した
+- `scripts/build.ps1` が contract の runtime dependency / required path を参照し、欠損時は zip 生成前に失敗するようにした
+- portable artifact に `DISTRIBUTION.txt` と distribution metadata 付き `build-manifest.json` を同梱するようにした
+- desktop regression journey E2E を追加し、project persistence / settings persistence / backup preview / Excel export をまたぐ代表導線を固定した
+- `ACC-063` / `ACC-064` と `DEC-088` を追加し、`TASK-1204` を done へ更新した
+- `artifacts/sgc-portable-win-x64-v0.1.0.zip` を再生成した
 - CSS theme token を status / tag / warning / info / risk / action pill まで広げた
 - Import Preview、Roadmap、Portfolio、Project Detail timeline の row / header / chart / marker 色を token 化した
 - Settings theme smoke に representative token の dark / light 切替検証を追加した
@@ -324,16 +331,16 @@
 - ACC-043 相当の service / browser fallback test を追加した
 
 ## 今いちばん重要な次アクション
-1. `TASK-1204` として installer / regression hardening の残作業を縦切りで閉じる
-2. portable zip 以外の配布方針を docs 上で明確化し、実装可能な local Windows artifact の検証を強化する
-3. desktop E2E の smoke coverage を、完了状態に必要な代表導線へ一段広げる
+1. Phase 12 completion として full validation bundle を再確認する
+2. `artifacts/sgc-portable-win-x64-v0.1.0.zip` を GitHub release artifact として upload する
+3. upload が認証 / 権限 / release policy で止まる場合は blocker をここへ具体的に追記する
 
 ## 現在の blocker
 - なし
 
 ## 既知のリスク
 - 現在の DB は SQL.js を同期 API として使っており、大量件数では書込コスト評価が未実施
-- desktop E2E は主要主経路 smoke まで拡張済みだが、full regression coverage には未到達
+- desktop E2E は代表 regression journey まで拡張済みだが、全画面 full regression coverage には未到達
 - Quick Capture の recurrence / project 名一般解釈は最小実装で、複雑な自然文は未対応
 - timeline edit は scheduled item の pointer と keyboard 初期対応までで、dependency 連動は未接続
 - detail drawer は dependency / recurrence editor まで入ったが、history UI と dependency type 拡張は未着手
@@ -360,8 +367,8 @@
 - auto backup は bootstrap 時の日次1回に限定しており、アイドル時や定期実行の scheduler は未実装
 - Project Detail virtualization は fixed row height 58px 前提の first slice で、row 高さの動的計測や可変高 row には未対応
 - Roadmap virtualization は body row のみを対象にした first slice で、header 自体の virtualization や可変高 row には未対応
-- installer pipeline は portable zip artifact の初期実装で、MSI / updater / code signing は未実装
-- portable artifact は date-fns / zod / sql.js package 全体を同梱する first slice で、サイズ最適化は未実施
+- installer pipeline は portable zip artifact を contract hardening まで進めたが、MSI / updater / code signing は外部契約または公開ポリシーが必要な対象外として未実装
+- portable artifact は date-fns / zod / sql.js package 全体を同梱しており、サイズ最適化は未実施
 - recurrence は completion-triggered の1件生成までで、background scheduler・複数件先行生成・template apply は未実装
 - Phase 10 Settings parity は `表示言語 / テーマ / 自動バックアップ / Excel 既定値 / 週開始曜日 / FY開始月 / 稼働日 / 既定表示` まで完了した
 - 多言語 UI は Search / Filter Drawer、Import Preview、restore preview / recovery copy まで広がったが、detail drawer / context menu / Inbox action など一部 surface には直書き copy が残る
@@ -369,7 +376,7 @@
 - recurrence editor は cadence builder まで入ったが、background scheduler と supported generation rule 拡張は未実装
 
 ## 次の最小スライス
-- `TASK-1204` の first slice として、installer / portable artifact の現在仕様を再確認し、回帰 E2E を代表導線へ1件追加して validation bundle で固定する
+- Phase 12 final acceptance として full validation bundle、GitHub push、Windows artifact upload を実行し、完了状態または upload blocker を記録する
 
 ## 次に見るべきドキュメント
 - `PROJECT_STATUS.md`

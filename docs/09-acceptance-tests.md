@@ -264,6 +264,26 @@
 - zip を展開しても同じ構成が得られる
 - `Launch SGC.cmd` は bundled Electron runtime を使って app root を起動する
 
+### ACC-063 Windows portable distribution hardening
+**Given** `spec/portable-artifact-contract.json` に portable artifact contract が定義されている
+**When** `scripts/build.ps1` で Windows portable artifact を生成する
+**Then**
+- build script は contract の runtime dependencies と required paths を参照する
+- staging folder に required path が欠けている場合は zip 生成前に失敗する
+- artifact には `DISTRIBUTION.txt` と `build-manifest.json` が含まれる
+- `build-manifest.json` には `portable_zip / manual_replace / keep_previous_unzipped_folder` の配布・更新・rollback 方針が入る
+- MSI、auto updater、code signing、store distribution は対象外として manifest と docs に明記される
+
+### ACC-064 Desktop regression journey
+**Given** 同じ user data directory で SGC desktop app を2回起動できる
+**When** project 作成、Excel export、Backup now、Settings の language / theme 保存を行い、アプリを再起動する
+**Then**
+- project が再起動後も残る
+- dark theme と English navigation が再起動後も保持される
+- backup row から restore preview を開ける
+- export file は `.xlsx` zip header を持つ
+- この journey は単一機能 smoke ではなく、delivery 前の代表導線 regression として扱う
+
 ### ACC-045 Search and filter drawer
 **Given** 複数 project / item があり、title / note / project / portfolio / status / priority / tag / assignee / overdue / milestone 条件で差が出る  
 **When** Search / Filter Drawer を開いて条件を組み合わせる  
