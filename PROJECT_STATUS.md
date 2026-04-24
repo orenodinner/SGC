@@ -1,19 +1,24 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-25 02:58 JST
+最終更新日時: 2026-04-25 03:10 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 88
-- 今回完了したサイクル: Generic recurrence builder slice
+- 完了サイクル数: 89
+- 今回完了したサイクル: Theme token coverage slice
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` を継続
 - `TASK-1201 Expand multilingual UI beyond major headings` は完了扱いへ整理済み
 - `TASK-1202 Add generic recurrence editor and unsupported rule builder` は完了
-- 次の実装開始点は `TASK-1203 Broaden theme and visual token coverage`
+- `TASK-1203 Broaden theme and visual token coverage` は完了
+- 次の実装開始点は `TASK-1204 Add fuller installer and regression hardening`
 
 ## 直近で完了したもの
+- CSS theme token を status / tag / warning / info / risk / action pill まで広げた
+- Import Preview、Roadmap、Portfolio、Project Detail timeline の row / header / chart / marker 色を token 化した
+- Settings theme smoke に representative token の dark / light 切替検証を追加した
+- `ACC-062 Theme token coverage` と `DEC-087` を追加し、`TASK-1203` を done へ更新した
 - Detail drawer の recurrence UI を preset-only から cadence builder へ拡張した
 - weekly の任意曜日 / 任意 interval、monthly の日付指定 / 任意 interval、yearly の保存専用 rule を UI から構築できるようにした
 - unsupported rule は generation 対象外 note を残しつつ、下の builder から user-facing に再構築できるようにした
@@ -319,9 +324,9 @@
 - ACC-043 相当の service / browser fallback test を追加した
 
 ## 今いちばん重要な次アクション
-1. `TASK-1201` の残りとして、detail drawer / reschedule dialog / row context menu / Inbox action copy の多言語対応を進める
-2. current `ui-copy` 外に残る直書き文言を段階的に registry へ寄せる
-3. その後に `TASK-1202` generic recurrence editor か `TASK-1204` regression hardening へ進む
+1. `TASK-1204` として installer / regression hardening の残作業を縦切りで閉じる
+2. portable zip 以外の配布方針を docs 上で明確化し、実装可能な local Windows artifact の検証を強化する
+3. desktop E2E の smoke coverage を、完了状態に必要な代表導線へ一段広げる
 
 ## 現在の blocker
 - なし
@@ -360,11 +365,11 @@
 - recurrence は completion-triggered の1件生成までで、background scheduler・複数件先行生成・template apply は未実装
 - Phase 10 Settings parity は `表示言語 / テーマ / 自動バックアップ / Excel 既定値 / 週開始曜日 / FY開始月 / 稼働日 / 既定表示` まで完了した
 - 多言語 UI は Search / Filter Drawer、Import Preview、restore preview / recovery copy まで広がったが、detail drawer / context menu / Inbox action など一部 surface には直書き copy が残る
-- theme は shell / sidebar / 主要 card / button / input を対象にした first slice で、chart や status color の完全 theme 対応は未実装
-- recurrence editor は preset-based first slice で、generic rrule editor や custom cadence builder は未実装
+- theme は chart / status / import preview / roadmap / portfolio / timeline surface まで token coverage を広げたが、system theme follow と user-defined palette は未実装
+- recurrence editor は cadence builder まで入ったが、background scheduler と supported generation rule 拡張は未実装
 
 ## 次の最小スライス
-- `TASK-1201` の follow-up として、detail drawer / reschedule dialog / context menu の copy を `ui-copy` に寄せ、英語 mode で日本語固定になる残面を減らす
+- `TASK-1204` の first slice として、installer / portable artifact の現在仕様を再確認し、回帰 E2E を代表導線へ1件追加して validation bundle で固定する
 
 ## 次に見るべきドキュメント
 - `PROJECT_STATUS.md`

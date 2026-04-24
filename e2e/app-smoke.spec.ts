@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import electronPackage from "electron";
 import { _electron as electron } from "playwright";
 import { DatabaseManager } from "../src/infra/db/database";
@@ -837,6 +837,9 @@ test("settings theme persists and switches major shell palette", async () => {
       "background-color",
       "rgb(137, 169, 141)"
     );
+    await expectCssVariable(page, "--status-done-bg", "#36593fdb");
+    await expectCssVariable(page, "--row-header-bg", "#42362df5");
+    await expectCssVariable(page, "--chart-marker-bg", "#d18b7d");
   } finally {
     await firstApp.close();
   }
@@ -856,6 +859,7 @@ test("settings theme persists and switches major shell palette", async () => {
     await expect(page.locator(".shell")).toHaveAttribute("data-theme", "light");
     await expect(page.getByLabel("テーマ")).toHaveValue("light");
     await expect(page.locator(".sidebar")).toHaveCSS("background-color", "rgba(250, 244, 234, 0.84)");
+    await expectCssVariable(page, "--status-done-bg", "#d8ead7");
   } finally {
     await secondApp.close();
     fs.rmSync(userDataDir, { recursive: true, force: true });
@@ -1787,4 +1791,14 @@ function addDays(date: Date, amount: number): Date {
 
 function formatDateInput(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+async function expectCssVariable(page: Page, name: string, expected: string): Promise<void> {
+  await expect
+    .poll(() =>
+      page.locator(".shell").evaluate((element, variableName) => {
+        return getComputedStyle(element).getPropertyValue(variableName).trim();
+      }, name)
+    )
+    .toBe(expected);
 }

@@ -522,3 +522,9 @@ decisions:
     status: accepted
     decision: `TASK-1202` では recurrence service の raw `rrule_text` contract は維持し、Detail drawer に field builder を追加して weekly 任意曜日 / 任意 interval、monthly 日付指定 / 任意 interval、yearly 保存専用 rule を構築する。generation は既存対応済みの weekly / monthly / weekdays に限定し、yearly などは保存可だが generation 対象外 note を表示する
     rationale: 汎用 RRULE editor を service schema 変更で実装すると migration と validation scope が大きくなる。既存の raw RRULE 永続化を活かし、UI 側で安全な builder を追加すれば、unsupported rule の再構築導線を小さく閉じつつ generation MVP の挙動を壊さずに済む。
+
+  - id: DEC-087
+    topic: Theme token coverage scope
+    status: accepted
+    decision: `TASK-1203` では Settings theme contract は `light / dark` の2値のまま維持し、CSS variable を status / tag / warning / info / risk / import preview / roadmap / portfolio / timeline chart surface へ広げる。ユーザー定義 palette、system theme follow、個別 project color の theme-aware 再設計は扱わない
+    rationale: theme first slice では shell と主要 input だけを閉じたため、実運用で見る chart や preview surface に淡色固定が残っていた。既存 CSS variable 方式を広げれば persistence や service contract を変えずに見た目の破綻を減らせ、installer hardening 前に user-facing polish を小さく閉じられる。

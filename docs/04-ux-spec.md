@@ -177,6 +177,8 @@
 - `稼働日` helper copy では `dependency 自動後ろ倒しで使用` を短く案内してよい
 - follow-up slice の `テーマ` は `ライト / ダーク` の select とし、保存後は shell 背景、sidebar、主要 card、button、input の配色が即時に切り替わるようにする
 - 初期の `テーマ` slice では複雑な chart 系や item status color の完全 theme 対応までは要求しない
+- `TASK-1203` 以降は status pill、import warning / compare、roadmap / portfolio row、timeline bar / marker / grid も theme token を使い、dark theme で淡色固定の chip や表 header が残らないようにする
+- chart 系の色は機能識別を保つため、project / task / group / milestone / marker の意味ごとに token を分ける。ユーザーが色を編集する palette UI はこの slice では追加しない
 - `既定表示` は `Home / Portfolio / Year-FY` の radio または select とする
 - `TASK-1002` の first slice では `自動バックアップ` を checkbox または switch、`保持件数` を `1-30` の select とする
 - `自動バックアップ` を off にした場合でも `Backup now` と recent backup list はそのまま使えるようにする

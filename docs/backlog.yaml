@@ -274,7 +274,7 @@ epics:
           - unsupported rule を raw replace/delete だけでなく user-facing に再構築できる
       - id: TASK-1203
         title: Broaden theme and visual token coverage
-        status: pending
+        status: done
         done_when:
           - chart と status color を theme token に寄せられる
           - import / roadmap / portfolio の色面が light/dark で破綻しない

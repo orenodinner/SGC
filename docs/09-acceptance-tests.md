@@ -340,6 +340,15 @@
 - `ライト` に戻して保存すると同じ user data 上で light palette に戻る
 - initial slice では chart や status color の完全な theme 対応までは要求しない
 
+### ACC-062 Theme token coverage
+**Given** Settings から `テーマ` を `ダーク` へ変更できる workspace がある
+**When** dark theme を保存し、chart / status / import preview / roadmap / portfolio surface を表示する
+**Then**
+- status pill、warning / info surface、table header、roadmap / portfolio row、timeline bar / marker / grid が semantic theme token を参照する
+- dark theme で淡色固定の preview row や status color が主要 surface に残らない
+- `ライト` に戻すと同じ token 名で light palette の値へ戻る
+- acceptance smoke では representative token の dark / light 切替を固定する
+
 ### ACC-060 Multilingual overlay and drawer parity
 **Given** `表示言語` を `English` へ変更済みの workspace がある  
 **When** Search / Filter Drawer、Excel Import Preview、recovery / restore overlay の主要 panel を開く  

@@ -248,6 +248,8 @@
 - `テーマ` は `TASK-1001` の残り slice で Settings へ追加し、初期対応は `light / dark` の2値に限定する
 - `テーマ` の初期 slice では shell、sidebar、主要 card、button、input の配色を theme token に寄せ、保存後は即時反映と再起動保持を行う
 - 初期の `テーマ` slice では chart color や item status color、import preview の細かい装飾色までは完全 theme 化しなくてよい
+- `TASK-1203` では follow-up として status / tag / warning / info / risk / action pill、import preview、roadmap、portfolio、Project Detail timeline の chart bar / grid / marker を semantic theme token へ寄せる
+- `TASK-1203` の完了条件は `light / dark` の両方で shell 以外の chart / status / table / preview surface が破綻しないこととし、system theme や user-defined palette は扱わない
 - 初期 hardening では settings 画面より先に `Backup now` を sidebar utility として提供する
 - `Backup now` は現在の SQLite DB を timestamp 付きローカル backup ファイルとして保存する
 - 初期 backup UI では recent backups を新しい順に表示する
