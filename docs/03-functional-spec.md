@@ -294,6 +294,9 @@
 - first user-facing recurrence section では existing unsupported rule を raw `rrule_text` と `next_occurrence_at` 付きで read-only 表示し、generation 対象外であることを明示する
 - first user-facing recurrence section では unsupported rule でも preset への置換保存か削除はできる
 - first user-facing recurrence section では group / milestone / unscheduled item に recurrence editor を出さず、理由付き note を表示する
+- `TASK-1202` では recurrence section を preset-only から field builder へ広げ、weekly の任意曜日 / 任意 interval、monthly の日付指定 / 任意 interval、yearly の保存専用 rule を user-facing に構築できるようにする
+- `TASK-1202` では generation 対象外 rule も raw text 直接編集ではなく builder から再構築できるようにし、保存後も generation 対象外であることを明示する
+- `TASK-1202` の generation 対応は既存 service の範囲に留め、`FREQ=WEEKLY` / `FREQ=MONTHLY` / `FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR` 以外は保存可だが自動生成対象外とする
 - 初期 WBS template は selected root item 1件とその非 archived descendants を subtree ごとに保存する
 - 初期 WBS template の保存対象フィールドは `type / title / note / priority / assigneeName / tags / estimateHours / durationDays` とする
 - 初期 WBS template は hierarchy だけを保存し、`status / percentComplete / actualHours / startDate / endDate / dueDate / dependency / recurrence` は保存しない

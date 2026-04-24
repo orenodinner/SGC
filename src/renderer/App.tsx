@@ -3849,6 +3849,10 @@ function DetailDrawer(props: {
   const [recurrenceError, setRecurrenceError] = useState<string | null>(null);
   const [recurrencePreset, setRecurrencePreset] =
     useState<RecurrencePresetKey>("weekly_monday");
+  const [recurrenceIntervalInput, setRecurrenceIntervalInput] = useState("1");
+  const [recurrenceByDayInput, setRecurrenceByDayInput] = useState("MO");
+  const [recurrenceMonthDayInput, setRecurrenceMonthDayInput] = useState("1");
+  const [recurrenceByMonthInput, setRecurrenceByMonthInput] = useState("1");
   const [nextOccurrenceAtInput, setNextOccurrenceAtInput] = useState("");
   const itemId = item?.id ?? null;
   const projectId = item?.projectId ?? null;
@@ -3894,7 +3898,12 @@ function DetailDrawer(props: {
         }
         setRecurrenceRule(result);
         setRecurrenceError(null);
-        setRecurrencePreset(mapRecurrenceRuleToPreset(result?.rruleText) ?? "weekly_monday");
+        const builderState = deriveRecurrenceBuilderState(result?.rruleText);
+        setRecurrencePreset(builderState.preset);
+        setRecurrenceIntervalInput(String(builderState.interval));
+        setRecurrenceByDayInput(builderState.byDay);
+        setRecurrenceMonthDayInput(String(builderState.monthDay));
+        setRecurrenceByMonthInput(String(builderState.byMonth));
         setNextOccurrenceAtInput(result?.nextOccurrenceAt ?? "");
       })
       .catch((error) => {
@@ -3957,10 +3966,9 @@ function DetailDrawer(props: {
     ? selectedPredecessorId
     : availablePredecessors[0]?.id ?? "";
   const recurrenceAvailability = getRecurrenceAvailability(item);
-  const supportedRecurrencePreset =
-    mapRecurrenceRuleToPreset(recurrenceRule?.rruleText) ?? null;
-  const supportedRecurrenceRuleLabel = supportedRecurrencePreset
-    ? RECURRENCE_PRESET_LOOKUP[supportedRecurrencePreset].label
+  const currentRuleSupport = getRecurrenceRuleSupport(recurrenceRule?.rruleText);
+  const supportedRecurrenceRuleLabel = currentRuleSupport.supported
+    ? currentRuleSupport.label
     : null;
 
   if (!item) {
@@ -4037,18 +4045,35 @@ function DetailDrawer(props: {
       return;
     }
 
+    const nextRruleText = buildRecurrenceRuleText({
+      preset: recurrencePreset,
+      intervalText: recurrenceIntervalInput,
+      byDay: recurrenceByDayInput,
+      monthDayText: recurrenceMonthDayInput,
+      byMonthText: recurrenceByMonthInput,
+    });
+    if (!nextRruleText.ok) {
+      setRecurrenceError(nextRruleText.error);
+      return;
+    }
+
     setRecurrenceLoading(true);
     try {
       const saved = await onUpsertRecurrenceRule({
         itemId: item.id,
-        rruleText: RECURRENCE_PRESET_LOOKUP[recurrencePreset].rruleText,
+        rruleText: nextRruleText.rruleText,
         nextOccurrenceAt: nextOccurrenceAtInput,
       });
       if (!saved) {
         return;
       }
       setRecurrenceRule(saved);
-      setRecurrencePreset(mapRecurrenceRuleToPreset(saved.rruleText) ?? recurrencePreset);
+      const builderState = deriveRecurrenceBuilderState(saved.rruleText);
+      setRecurrencePreset(builderState.preset);
+      setRecurrenceIntervalInput(String(builderState.interval));
+      setRecurrenceByDayInput(builderState.byDay);
+      setRecurrenceMonthDayInput(String(builderState.monthDay));
+      setRecurrenceByMonthInput(String(builderState.byMonth));
       setNextOccurrenceAtInput(saved.nextOccurrenceAt ?? "");
       setRecurrenceError(null);
     } finally {
@@ -4158,18 +4183,18 @@ function DetailDrawer(props: {
                   まだ recurrence rule はありません。
                 </div>
               )}
-              {recurrenceRule && !supportedRecurrencePreset ? (
+              {recurrenceRule && !currentRuleSupport.supported ? (
                 <div className="detail-placeholder recurrence-unsupported-note">
                   unsupported rule: {recurrenceRule.rruleText}
                   {recurrenceRule.nextOccurrenceAt
                     ? ` / next ${recurrenceRule.nextOccurrenceAt}`
                     : ""}
-                  。この rule は generation 対象外です。削除するか、supported preset へ置き換えて下さい。
+                  。この rule は generation 対象外です。下の builder で再構築して保存できます。
                 </div>
               ) : null}
               <div className="recurrence-editor-form">
                 <label className="detail-field">
-                  <span>Preset</span>
+                  <span>Cadence builder</span>
                   <select
                     aria-label="Recurrence preset"
                     value={recurrencePreset}
@@ -4185,6 +4210,77 @@ function DetailDrawer(props: {
                     ))}
                   </select>
                 </label>
+                <label className="detail-field">
+                  <span>Interval</span>
+                  <input
+                    aria-label="Recurrence interval"
+                    type="number"
+                    min="1"
+                    max="99"
+                    value={recurrenceIntervalInput}
+                    onChange={(event) => setRecurrenceIntervalInput(event.target.value)}
+                    disabled={recurrenceLoading}
+                  />
+                </label>
+                {recurrencePreset === "weekly_custom" ? (
+                  <label className="detail-field">
+                    <span>Weekday</span>
+                    <select
+                      aria-label="Recurrence weekday"
+                      value={recurrenceByDayInput}
+                      onChange={(event) => setRecurrenceByDayInput(event.target.value)}
+                      disabled={recurrenceLoading}
+                    >
+                      {RECURRENCE_BY_DAY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+                {recurrencePreset === "monthly_custom" ? (
+                  <label className="detail-field">
+                    <span>Month day</span>
+                    <input
+                      aria-label="Recurrence month day"
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={recurrenceMonthDayInput}
+                      onChange={(event) => setRecurrenceMonthDayInput(event.target.value)}
+                      disabled={recurrenceLoading}
+                    />
+                  </label>
+                ) : null}
+                {recurrencePreset === "yearly" ? (
+                  <>
+                    <label className="detail-field">
+                      <span>Month</span>
+                      <input
+                        aria-label="Recurrence month"
+                        type="number"
+                        min="1"
+                        max="12"
+                        value={recurrenceByMonthInput}
+                        onChange={(event) => setRecurrenceByMonthInput(event.target.value)}
+                        disabled={recurrenceLoading}
+                      />
+                    </label>
+                    <label className="detail-field">
+                      <span>Month day</span>
+                      <input
+                        aria-label="Recurrence month day"
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={recurrenceMonthDayInput}
+                        onChange={(event) => setRecurrenceMonthDayInput(event.target.value)}
+                        disabled={recurrenceLoading}
+                      />
+                    </label>
+                  </>
+                ) : null}
                 <label className="detail-field">
                   <span>Next occurrence</span>
                   <input
@@ -4214,7 +4310,7 @@ function DetailDrawer(props: {
                 </div>
               </div>
               <span className="detail-field-hint">
-                generation 対応は `週次(月曜) / 月次 / 平日` の3 rule だけです。
+                weekly / monthly / weekdays は generation 対応です。yearly など generation 対象外 rule も保存して再構築できます。
               </span>
               {recurrenceLoading ? (
                 <div className="detail-field-hint">recurrence を同期中です。</div>
@@ -4331,41 +4427,251 @@ function DetailDrawer(props: {
   );
 }
 
-type RecurrencePresetKey = "weekly_monday" | "monthly" | "weekdays";
+type RecurrencePresetKey =
+  | "weekly_monday"
+  | "weekly_custom"
+  | "monthly"
+  | "monthly_custom"
+  | "weekdays"
+  | "yearly";
 
 const RECURRENCE_PRESET_OPTIONS: Array<{
   key: RecurrencePresetKey;
   label: string;
-  rruleText: string;
 }> = [
   {
     key: "weekly_monday",
     label: "週次(月曜)",
-    rruleText: "FREQ=WEEKLY;INTERVAL=1;BYDAY=MO",
+  },
+  {
+    key: "weekly_custom",
+    label: "週次(曜日指定)",
   },
   {
     key: "monthly",
     label: "月次",
-    rruleText: "FREQ=MONTHLY;INTERVAL=1",
+  },
+  {
+    key: "monthly_custom",
+    label: "月次(日付指定)",
   },
   {
     key: "weekdays",
     label: "平日",
-    rruleText: "FREQ=DAILY;INTERVAL=1;BYDAY=MO,TU,WE,TH,FR",
+  },
+  {
+    key: "yearly",
+    label: "年次(保存のみ)",
   },
 ];
 
-const RECURRENCE_PRESET_LOOKUP = Object.fromEntries(
-  RECURRENCE_PRESET_OPTIONS.map((option) => [option.key, option])
-) as Record<RecurrencePresetKey, (typeof RECURRENCE_PRESET_OPTIONS)[number]>;
+const RECURRENCE_BY_DAY_OPTIONS = [
+  { value: "MO", label: "月曜" },
+  { value: "TU", label: "火曜" },
+  { value: "WE", label: "水曜" },
+  { value: "TH", label: "木曜" },
+  { value: "FR", label: "金曜" },
+  { value: "SA", label: "土曜" },
+  { value: "SU", label: "日曜" },
+];
 
-function mapRecurrenceRuleToPreset(rruleText: string | null | undefined): RecurrencePresetKey | null {
+interface RecurrenceBuilderState {
+  preset: RecurrencePresetKey;
+  interval: number;
+  byDay: string;
+  monthDay: number;
+  byMonth: number;
+}
+
+function deriveRecurrenceBuilderState(rruleText: string | null | undefined): RecurrenceBuilderState {
+  const parsed = parseRruleText(rruleText);
+  if (!parsed) {
+    return {
+      preset: "weekly_monday",
+      interval: 1,
+      byDay: "MO",
+      monthDay: 1,
+      byMonth: 1,
+    };
+  }
+
+  if (parsed.freq === "DAILY" && parsed.byDay === "MO,TU,WE,TH,FR") {
+    return {
+      preset: "weekdays",
+      interval: parsed.interval,
+      byDay: "MO",
+      monthDay: 1,
+      byMonth: 1,
+    };
+  }
+
+  if (parsed.freq === "WEEKLY") {
+    const byDay = parsed.byDay?.split(",")[0] ?? "MO";
+    return {
+      preset: parsed.interval === 1 && byDay === "MO" ? "weekly_monday" : "weekly_custom",
+      interval: parsed.interval,
+      byDay,
+      monthDay: 1,
+      byMonth: 1,
+    };
+  }
+
+  if (parsed.freq === "MONTHLY") {
+    const monthDay = parseBoundedInteger(parsed.byMonthDay, 1, 31) ?? 1;
+    return {
+      preset: parsed.interval === 1 && monthDay === 1 ? "monthly" : "monthly_custom",
+      interval: parsed.interval,
+      byDay: "MO",
+      monthDay,
+      byMonth: 1,
+    };
+  }
+
+  if (parsed.freq === "YEARLY") {
+    return {
+      preset: "yearly",
+      interval: parsed.interval,
+      byDay: "MO",
+      monthDay: parseBoundedInteger(parsed.byMonthDay, 1, 31) ?? 1,
+      byMonth: parseBoundedInteger(parsed.byMonth, 1, 12) ?? 1,
+    };
+  }
+
+  return {
+    preset: "weekly_monday",
+    interval: parsed.interval,
+    byDay: parsed.byDay?.split(",")[0] ?? "MO",
+    monthDay: parseBoundedInteger(parsed.byMonthDay, 1, 31) ?? 1,
+    byMonth: parseBoundedInteger(parsed.byMonth, 1, 12) ?? 1,
+  };
+}
+
+function getRecurrenceRuleSupport(rruleText: string | null | undefined): {
+  supported: boolean;
+  label: string | null;
+} {
+  const parsed = parseRruleText(rruleText);
+  if (!parsed) {
+    return { supported: false, label: null };
+  }
+
+  if (parsed.freq === "DAILY" && parsed.byDay === "MO,TU,WE,TH,FR") {
+    return { supported: true, label: "平日" };
+  }
+
+  if (parsed.freq === "WEEKLY") {
+    const byDay = parsed.byDay?.split(",")[0] ?? "MO";
+    const label = byDay === "MO" && parsed.interval === 1
+      ? "週次(月曜)"
+      : `週次(${formatRruleByDay(byDay)} / ${parsed.interval}週ごと)`;
+    return { supported: true, label };
+  }
+
+  if (parsed.freq === "MONTHLY") {
+    const monthDay = parseBoundedInteger(parsed.byMonthDay, 1, 31);
+    return {
+      supported: true,
+      label: monthDay
+        ? `月次(${monthDay}日 / ${parsed.interval}か月ごと)`
+        : `月次(${parsed.interval}か月ごと)`,
+    };
+  }
+
+  return { supported: false, label: null };
+}
+
+function buildRecurrenceRuleText(input: {
+  preset: RecurrencePresetKey;
+  intervalText: string;
+  byDay: string;
+  monthDayText: string;
+  byMonthText: string;
+}): { ok: true; rruleText: string } | { ok: false; error: string } {
+  const interval = parseBoundedInteger(input.intervalText, 1, 99);
+  if (!interval) {
+    return { ok: false, error: "Interval は 1-99 の整数で入力して下さい" };
+  }
+
+  switch (input.preset) {
+    case "weekly_monday":
+      return { ok: true, rruleText: `FREQ=WEEKLY;INTERVAL=${interval};BYDAY=MO` };
+    case "weekly_custom":
+      if (!RECURRENCE_BY_DAY_OPTIONS.some((option) => option.value === input.byDay)) {
+        return { ok: false, error: "Weekday を選択して下さい" };
+      }
+      return { ok: true, rruleText: `FREQ=WEEKLY;INTERVAL=${interval};BYDAY=${input.byDay}` };
+    case "monthly":
+      return { ok: true, rruleText: `FREQ=MONTHLY;INTERVAL=${interval};BYMONTHDAY=1` };
+    case "monthly_custom": {
+      const monthDay = parseBoundedInteger(input.monthDayText, 1, 31);
+      if (!monthDay) {
+        return { ok: false, error: "Month day は 1-31 の整数で入力して下さい" };
+      }
+      return { ok: true, rruleText: `FREQ=MONTHLY;INTERVAL=${interval};BYMONTHDAY=${monthDay}` };
+    }
+    case "weekdays":
+      return { ok: true, rruleText: `FREQ=DAILY;INTERVAL=${interval};BYDAY=MO,TU,WE,TH,FR` };
+    case "yearly": {
+      const byMonth = parseBoundedInteger(input.byMonthText, 1, 12);
+      const monthDay = parseBoundedInteger(input.monthDayText, 1, 31);
+      if (!byMonth || !monthDay) {
+        return { ok: false, error: "Yearly は Month 1-12 / Month day 1-31 を入力して下さい" };
+      }
+      return {
+        ok: true,
+        rruleText: `FREQ=YEARLY;INTERVAL=${interval};BYMONTH=${byMonth};BYMONTHDAY=${monthDay}`,
+      };
+    }
+  }
+}
+
+function parseRruleText(rruleText: string | null | undefined): {
+  freq: string;
+  interval: number;
+  byDay: string | null;
+  byMonthDay: string | null;
+  byMonth: string | null;
+} | null {
   if (!rruleText) {
     return null;
   }
 
-  const matched = RECURRENCE_PRESET_OPTIONS.find((option) => option.rruleText === rruleText);
-  return matched?.key ?? null;
+  const parts = new Map<string, string>();
+  for (const token of rruleText.split(";")) {
+    const [key, value] = token.split("=");
+    if (key && value) {
+      parts.set(key.trim().toUpperCase(), value.trim().toUpperCase());
+    }
+  }
+
+  const freq = parts.get("FREQ");
+  if (!freq) {
+    return null;
+  }
+
+  return {
+    freq,
+    interval: parseBoundedInteger(parts.get("INTERVAL") ?? "1", 1, 99) ?? 1,
+    byDay: parts.get("BYDAY") ?? null,
+    byMonthDay: parts.get("BYMONTHDAY") ?? null,
+    byMonth: parts.get("BYMONTH") ?? null,
+  };
+}
+
+function parseBoundedInteger(value: string | null | undefined, min: number, max: number): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+    return null;
+  }
+  return parsed;
+}
+
+function formatRruleByDay(byDay: string): string {
+  return RECURRENCE_BY_DAY_OPTIONS.find((option) => option.value === byDay)?.label ?? byDay;
 }
 
 function getRecurrenceAvailability(item: ItemRecord | null): {

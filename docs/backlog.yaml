@@ -268,7 +268,7 @@ epics:
           - Playwright で英語切替後の overlay / drawer copy を確認できる
       - id: TASK-1202
         title: Add generic recurrence editor and unsupported rule builder
-        status: pending
+        status: done
         done_when:
           - preset 以外の cadence を UI から編集できる
           - unsupported rule を raw replace/delete だけでなく user-facing に再構築できる

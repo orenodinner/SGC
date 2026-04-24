@@ -1747,11 +1747,22 @@ test("detail drawer recurrence editor saves, replaces, and removes recurrence ru
     await expect(detailDrawer).toContainText(unsupportedTitle);
     await expect(detailDrawer).toContainText("unsupported rule: FREQ=YEARLY;INTERVAL=1");
     await expect(detailDrawer).toContainText("generation 対象外");
-    await detailDrawer.getByLabel("Recurrence preset").selectOption("monthly");
-    await detailDrawer.getByLabel("Next occurrence").fill("2026-07-01");
+    await detailDrawer.getByLabel("Recurrence preset").selectOption("yearly");
+    await detailDrawer.getByLabel("Recurrence month", { exact: true }).fill("9");
+    await detailDrawer.getByLabel("Recurrence month day").fill("15");
+    await detailDrawer.getByLabel("Next occurrence").fill("2026-09-15");
     await detailDrawer.getByRole("button", { name: "更新" }).click();
     await expect(page.locator(".notice-banner")).toContainText("Recurrence saved");
-    await expect(detailDrawer).toContainText("月次");
+    await expect(detailDrawer).toContainText("unsupported rule: FREQ=YEARLY;INTERVAL=1;BYMONTH=9;BYMONTHDAY=15");
+    await expect(detailDrawer).toContainText("下の builder で再構築");
+
+    await detailDrawer.getByLabel("Recurrence preset").selectOption("weekly_custom");
+    await detailDrawer.getByLabel("Recurrence interval").fill("2");
+    await detailDrawer.getByLabel("Recurrence weekday").selectOption("FR");
+    await detailDrawer.getByLabel("Next occurrence").fill("2026-07-03");
+    await detailDrawer.getByRole("button", { name: "更新" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Recurrence saved");
+    await expect(detailDrawer).toContainText("週次(金曜 / 2週ごと)");
     await expect(detailDrawer).not.toContainText("unsupported rule:");
 
     const unscheduledRow = page

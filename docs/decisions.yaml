@@ -516,3 +516,9 @@ decisions:
     status: accepted
     decision: Phase 12 の残作業は `TASK-1202` generic recurrence editor、`TASK-1203` theme token coverage、`TASK-1204` installer / regression hardening の順で実装する。各 slice は UI / service or fallback / test / tracker update を同時に閉じ、外部契約や署名証明書が必要な配布判断は blocker ではなく docs 上の対象外リスクとして扱う
     rationale: 残作業のうち recurrence は既存 detail drawer と service contract に最も近く、次に theme の見た目破綻を閉じ、最後に配布と回帰網を固める順が最も再開しやすい。外部依存を blocker にすると完走が止まるため、ローカル Windows 配布として成立する範囲を先に閉じる。
+
+  - id: DEC-086
+    topic: Generic recurrence builder scope
+    status: accepted
+    decision: `TASK-1202` では recurrence service の raw `rrule_text` contract は維持し、Detail drawer に field builder を追加して weekly 任意曜日 / 任意 interval、monthly 日付指定 / 任意 interval、yearly 保存専用 rule を構築する。generation は既存対応済みの weekly / monthly / weekdays に限定し、yearly などは保存可だが generation 対象外 note を表示する
+    rationale: 汎用 RRULE editor を service schema 変更で実装すると migration と validation scope が大きくなる。既存の raw RRULE 永続化を活かし、UI 側で安全な builder を追加すれば、unsupported rule の再構築導線を小さく閉じつつ generation MVP の挙動を壊さずに済む。

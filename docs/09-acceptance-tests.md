@@ -527,6 +527,14 @@
 - group / milestone / unscheduled item では recurrence editor は unavailable note に置き換わる
 - recurring task を `done` にすると既存 MVP ルールどおり次の occurrence が1件生成される
 
+### ACC-061 Generic recurrence builder
+**Given** unsupported recurrence rule を持つ scheduled task の Detail drawer を開いている  
+**When** cadence builder から yearly rule を保存し、その後 weekly の任意曜日 / interval rule へ再構築して保存する  
+**Then**
+- yearly rule は保存されるが generation 対象外として見える
+- unsupported rule は raw text 直接編集ではなく builder から再構築できる
+- weekly 任意曜日 / interval rule へ置き換えると supported summary として表示され、unsupported note は消える
+
 ### ACC-020 Backup recovery
 **Given** 直近バックアップあり  
 **When** DB 異常を検知  

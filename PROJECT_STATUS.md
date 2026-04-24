@@ -1,18 +1,24 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-25 01:20 JST
+最終更新日時: 2026-04-25 02:58 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 87
-- 今回完了したサイクル: Autonomous completion preparation
+- 完了サイクル数: 88
+- 今回完了したサイクル: Generic recurrence builder slice
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` を継続
 - `TASK-1201 Expand multilingual UI beyond major headings` は完了扱いへ整理済み
-- 次の実装開始点は `TASK-1202 Add generic recurrence editor and unsupported rule builder`
+- `TASK-1202 Add generic recurrence editor and unsupported rule builder` は完了
+- 次の実装開始点は `TASK-1203 Broaden theme and visual token coverage`
 
 ## 直近で完了したもの
+- Detail drawer の recurrence UI を preset-only から cadence builder へ拡張した
+- weekly の任意曜日 / 任意 interval、monthly の日付指定 / 任意 interval、yearly の保存専用 rule を UI から構築できるようにした
+- unsupported rule は generation 対象外 note を残しつつ、下の builder から user-facing に再構築できるようにした
+- desktop Playwright smoke に yearly unsupported 保存と weekly custom rebuild の回帰確認を追加した
+- `ACC-061 Generic recurrence builder` と `DEC-086` を追加し、`TASK-1202` を done へ更新した
 - `docs/14-autonomous-completion-plan.md` を追加し、自律完走までの実装順、検証ゲート、停止条件を固定した
 - `docs/backlog.yaml` の `TASK-1201` を、既存の Playwright smoke 固定済み状態に合わせて `done` へ整理した
 - `docs/decisions.yaml` に Phase 12 残作業の実装順を `DEC-085` として記録した

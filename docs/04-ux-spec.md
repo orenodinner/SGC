@@ -92,6 +92,9 @@
 - recurrence section の入力要素は `preset select / next occurrence date / 保存 / 削除` に限定する
 - unsupported rule が入っている時は editable form の上に `unsupported rule / generation 対象外` の read-only note を出す
 - unscheduled item と group / milestone では recurrence editor の代わりに unavailable note を出す
+- `TASK-1202` では recurrence section の同じ場所に cadence builder を追加し、別 modal は作らない
+- cadence builder は `Cadence / Interval / Weekday / Month / Month day / Next occurrence` の必要項目だけを表示し、選択した cadence に不要な field は隠す
+- unsupported rule が入っている時は read-only note を残しつつ、下の builder から supported / unsupported rule へ再構築して保存できる
 - Inbox の `テンプレート変換` はまだ出さず、save/list/apply が揃ってから別導線で追加する
 - 最後の follow-up では Inbox の `テンプレート変換` からこの panel を起動できるようにする
 - detail drawer の dependency セクションには `先行タスク追加` と `既存 dependency 一覧` を置く
