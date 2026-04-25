@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 02:11 JST
+最終更新日時: 2026-04-26 03:25 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 92
-- 今回完了したサイクル: TASK-1301 Text Git backup for gantt and task data
+- 完了サイクル数: 93
+- 今回完了したサイクル: Japanese README refresh
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -18,6 +18,8 @@
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- `README.md` を実装パック向け説明から、利用者 / 開発者向けの詳細な日本語READMEへ全面更新した
+- README に Windows portable artifact の使い方、開発起動、主要機能、Excel round-trip、SQLite backup / Text Git backup、Settings、template、recurrence、既知blockerを整理した
 - sidebar `Data Protection` card に `Text Git backup` action を追加した
 - desktop では `text-backup-git` directory に `manifest / projects / items / dependencies / tags / item_tags / recurrence_rules / templates / settings` の deterministic JSON と project 別 Markdown を出力するようにした
 - Git が利用可能な場合は text backup directory を local Git repository として初期化 / commit し、notice に short commit hash を表示するようにした
