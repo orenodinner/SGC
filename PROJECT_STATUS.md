@@ -25,6 +25,8 @@
 - browser fallback では Git 実行不可を明示しつつ text JSON snapshot を download する導線を追加した
 - `ACC-065` / `DEC-089` と `EPIC-13` / `TASK-1301` を追加し、text backup の復元用SQLite backupとの役割分離を仕様化した
 - service test と desktop Playwright backup smoke に text backup 実行と実ファイル確認を追加した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `154,573,031 bytes` であることを確認した
+- `gh` CLI は引き続き PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - Phase 12 final acceptance として `typecheck / lint / test / build` を再実行して通過を確認した
 - representative desktop E2E として `settings theme`、`desktop regression journey`、`detail drawer recurrence` を再実行して通過を確認した
 - Windows artifact `artifacts/sgc-portable-win-x64-v0.1.0.zip` が存在し、サイズ `154,569,898 bytes` であることを確認した
