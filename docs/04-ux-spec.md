@@ -31,6 +31,8 @@
 - `テンプレート変換` の初期挙動は current Inbox item から draft project を作成し、その item を root row として移したうえで Project Detail を開き、`Templates` panel を自動で開く
 - 初期の `テンプレート変換` では専用 modal を増やさず、既存の `Save current project as template` / `Save selected root as template` をそのまま使う
 - sidebar 下部には `Data Protection` card を置き、`Backup now` と recent backup list を表示してよい
+- sidebar の project list は大量 project でも Gantt / Project Detail を圧迫しないよう、compact row、内部スクロール、検索、折りたたみを備える
+- project list の内部スクロールは sidebar 全体の長大スクロールへ波及させず、検索変更時は一覧先頭へ戻して目的 project を見失わないようにする
 - `Backup now` 成功時は notice banner に保存先パスを短く表示する
 - `Data Protection` card には `Text Git backup` を追加し、SQLite の復元用 backup とは別に current workspace を text artifact として保存できる
 - `Text Git backup` 成功時は notice banner に text backup directory と、Git commit できた場合は short commit hash を短く表示する
@@ -84,6 +86,8 @@
 - error row では summary message に加えて、`列名: 理由` の issue list を同じ row 内に表示する
 - warning row では warning chip を同じ row 内に表示する
 - `Templates` の first slice は Project Detail toolbar の button から開く panel として置いてよい
+- Project Detail toolbar の下には、選択中 project 直下へ task を1件追加できる compact quick-add form を置いてよい
+- quick-add form は title だけで送信でき、作成される row は root-level `task` とする
 - template panel では `WBS Templates` と `Project Templates` の2 section を分け、保存済み template の `name / updatedAt` と short helper copy を表示する
 - `WBS Templates` の row action は `Apply to current project` に限定し、current project root 直下へ subtree を追加する
 - `Project Templates` の row action は `Create project` に限定し、新しい project を作成したらその project を選択状態にして Project Detail を開く

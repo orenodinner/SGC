@@ -150,6 +150,9 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>("home");
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectCode, setNewProjectCode] = useState("");
+  const [projectListCollapsed, setProjectListCollapsed] = useState(false);
+  const [projectListQuery, setProjectListQuery] = useState("");
+  const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [quickCaptureText, setQuickCaptureText] = useState("");
   const [timelineScale, setTimelineScale] = useState<TimelineScale>("day");
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
@@ -175,6 +178,7 @@ export default function App() {
   const hasHydratedInitialViewRef = useRef(false);
   const wbsScrollRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const projectListScrollRef = useRef<HTMLDivElement | null>(null);
   const syncLockRef = useRef<"wbs" | "timeline" | null>(null);
   const activeRowDragItemIdRef = useRef<string | null>(null);
 
@@ -195,6 +199,10 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     document.body.dataset.theme = theme;
   }, [theme]);
+
+  useEffect(() => {
+    projectListScrollRef.current?.scrollTo({ top: 0 });
+  }, [projectListQuery]);
 
   const effectiveExpandedIds = useMemo(() => {
     const next = new Set(expandedIds);
@@ -321,6 +329,15 @@ export default function App() {
         : [],
     [activeSearchFilter, language, projects, searchableViewMode]
   );
+  const sidebarProjects = useMemo(() => {
+    const query = projectListQuery.trim().toLocaleLowerCase();
+    if (!query) {
+      return projects;
+    }
+    return projects.filter((project) =>
+      `${project.code} ${project.name} ${project.ownerName}`.toLocaleLowerCase().includes(query)
+    );
+  }, [projectListQuery, projects]);
   const updateCurrentSearchFilter = useCallback(
     (patch: Partial<SearchFilterState>) => {
       if (!searchableViewMode) {
@@ -802,27 +819,62 @@ export default function App() {
           <button type="submit">{copy.sidebar.createProject}</button>
         </form>
 
-        <div className="project-list">
-          {projects.length === 0 ? (
-            <p className="empty-message">{copy.sidebar.emptyProjects}</p>
-          ) : (
-            projects.map((project) => (
-              <button
-                key={project.id}
-                className={project.id === selectedProjectId ? "project-card selected" : "project-card"}
-                onClick={() => {
-                  switchView("project");
-                  void selectProject(project.id);
-                }}
-                type="button"
-              >
-                <span className="project-card-code">{project.code}</span>
-                <strong>{project.name}</strong>
-                <span>{project.progressCached}% complete</span>
-              </button>
-            ))
+        <section className="sidebar-projects" aria-label={copy.sidebar.projectListLabel}>
+          <div className="sidebar-projects-header">
+            <div>
+              <p className="sidebar-label">{copy.sidebar.projectListLabel}</p>
+              <strong>{copy.sidebar.projectCount(sidebarProjects.length, projects.length)}</strong>
+            </div>
+            <button
+              type="button"
+              className="nav-chip"
+              aria-expanded={!projectListCollapsed}
+              onClick={() => setProjectListCollapsed((current) => !current)}
+            >
+              {projectListCollapsed
+                ? copy.sidebar.projectListCollapsed
+                : copy.sidebar.projectListExpanded}
+            </button>
+          </div>
+          {projectListCollapsed ? null : (
+            <>
+              <input
+                className="project-search-input"
+                aria-label={copy.sidebar.projectSearchPlaceholder}
+                value={projectListQuery}
+                onChange={(event) => setProjectListQuery(event.target.value)}
+                placeholder={copy.sidebar.projectSearchPlaceholder}
+              />
+              <div className="project-list" ref={projectListScrollRef}>
+                {projects.length === 0 ? (
+                  <p className="empty-message">{copy.sidebar.emptyProjects}</p>
+                ) : sidebarProjects.length === 0 ? (
+                  <p className="empty-message">{copy.project.emptyFilteredRows}</p>
+                ) : (
+                  sidebarProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      className={
+                        project.id === selectedProjectId ? "project-card selected" : "project-card"
+                      }
+                      onClick={() => {
+                        setQuickTaskTitle("");
+                        switchView("project");
+                        void selectProject(project.id);
+                      }}
+                      type="button"
+                      title={`${project.code} ${project.name}`}
+                    >
+                      <span className="project-card-code">{project.code}</span>
+                      <strong>{project.name}</strong>
+                      <span className="project-card-progress">{project.progressCached}%</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </>
           )}
-        </div>
+        </section>
 
         <section className="backup-card" aria-label="Data Protection">
           <div className="section-heading">
@@ -1115,6 +1167,36 @@ export default function App() {
                 </button>
               </div>
             </section>
+
+            <form
+              className="quick-task-add"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const title = quickTaskTitle.trim();
+                if (!title) {
+                  return;
+                }
+                const item = await createItem(projectDetail.project.id, null, title, "task");
+                if (item) {
+                  setSelectedItemId(item.id);
+                  setQuickTaskTitle("");
+                }
+              }}
+            >
+              <div>
+                <p className="sidebar-label">{copy.project.quickAddLabel}</p>
+                <strong>{copy.project.quickAddTitle}</strong>
+              </div>
+              <input
+                aria-label={copy.project.quickAddTitle}
+                value={quickTaskTitle}
+                onChange={(event) => setQuickTaskTitle(event.target.value)}
+                placeholder={copy.project.quickAddPlaceholder}
+              />
+              <button type="submit" disabled={!quickTaskTitle.trim()}>
+                {copy.project.quickAddButton}
+              </button>
+            </form>
 
             <section className="project-workspace">
               <div className="wbs-panel">

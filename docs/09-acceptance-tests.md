@@ -624,3 +624,12 @@
 - `project / item / dependency / tag / item_tag / recurrence_rule / template / app_settings` の current data が text file として確認できる
 - Git が利用可能な環境では text backup directory の Git repository に snapshot commit が作成される
 - Git が利用できない環境では text file 出力は成功し、commit 未実行理由が user-facing に表示される
+
+### ACC-066 Compact project list and quick task add
+**Given** desktop app に多数の project がある
+**When** sidebar project list を検索 / 折りたたみし、Project Detail で quick-add form から task title を送信する
+**Then**
+- project list は compact row と内部スクロールに収まり、Gantt / Project Detail の表示を圧迫しない
+- project search で絞り込んだ project row をクリックできる
+- project list は折りたたみ / 再表示できる
+- quick-add form から current project 直下に root-level task が作成される

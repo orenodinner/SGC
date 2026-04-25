@@ -17,6 +17,11 @@ export interface UiCopy {
     codePlaceholder: string;
     createProject: string;
     emptyProjects: string;
+    projectListLabel: string;
+    projectListCollapsed: string;
+    projectListExpanded: string;
+    projectSearchPlaceholder: string;
+    projectCount: (visible: number, total: number) => string;
     dataProtectionLabel: string;
     localBackups: string;
     autoBackupPolicy: string;
@@ -59,6 +64,10 @@ export interface UiCopy {
     applyProjectTemplate: string;
     emptyTemplates: string;
     addRootRow: string;
+    quickAddLabel: string;
+    quickAddTitle: string;
+    quickAddPlaceholder: string;
+    quickAddButton: string;
     emptyFilteredRows: string;
     emptyTreeRows: string;
     emptyTimelineRows: string;
@@ -254,6 +263,11 @@ const JA_COPY: UiCopy = {
     codePlaceholder: "例: PRJ-001",
     createProject: "プロジェクト作成",
     emptyProjects: "まず1つプロジェクトを作成して下さい",
+    projectListLabel: "Projects",
+    projectListCollapsed: "表示",
+    projectListExpanded: "折りたたむ",
+    projectSearchPlaceholder: "プロジェクト検索",
+    projectCount: (visible, total) => `${visible} / ${total} 件`,
     dataProtectionLabel: "Data Protection",
     localBackups: "Local Backups",
     autoBackupPolicy: "自動: 起動時に日次1回 / auto 7件保持",
@@ -296,6 +310,10 @@ const JA_COPY: UiCopy = {
     applyProjectTemplate: "新しい project を作成",
     emptyTemplates: "まだ template はありません。",
     addRootRow: "ルート行を追加",
+    quickAddLabel: "Quick task add",
+    quickAddTitle: "プロジェクト直下にタスクを追加",
+    quickAddPlaceholder: "例: 要件レビュー",
+    quickAddButton: "タスク追加",
     emptyFilteredRows: "条件に合う row はありません。",
     emptyTreeRows: "親・子・孫を作れる最小 CRUD から開始して下さい。",
     emptyTimelineRows: "日付が入った項目を表示します",
@@ -491,6 +509,11 @@ const EN_COPY: UiCopy = {
     codePlaceholder: "Example: PRJ-001",
     createProject: "Create Project",
     emptyProjects: "Create your first project to get started.",
+    projectListLabel: "Projects",
+    projectListCollapsed: "Show",
+    projectListExpanded: "Collapse",
+    projectSearchPlaceholder: "Search projects",
+    projectCount: (visible, total) => `${visible} / ${total}`,
     dataProtectionLabel: "Data Protection",
     localBackups: "Local Backups",
     autoBackupPolicy: "Auto: once per local day on startup / keep 7 auto backups",
@@ -533,6 +556,10 @@ const EN_COPY: UiCopy = {
     applyProjectTemplate: "Create project",
     emptyTemplates: "No templates yet.",
     addRootRow: "Add Root Row",
+    quickAddLabel: "Quick task add",
+    quickAddTitle: "Add a task under this project",
+    quickAddPlaceholder: "Example: Requirements review",
+    quickAddButton: "Add Task",
     emptyFilteredRows: "No rows match the current filter.",
     emptyTreeRows: "Start from the minimum CRUD flow that creates parent, child, and grandchild rows.",
     emptyTimelineRows: "Rows with dates appear here.",

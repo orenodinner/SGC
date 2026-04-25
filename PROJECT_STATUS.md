@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 03:25 JST
+最終更新日時: 2026-04-26 03:46 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 93
-- 今回完了したサイクル: Japanese README refresh
+- 完了サイクル数: 94
+- 今回完了したサイクル: Sidebar usability and quick task entry
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -15,9 +15,19 @@
 - `TASK-1204 Add fuller installer and regression hardening` は完了
 - Phase 12 backlog は全 task 完了。final acceptance validation も通過
 - EPIC-13 `Text backup and audit history` / `TASK-1301 Add text Git backup for gantt and task data` は完了
+- EPIC-14 `Sidebar usability and quick task entry` / `TASK-1401 Compact project list and add quick task entry` は完了
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- sidebar project list を compact row 化し、内部スクロール、検索、折りたたみ / 再表示を追加した
+- project list が flex shrink で潰れて Data Protection card とクリック領域が重なる問題を修正した
+- project search の変更時に project list scroll を先頭へ戻し、検索後の目的 project をクリックしやすくした
+- Project Detail toolbar 下に `Quick task add` form を追加し、title だけで current project 直下の root-level `task` を作成できるようにした
+- `ACC-066` / `DEC-090` と `EPIC-14` / `TASK-1401` を追加し、sidebar density と quick task entry の仕様を記録した
+- desktop Playwright E2E で、28 project 時の compact list height、search、collapse / expand、quick task 作成を固定した
+- `typecheck / lint / test / build` と targeted desktop E2E を通過した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `154,573,924 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - `README.md` を実装パック向け説明から、利用者 / 開発者向けの詳細な日本語READMEへ全面更新した
 - README に Windows portable artifact の使い方、開発起動、主要機能、Excel round-trip、SQLite backup / Text Git backup、Settings、template、recurrence、既知blockerを整理した
 - sidebar `Data Protection` card に `Text Git backup` action を追加した

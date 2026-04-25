@@ -77,7 +77,12 @@ interface AppState {
   upsertRecurrenceRule: (input: UpsertRecurrenceRuleInput) => Promise<RecurrenceRule | null>;
   deleteRecurrenceRule: (itemId: string) => Promise<boolean>;
   updateProject: (input: UpdateProjectInput) => Promise<void>;
-  createItem: (projectId: string, parentId?: string | null) => Promise<void>;
+  createItem: (
+    projectId: string,
+    parentId?: string | null,
+    title?: string,
+    type?: ItemRecord["type"]
+  ) => Promise<ItemRecord | null>;
   updateItem: (input: UpdateItemInput) => Promise<void>;
   archiveItem: (itemId: string) => Promise<void>;
   captureQuickEntry: (text: string) => Promise<void>;
@@ -652,14 +657,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  async createItem(projectId, parentId = null) {
+  async createItem(projectId, parentId = null, title, type) {
     set({ loading: true, error: null });
     try {
-      await api.items.create({
+      const item = await api.items.create({
         projectId,
         parentId,
-        title: parentId ? "新しい子タスク" : "新しいタスク",
-        type: parentId ? "task" : "group",
+        title: title?.trim() || (parentId ? "新しい子タスク" : "新しいタスク"),
+        type: type ?? (parentId ? "task" : "group"),
       });
 
       const [projects, projectDetail, homeSummary, portfolioSummary] = await Promise.all([
@@ -675,11 +680,13 @@ export const useAppStore = create<AppState>((set, get) => ({
         portfolioSummary,
         loading: false,
       });
+      return item;
     } catch (error) {
       set({
         loading: false,
         error: error instanceof Error ? error.message : "Failed to create item",
       });
+      return null;
     }
   },
 

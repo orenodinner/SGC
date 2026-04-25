@@ -298,3 +298,17 @@ epics:
           - current workspace data が deterministic JSON と project Markdown へ出力される
           - Git が利用可能なら text backup directory に snapshot commit が作成される
           - Git が無い場合は text output 成功と Git blocker が user-facing に分かる
+
+  - id: EPIC-14
+    name: Sidebar usability and quick task entry
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-1401
+        title: Compact project list and add quick task entry
+        status: done
+        done_when:
+          - Sidebar project list stays compact with many projects
+          - Project list supports search and collapse / expand
+          - Project Detail can add a root-level task from a single title input
+          - Desktop E2E verifies compact list behavior and quick task creation

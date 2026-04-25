@@ -185,22 +185,27 @@ textarea {
 .shell {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 28px 22px;
+  gap: 14px;
+  min-height: 0;
+  padding: 22px 18px;
   border-right: 1px solid var(--shell-sidebar-border);
   background: var(--shell-sidebar-bg);
   backdrop-filter: blur(10px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .sidebar h1 {
-  margin: 6px 0;
-  font-size: 30px;
+  margin: 4px 0;
+  font-size: 26px;
 }
 
 .sidebar-label {
@@ -246,9 +251,44 @@ textarea {
   font-size: 13px;
 }
 
+.sidebar-projects {
+  display: grid;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  background: var(--panel-bg);
+  overflow: hidden;
+}
+
+.sidebar-projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sidebar-projects-header .nav-chip {
+  padding: 7px 10px;
+  text-align: center;
+}
+
+.project-search-input {
+  min-height: 34px;
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
 .project-list {
   display: grid;
-  gap: 10px;
+  gap: 7px;
+  max-height: clamp(148px, 24vh, 260px);
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
 }
 
 .backup-card {
@@ -385,12 +425,21 @@ textarea {
 
 .project-card {
   display: grid;
-  gap: 6px;
+  grid-template-columns: minmax(50px, 0.55fr) minmax(0, 1.6fr) auto;
+  align-items: center;
+  gap: 8px;
   text-align: left;
-  padding: 14px;
+  min-height: 40px;
+  padding: 8px 10px;
   background: var(--panel-strong-bg);
   color: inherit;
   border: 1px solid transparent;
+}
+
+.project-card strong {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .project-card.selected {
@@ -487,6 +536,15 @@ textarea {
 .project-card-code {
   font-size: 12px;
   color: var(--surface-accent-text);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.project-card-progress {
+  color: var(--helper-text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .main-panel {
@@ -494,10 +552,13 @@ textarea {
   display: grid;
   gap: 20px;
   padding: 28px;
+  min-width: 0;
+  overflow: auto;
 }
 
 .project-header,
 .toolbar,
+.quick-task-add,
 .table-shell,
 .empty-panel,
 .capture-panel,
@@ -759,6 +820,27 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.quick-task-add {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px 18px;
+}
+
+.quick-task-add input,
+.quick-task-add button {
+  min-height: 40px;
+}
+
+.quick-task-add button {
+  white-space: nowrap;
+}
+
+.quick-task-add strong {
+  display: block;
 }
 
 .template-section-grid {
@@ -1980,6 +2062,11 @@ textarea {
 
   .dependency-editor-create {
     grid-template-columns: 1fr;
+  }
+
+  .quick-task-add {
+    grid-template-columns: 1fr;
+    align-items: stretch;
   }
 
   .recurrence-editor-form {

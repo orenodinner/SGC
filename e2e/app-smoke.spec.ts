@@ -1259,6 +1259,62 @@ test("desktop regression journey preserves project, settings, backup, and export
   }
 });
 
+test("sidebar project list stays compact and quick-add creates a task under the project", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-sidebar-usability-e2e-"));
+  const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
+  const bootstrapManager = new DatabaseManager(dbPath);
+  await bootstrapManager.initialize();
+  const bootstrapService = new WorkspaceService(bootstrapManager);
+  const timestamp = Date.now();
+  const targetName = `Compact Target ${timestamp}`;
+
+  for (let index = 1; index <= 28; index += 1) {
+    bootstrapService.createProject({
+      name: index === 17 ? targetName : `Compact Project ${String(index).padStart(2, "0")} ${timestamp}`,
+      code: `CMP-${String(index).padStart(2, "0")}`,
+    });
+  }
+
+  const app = await electron.launch({
+    executablePath: electronExecutable,
+    args: [path.join(process.cwd(), ".")],
+    env: {
+      ...process.env,
+      SGC_USER_DATA_DIR: userDataDir,
+    },
+  });
+
+  try {
+    const page = await app.firstWindow();
+    await expect(page.getByRole("heading", { name: "Simple Gantt Chart" })).toBeVisible();
+    await expect(page.locator(".sidebar-projects")).toContainText(/28\s*\/\s*28\s*件/u);
+
+    const projectListBox = await page.locator(".project-list").boundingBox();
+    expect(projectListBox).not.toBeNull();
+    expect(projectListBox?.height ?? 0).toBeLessThanOrEqual(270);
+
+    await page.getByLabel("プロジェクト検索").fill("Target");
+    await expect(page.locator(".sidebar-projects")).toContainText(/1\s*\/\s*28\s*件/u);
+    await page.locator(".project-card").filter({ hasText: targetName }).click();
+    await expect(page.locator(`input[value="${targetName}"]`).first()).toBeVisible();
+    await expect(page.locator(".project-workspace")).toBeVisible();
+
+    const quickTaskTitle = `Quick Added Task ${timestamp}`;
+    await page.getByLabel("プロジェクト直下にタスクを追加").fill(quickTaskTitle);
+    await page.getByRole("button", { name: "タスク追加" }).click();
+    await expect(page.locator(`.table-body input[value="${quickTaskTitle}"]`).first()).toBeVisible();
+    await expect(page.locator(".table-body .table-row").first().locator("select").first()).toHaveValue("task");
+
+    await page.getByRole("button", { name: "折りたたむ" }).click();
+    await expect(page.locator(".project-list")).toHaveCount(0);
+    await page.getByRole("button", { name: "表示" }).click();
+    await expect(page.locator(".project-list")).toBeVisible();
+  } finally {
+    await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
+});
+
 test("project detail virtualizes large row sets", async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-virtualization-e2e-"));
   const dbPath = path.join(userDataDir, "data", "sgc.sqlite");
