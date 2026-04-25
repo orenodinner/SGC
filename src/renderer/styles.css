@@ -695,13 +695,13 @@ textarea {
 
 .timeline-scale-switch span {
   font-size: 13px;
-  color: #6d5c47;
+  color: var(--helper-text);
 }
 
 .timeline-keyboard-hint {
   margin: 0;
   font-size: 12px;
-  color: #7a6a58;
+  color: var(--helper-text);
 }
 
 .timeline-scale-buttons {
@@ -720,12 +720,12 @@ textarea {
   gap: 4px;
   padding: 14px;
   border-radius: 16px;
-  background: #f1e6d6;
+  background: var(--row-soft-bg);
 }
 
 .metric-card span {
   font-size: 12px;
-  color: #6d5c47;
+  color: var(--helper-text);
 }
 
 .metric-card strong {
@@ -1323,12 +1323,13 @@ textarea {
 
 .project-workspace {
   display: grid;
-  grid-template-columns: minmax(760px, 1.5fr) minmax(380px, 1fr);
+  grid-template-columns: minmax(0, 1.12fr) minmax(520px, 0.88fr);
   gap: 18px;
 }
 
 .wbs-panel,
 .timeline-panel {
+  min-width: 0;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 22px;
@@ -1598,10 +1599,10 @@ textarea {
   display: grid;
   gap: 18px;
   padding: 22px;
-  background: rgba(255, 251, 245, 0.82);
-  border: 1px solid rgba(107, 84, 58, 0.12);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
   border-radius: 22px;
-  box-shadow: 0 20px 50px rgba(85, 68, 42, 0.08);
+  box-shadow: var(--panel-shadow);
 }
 
 .detail-drawer.empty {
@@ -1622,7 +1623,7 @@ textarea {
 
 .detail-drawer-header p {
   margin: 0;
-  color: #6d5c47;
+  color: var(--helper-text);
 }
 
 .detail-drawer-grid {
@@ -1635,7 +1636,13 @@ textarea {
   display: grid;
   gap: 8px;
   font-size: 13px;
-  color: #5c5044;
+  color: var(--subtle-text);
+}
+
+.detail-field input,
+.detail-field select,
+.detail-field textarea {
+  color: var(--app-text);
 }
 
 .detail-field-wide {
@@ -1649,16 +1656,18 @@ textarea {
 
 .detail-field-hint {
   font-size: 12px;
-  color: #7a6a58;
+  color: var(--helper-text);
 }
 
 .search-filter-toolbar {
   display: grid;
-  gap: 12px;
-  padding: 16px 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 14px 18px;
   border-radius: 18px;
-  background: rgba(255, 251, 245, 0.9);
-  border: 1px solid rgba(107, 84, 58, 0.12);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
 }
 
 .search-filter-toolbar-actions {
@@ -1671,6 +1680,14 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  grid-column: 1 / -1;
+}
+
+.search-filter-toolbar > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--helper-text);
+  font-size: 12px;
 }
 
 .search-filter-chip {
@@ -1678,8 +1695,8 @@ textarea {
   align-items: center;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(63, 91, 75, 0.12);
-  color: #355142;
+  background: color-mix(in srgb, var(--button-bg) 16%, transparent);
+  color: var(--surface-accent-text);
   font-size: 12px;
 }
 
@@ -1970,6 +1987,12 @@ textarea {
   .dependency-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 1500px) {
+  .project-workspace {
+    grid-template-columns: 1fr;
   }
 }
 
