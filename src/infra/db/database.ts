@@ -216,6 +216,10 @@ export class DatabaseManager {
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
+  getTextBackupDirectory(): string {
+    return path.join(path.dirname(this.dbPath), "..", "text-backup-git");
+  }
+
   async previewBackup(filePath: string): Promise<{
     projectCount: number;
     itemCount: number;

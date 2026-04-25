@@ -260,6 +260,16 @@ textarea {
   border: 1px solid var(--panel-border);
 }
 
+.backup-actions {
+  display: grid;
+  gap: 8px;
+  min-width: 132px;
+}
+
+.backup-actions .nav-chip {
+  text-align: center;
+}
+
 .backup-list {
   display: grid;
   gap: 10px;

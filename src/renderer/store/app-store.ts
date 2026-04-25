@@ -4,6 +4,7 @@ import type {
   BackupEntry,
   BackupPreview,
   BackupRestoreResult,
+  TextBackupResult,
   AppSettings,
   PostponeTarget,
   CreateProjectInput,
@@ -59,6 +60,7 @@ interface AppState {
   bootstrap: () => Promise<void>;
   refreshHome: () => Promise<void>;
   createBackup: () => Promise<BackupEntry | null>;
+  createTextBackup: () => Promise<TextBackupResult | null>;
   previewBackup: (entry: BackupEntry) => Promise<BackupPreview | null>;
   restoreBackup: (entry: BackupEntry) => Promise<BackupRestoreResult | null>;
   updateSettings: (input: UpdateAppSettingsInput) => Promise<AppSettings | null>;
@@ -218,6 +220,30 @@ export const useAppStore = create<AppState>((set, get) => ({
         loading: false,
         notice: null,
         error: error instanceof Error ? error.message : "Failed to create backup",
+      });
+      return null;
+    }
+  },
+
+  async createTextBackup() {
+    set({ loading: true, error: null });
+    try {
+      const result = await api.backups.createText();
+      const suffix = result.gitCommitted
+        ? ` / commit ${result.commitSha ?? "created"}`
+        : result.warning
+          ? ` / ${result.warning}`
+          : "";
+      set({
+        loading: false,
+        notice: `Text backup created: ${result.directoryPath}${suffix}`,
+      });
+      return result;
+    } catch (error) {
+      set({
+        loading: false,
+        notice: null,
+        error: error instanceof Error ? error.message : "Failed to create text backup",
       });
       return null;
     }

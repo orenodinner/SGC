@@ -5,6 +5,8 @@
 - local-first
 - UI は repository / service 層経由でアクセスする
 - 物理削除ではなく soft delete / archive を基本とする
+- text backup は永続ストアではなく、SQLite から派生生成する監査 / 手動復旧用 artifact とする
+- text backup は `text-backup-git` ディレクトリへ deterministic JSON と project 別 Markdown を書き出し、Git が利用可能なら同ディレクトリ内の Git repository に snapshot commit する
 
 ## 5.2 エンティティ一覧
 - workspace
@@ -274,6 +276,8 @@ CREATE UNIQUE INDEX uq_dependency_edge ON dependency(project_id, predecessor_ite
 - `ExcelExportService`
 - `TemplateService`
 - `BackupService`
+  - SQLite file backup は復元 source of truth として維持する
+  - text Git backup は `project / item / dependency / tag / item_tag / recurrence_rule / template / app_settings` を差分確認しやすい text file として出力する
 
 ## 5.7 日付取り扱い
 - DB には ISO 8601 文字列で保存

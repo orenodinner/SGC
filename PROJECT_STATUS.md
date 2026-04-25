@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-25 04:03 JST
+最終更新日時: 2026-04-26 02:11 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 91
-- 今回完了したサイクル: Phase 12 final acceptance validation
+- 完了サイクル数: 92
+- 今回完了したサイクル: TASK-1301 Text Git backup for gantt and task data
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -14,9 +14,17 @@
 - `TASK-1203 Broaden theme and visual token coverage` は完了
 - `TASK-1204 Add fuller installer and regression hardening` は完了
 - Phase 12 backlog は全 task 完了。final acceptance validation も通過
+- EPIC-13 `Text backup and audit history` / `TASK-1301 Add text Git backup for gantt and task data` は完了
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- sidebar `Data Protection` card に `Text Git backup` action を追加した
+- desktop では `text-backup-git` directory に `manifest / projects / items / dependencies / tags / item_tags / recurrence_rules / templates / settings` の deterministic JSON と project 別 Markdown を出力するようにした
+- Git が利用可能な場合は text backup directory を local Git repository として初期化 / commit し、notice に short commit hash を表示するようにした
+- Git が利用できない場合でも text file 出力は成功し、Git commit 未実行理由を warning として返すようにした
+- browser fallback では Git 実行不可を明示しつつ text JSON snapshot を download する導線を追加した
+- `ACC-065` / `DEC-089` と `EPIC-13` / `TASK-1301` を追加し、text backup の復元用SQLite backupとの役割分離を仕様化した
+- service test と desktop Playwright backup smoke に text backup 実行と実ファイル確認を追加した
 - Phase 12 final acceptance として `typecheck / lint / test / build` を再実行して通過を確認した
 - representative desktop E2E として `settings theme`、`desktop regression journey`、`detail drawer recurrence` を再実行して通過を確認した
 - Windows artifact `artifacts/sgc-portable-win-x64-v0.1.0.zip` が存在し、サイズ `154,569,898 bytes` であることを確認した
@@ -368,6 +376,8 @@
 - local backup は manual / auto / safety と recovery screen restore まで入ったが、restore failure の詳細分類と partial recovery は未実装
 - recovery screen は actual restore まで入ったが、OS プロセス relaunch ではなく current session の再初期化で通常 workspace に戻している
 - browser fallback の backup / preview は lightweight snapshot download ベースで、desktop の SQLite file restore と完全同等ではない
+- text Git backup は監査 / 手動復旧向け artifact であり、current restore source of truth は引き続き SQLite backup file
+- text Git backup は user-triggered の first slice で、auto backup scheduler にはまだ接続していない
 - restore は desktop で safety backup を先に切る初期実装までで、restore failure の詳細分類や partial recovery は未実装
 - auto backup は bootstrap 時の日次1回に限定しており、アイドル時や定期実行の scheduler は未実装
 - Project Detail virtualization は fixed row height 58px 前提の first slice で、row 高さの動的計測や可変高 row には未対応

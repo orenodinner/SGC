@@ -113,6 +113,7 @@ export default function App() {
     archiveItem,
     captureQuickEntry,
     createBackup,
+    createTextBackup,
     previewBackup,
     restoreBackup,
     updateSettings,
@@ -830,9 +831,14 @@ export default function App() {
               <strong>{copy.sidebar.localBackups}</strong>
               <p className="detail-field-hint">{autoBackupPolicyText}</p>
             </div>
-            <button type="button" className="nav-chip active" onClick={() => void createBackup()}>
-              {copy.sidebar.backupNow}
-            </button>
+            <div className="backup-actions">
+              <button type="button" className="nav-chip active" onClick={() => void createBackup()}>
+                {copy.sidebar.backupNow}
+              </button>
+              <button type="button" className="nav-chip" onClick={() => void createTextBackup()}>
+                {copy.sidebar.textGitBackup}
+              </button>
+            </div>
           </div>
           {backups.length === 0 ? (
             <p className="empty-message">{copy.sidebar.noBackups}</p>

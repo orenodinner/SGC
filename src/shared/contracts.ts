@@ -417,6 +417,16 @@ export const backupAutoResultSchema = z.object({
   retentionLimit: z.number().int().positive(),
 });
 
+export const textBackupResultSchema = z.object({
+  directoryPath: z.string(),
+  createdAt: z.string(),
+  fileNames: z.array(z.string()),
+  gitAvailable: z.boolean(),
+  gitCommitted: z.boolean(),
+  commitSha: z.string().nullable(),
+  warning: z.string().nullable(),
+});
+
 export const startupContextSchema = z.discriminatedUnion("mode", [
   z.object({
     mode: z.literal("normal"),
@@ -486,6 +496,7 @@ export type BackupEntry = z.infer<typeof backupEntrySchema>;
 export type BackupPreview = z.infer<typeof backupPreviewSchema>;
 export type BackupRestoreResult = z.infer<typeof backupRestoreResultSchema>;
 export type BackupAutoResult = z.infer<typeof backupAutoResultSchema>;
+export type TextBackupResult = z.infer<typeof textBackupResultSchema>;
 export type StartupContext = z.infer<typeof startupContextSchema>;
 
 export interface RendererApi {
@@ -502,6 +513,7 @@ export interface RendererApi {
   backups: {
     list: () => Promise<BackupEntry[]>;
     create: () => Promise<BackupEntry>;
+    createText: () => Promise<TextBackupResult>;
     ensureAuto: () => Promise<BackupAutoResult>;
     preview: (entry: BackupEntry) => Promise<BackupPreview>;
     restore: (entry: BackupEntry) => Promise<BackupRestoreResult>;

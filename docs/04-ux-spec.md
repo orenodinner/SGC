@@ -32,6 +32,9 @@
 - 初期の `テンプレート変換` では専用 modal を増やさず、既存の `Save current project as template` / `Save selected root as template` をそのまま使う
 - sidebar 下部には `Data Protection` card を置き、`Backup now` と recent backup list を表示してよい
 - `Backup now` 成功時は notice banner に保存先パスを短く表示する
+- `Data Protection` card には `Text Git backup` を追加し、SQLite の復元用 backup とは別に current workspace を text artifact として保存できる
+- `Text Git backup` 成功時は notice banner に text backup directory と、Git commit できた場合は short commit hash を短く表示する
+- Git が利用できない場合でも text file 出力は成功扱いとし、notice には Git commit が未実行である理由を短く表示する
 - `Data Protection` card には `自動: 起動時に日次1回 / auto 7件保持` のような policy copy を置いてよい
 - recent backup list は `file name / created at / size` の最小情報に留める
 - recent backup list では `manual / auto / safety` を file name prefix に応じた小さな label で区別してよい

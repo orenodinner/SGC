@@ -15,6 +15,7 @@ const api: RendererApi = {
   backups: {
     list: () => ipcRenderer.invoke("backup:list"),
     create: () => ipcRenderer.invoke("backup:create"),
+    createText: () => ipcRenderer.invoke("backup:createText"),
     ensureAuto: () => ipcRenderer.invoke("backup:ensureAuto"),
     preview: (entry) => ipcRenderer.invoke("backup:preview", entry),
     restore: (entry) => ipcRenderer.invoke("backup:restore", entry),

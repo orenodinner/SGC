@@ -40,6 +40,9 @@ export function registerIpcHandlers(
   ipcMain.handle("backup:create", () => {
     return requireService().createBackup();
   });
+  ipcMain.handle("backup:createText", () => {
+    return requireService().createTextBackup();
+  });
   ipcMain.handle("backup:ensureAuto", () => {
     return requireService().ensureAutoBackup();
   });

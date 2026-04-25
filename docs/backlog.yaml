@@ -284,3 +284,17 @@ epics:
         done_when:
           - portable zip 以外の配布 / 更新方針が tracker 上で閉じる
           - desktop E2E の coverage が smoke より一段広がる
+
+  - id: EPIC-13
+    name: Text backup and audit history
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-1301
+        title: Add text Git backup for gantt and task data
+        status: done
+        done_when:
+          - Data Protection card から text backup を実行できる
+          - current workspace data が deterministic JSON と project Markdown へ出力される
+          - Git が利用可能なら text backup directory に snapshot commit が作成される
+          - Git が無い場合は text output 成功と Git blocker が user-facing に分かる

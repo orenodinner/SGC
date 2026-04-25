@@ -534,3 +534,9 @@ decisions:
     status: accepted
     decision: `TASK-1204` では追加 installer を MSI / auto updater ではなく portable zip の contract hardening として閉じる。配布 channel は `portable_zip`、更新は新しい folder への `manual_replace`、rollback は前回展開済み folder へ戻す方式とし、code signing / store distribution / updater は外部契約または公開ポリシーが必要な対象外として docs と manifest に明記する
     rationale: ユーザーが今日使える Windows artifact を維持するには、証明書や公開 channel が必要な installer を未契約のまま擬似実装するより、既存 portable artifact の contract、required path 検証、更新 / rollback 手順を固定する方が実用品として安全で再現性が高い。
+
+  - id: DEC-089
+    topic: Text Git backup scope
+    status: accepted
+    decision: `TASK-1301` では SQLite file backup を復元 source of truth のまま残し、追加の audit / manual recovery layer として `text-backup-git` directory に deterministic JSON と project 別 Markdown を出力する。Git が利用可能な場合だけ同 directory の local Git repository に snapshot commit し、Git が無い場合は text output 成功と warning を返す
+    rationale: ユーザー要望はガントチャート等のデータを text data としてバックアップし、Git が良いというものだった。SQLite を直接 text 永続化へ置き換えると restore contract と migration risk が大きいため、復元用 binary backup と差分確認用 text Git backup を分離するのが安全で実用的である。

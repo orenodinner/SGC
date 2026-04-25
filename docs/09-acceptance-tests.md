@@ -615,3 +615,12 @@
 - recovery screen の preview から confirm 付き `Restore` を実行できる
 - desktop では restore 前に safety backup が自動作成される
 - restore 成功後は通常 workspace へ戻り、restored backup と safety backup の notice が見える
+
+### ACC-065 Text Git backup
+**Given** desktop app で project / item / gantt-related data が保存済み
+**When** sidebar の `Text Git backup` を実行
+**Then**
+- `text-backup-git` directory に deterministic JSON と project 別 Markdown が書き出される
+- `project / item / dependency / tag / item_tag / recurrence_rule / template / app_settings` の current data が text file として確認できる
+- Git が利用可能な環境では text backup directory の Git repository に snapshot commit が作成される
+- Git が利用できない環境では text file 出力は成功し、commit 未実行理由が user-facing に表示される

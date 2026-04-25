@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 import {
   addDays,
   differenceInCalendarDays,
@@ -56,6 +59,7 @@ import {
   saveProjectTemplateInputSchema,
   saveWbsTemplateInputSchema,
   templateRecordSchema,
+  textBackupResultSchema,
   upsertRecurrenceRuleInputSchema,
   updateItemInputSchema,
   updateProjectInputSchema,
@@ -63,6 +67,7 @@ import {
   type BackupAutoResult,
   type BackupPreview,
   type BackupRestoreResult,
+  type TextBackupResult,
   type AppSettings,
   type ApplyProjectTemplateInput,
   type ApplyWbsTemplateInput,
@@ -174,6 +179,26 @@ export class WorkspaceService {
     return backupEntrySchema.parse(this.db.createBackup());
   }
 
+  createTextBackup(input: { now?: Date } = {}): TextBackupResult {
+    const createdAt = (input.now ?? new Date()).toISOString();
+    const directoryPath = this.db.getTextBackupDirectory();
+    fs.mkdirSync(directoryPath, { recursive: true });
+
+    const snapshot = this.buildTextBackupSnapshot(createdAt);
+    const fileNames = writeTextBackupSnapshot(directoryPath, snapshot);
+    const gitResult = commitTextBackup(directoryPath, createdAt);
+
+    return textBackupResultSchema.parse({
+      directoryPath,
+      createdAt,
+      fileNames,
+      gitAvailable: gitResult.gitAvailable,
+      gitCommitted: gitResult.gitCommitted,
+      commitSha: gitResult.commitSha,
+      warning: gitResult.warning,
+    });
+  }
+
   ensureAutoBackup(input: { now?: Date } = {}): BackupAutoResult {
     const settings = this.ensureAppSettings();
     if (!settings.autoBackupEnabled) {
@@ -216,6 +241,59 @@ export class WorkspaceService {
       restoredBackup: parsed,
       safetyBackup,
     });
+  }
+
+  private buildTextBackupSnapshot(createdAt: string): TextBackupSnapshot {
+    const projects = this.db.query<RawTableRow>(
+      "SELECT * FROM project ORDER BY archived ASC, code COLLATE NOCASE ASC, name COLLATE NOCASE ASC, id ASC"
+    );
+    const items = this.db.query<RawTableRow>(
+      "SELECT * FROM item ORDER BY project_id ASC, parent_id ASC, sort_order ASC, wbs_code ASC, id ASC"
+    );
+    const dependencies = this.db.query<RawTableRow>(
+      "SELECT * FROM dependency ORDER BY project_id ASC, predecessor_item_id ASC, successor_item_id ASC, id ASC"
+    );
+    const tags = this.db.query<RawTableRow>(
+      "SELECT * FROM tag ORDER BY name COLLATE NOCASE ASC, id ASC"
+    );
+    const itemTags = this.db.query<RawTableRow>(
+      "SELECT * FROM item_tag ORDER BY item_id ASC, tag_id ASC"
+    );
+    const recurrenceRules = this.db.query<RawTableRow>(
+      "SELECT * FROM recurrence_rule ORDER BY item_id ASC, id ASC"
+    );
+    const templates = this.db.query<RawTableRow>(
+      "SELECT * FROM template ORDER BY kind ASC, name COLLATE NOCASE ASC, id ASC"
+    );
+    const settings = this.db.query<RawTableRow>(
+      "SELECT * FROM app_settings ORDER BY workspace_id ASC"
+    );
+
+    return {
+      manifest: {
+        schemaVersion: 1,
+        createdAt,
+        counts: {
+          projects: projects.length,
+          items: items.length,
+          dependencies: dependencies.length,
+          tags: tags.length,
+          itemTags: itemTags.length,
+          recurrenceRules: recurrenceRules.length,
+          templates: templates.length,
+          settings: settings.length,
+        },
+      },
+      projects,
+      items,
+      dependencies,
+      tags,
+      itemTags,
+      recurrenceRules,
+      templates,
+      settings,
+      projectMarkdownFiles: buildProjectMarkdownFiles(projects, items),
+    };
   }
 
   getHomeSummary(): HomeSummary {
@@ -1273,6 +1351,259 @@ export class WorkspaceService {
 
     return defaults;
   }
+}
+
+type JsonPrimitive = string | number | boolean | null;
+type RawTableRow = Record<string, JsonPrimitive>;
+
+interface TextBackupSnapshot {
+  manifest: {
+    schemaVersion: 1;
+    createdAt: string;
+    counts: Record<string, number>;
+  };
+  projects: RawTableRow[];
+  items: RawTableRow[];
+  dependencies: RawTableRow[];
+  tags: RawTableRow[];
+  itemTags: RawTableRow[];
+  recurrenceRules: RawTableRow[];
+  templates: RawTableRow[];
+  settings: RawTableRow[];
+  projectMarkdownFiles: Array<{ fileName: string; content: string }>;
+}
+
+interface TextBackupGitResult {
+  gitAvailable: boolean;
+  gitCommitted: boolean;
+  commitSha: string | null;
+  warning: string | null;
+}
+
+function writeTextBackupSnapshot(directoryPath: string, snapshot: TextBackupSnapshot): string[] {
+  const projectsDirectory = path.join(directoryPath, "projects");
+  fs.mkdirSync(projectsDirectory, { recursive: true });
+
+  const files = new Map<string, string>([
+    ["README.md", buildTextBackupReadme()],
+    ["manifest.json", stableJson(snapshot.manifest)],
+    ["projects.json", stableJson(snapshot.projects)],
+    ["items.json", stableJson(snapshot.items)],
+    ["dependencies.json", stableJson(snapshot.dependencies)],
+    ["tags.json", stableJson(snapshot.tags)],
+    ["item_tags.json", stableJson(snapshot.itemTags)],
+    ["recurrence_rules.json", stableJson(snapshot.recurrenceRules)],
+    ["templates.json", stableJson(snapshot.templates)],
+    ["settings.json", stableJson(snapshot.settings)],
+  ]);
+
+  for (const [fileName, content] of files) {
+    fs.writeFileSync(path.join(directoryPath, fileName), content, "utf8");
+  }
+
+  const currentProjectFiles = new Set(snapshot.projectMarkdownFiles.map((entry) => entry.fileName));
+  for (const entry of fs.readdirSync(projectsDirectory, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith(".md") && !currentProjectFiles.has(entry.name)) {
+      fs.rmSync(path.join(projectsDirectory, entry.name), { force: true });
+    }
+  }
+
+  for (const entry of snapshot.projectMarkdownFiles) {
+    fs.writeFileSync(path.join(projectsDirectory, entry.fileName), entry.content, "utf8");
+  }
+
+  return [
+    ...files.keys(),
+    ...snapshot.projectMarkdownFiles.map((entry) => `projects/${entry.fileName}`),
+  ];
+}
+
+function commitTextBackup(directoryPath: string, createdAt: string): TextBackupGitResult {
+  const versionResult = runGit(directoryPath, ["--version"]);
+  if (versionResult.status !== 0) {
+    return {
+      gitAvailable: false,
+      gitCommitted: false,
+      commitSha: null,
+      warning: "git command is not available; text files were written without a commit",
+    };
+  }
+
+  if (runGit(directoryPath, ["rev-parse", "--is-inside-work-tree"]).status !== 0) {
+    const initResult = runGit(directoryPath, ["init"]);
+    if (initResult.status !== 0) {
+      return {
+        gitAvailable: true,
+        gitCommitted: false,
+        commitSha: null,
+        warning: normalizeGitError(initResult) || "git init failed",
+      };
+    }
+  }
+
+  runGit(directoryPath, ["config", "user.name", "SGC Backup"]);
+  runGit(directoryPath, ["config", "user.email", "sgc-backup@local"]);
+
+  const addResult = runGit(directoryPath, ["add", "."]);
+  if (addResult.status !== 0) {
+    return {
+      gitAvailable: true,
+      gitCommitted: false,
+      commitSha: null,
+      warning: normalizeGitError(addResult) || "git add failed",
+    };
+  }
+
+  const commitResult = runGit(directoryPath, [
+    "commit",
+    "-m",
+    `Text backup ${createdAt.replace("T", " ").replace("Z", " UTC")}`,
+  ]);
+  if (commitResult.status !== 0) {
+    const output = `${commitResult.stdout}\n${commitResult.stderr}`.toLowerCase();
+    if (output.includes("nothing to commit")) {
+      return {
+        gitAvailable: true,
+        gitCommitted: false,
+        commitSha: getGitHeadSha(directoryPath),
+        warning: null,
+      };
+    }
+    return {
+      gitAvailable: true,
+      gitCommitted: false,
+      commitSha: null,
+      warning: normalizeGitError(commitResult) || "git commit failed",
+    };
+  }
+
+  return {
+    gitAvailable: true,
+    gitCommitted: true,
+    commitSha: getGitHeadSha(directoryPath),
+    warning: null,
+  };
+}
+
+function runGit(
+  directoryPath: string,
+  args: string[]
+): { status: number | null; stdout: string; stderr: string } {
+  const result = spawnSync("git", args, {
+    cwd: directoryPath,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+  return {
+    status: result.status,
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+  };
+}
+
+function getGitHeadSha(directoryPath: string): string | null {
+  const result = runGit(directoryPath, ["rev-parse", "--short", "HEAD"]);
+  if (result.status !== 0) {
+    return null;
+  }
+  const sha = result.stdout.trim();
+  return sha || null;
+}
+
+function normalizeGitError(result: { stdout: string; stderr: string }): string {
+  return `${result.stderr}\n${result.stdout}`.trim().replace(/\s+/g, " ");
+}
+
+function buildTextBackupReadme(): string {
+  return [
+    "# SGC Text Backup",
+    "",
+    "This directory is a Git repository managed by SGC.",
+    "Each snapshot writes deterministic JSON plus per-project Markdown so task and Gantt data can be reviewed with normal text diff tools.",
+    "",
+    "SQLite backups remain the restore source of truth. This text backup is for audit, manual recovery, and history review.",
+    "",
+  ].join("\n");
+}
+
+function buildProjectMarkdownFiles(
+  projects: RawTableRow[],
+  items: RawTableRow[]
+): Array<{ fileName: string; content: string }> {
+  return projects.map((project) => {
+    const projectId = String(project.id ?? "");
+    const projectItems = items.filter((item) => item.project_id === projectId);
+    const code = String(project.code ?? projectId);
+    const name = String(project.name ?? "");
+    const fileName = `${sanitizeTextBackupFileName(code || "project")}-${sanitizeTextBackupFileName(
+      projectId.slice(0, 8) || "unknown"
+    )}.md`;
+    const rows = projectItems.map((item) =>
+      [
+        escapeMarkdownCell(String(item.wbs_code ?? "")),
+        escapeMarkdownCell(String(item.title ?? "")),
+        escapeMarkdownCell(String(item.type ?? "")),
+        escapeMarkdownCell(String(item.status ?? "")),
+        escapeMarkdownCell(String(item.assignee_name ?? "")),
+        escapeMarkdownCell(String(item.start_date ?? "")),
+        escapeMarkdownCell(String(item.end_date ?? "")),
+        escapeMarkdownCell(String(item.percent_complete ?? "")),
+      ].join(" | ")
+    );
+
+    return {
+      fileName,
+      content: [
+        `# ${code} ${name}`.trim(),
+        "",
+        `- Project ID: ${projectId}`,
+        `- Status: ${String(project.status ?? "")}`,
+        `- Priority: ${String(project.priority ?? "")}`,
+        "",
+        "| WBS | Title | Type | Status | Assignee | Start | End | Progress |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        ...rows.map((row) => `| ${row} |`),
+        "",
+      ].join("\n"),
+    };
+  });
+}
+
+function stableJson(value: unknown): string {
+  return `${JSON.stringify(sortJsonValue(value), null, 2)}\n`;
+}
+
+function sortJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => sortJsonValue(entry));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entry]) => [key, sortJsonValue(entry)])
+    );
+  }
+  return value;
+}
+
+function sanitizeTextBackupFileName(value: string): string {
+  return (
+    [...value]
+      .map((character) => {
+        const code = character.charCodeAt(0);
+        if ('<>:"/\\|?*'.includes(character) || code <= 31) {
+          return "_";
+        }
+        return character;
+      })
+      .join("")
+      .trim() || "project"
+  );
+}
+
+function escapeMarkdownCell(value: string): string {
+  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
 function buildImportedExistingItem(input: {

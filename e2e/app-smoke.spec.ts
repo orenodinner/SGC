@@ -1100,6 +1100,33 @@ test("sidebar backup action creates a local backup file", async () => {
 
     await expect.poll(() => fs.existsSync(backupPath)).toBe(true);
     await expect(backupRow).toBeVisible();
+
+    await page.getByRole("button", { name: "Text Git backup" }).click();
+    await expect(notice).toContainText("Text backup created:");
+    const textBackupNotice = (await notice.textContent()) ?? "";
+    const textBackupDirectory = textBackupNotice
+      .replace(/^Text backup created:\s*/u, "")
+      .split(" / ")[0]
+      .trim();
+    await expect.poll(() => fs.existsSync(path.join(textBackupDirectory, "manifest.json"))).toBe(
+      true
+    );
+    await expect
+      .poll(() =>
+        fs.existsSync(path.join(textBackupDirectory, "projects")) &&
+        fs
+          .readdirSync(path.join(textBackupDirectory, "projects"))
+          .some((fileName) =>
+            fs
+              .readFileSync(path.join(textBackupDirectory, "projects", fileName), "utf8")
+              .includes(projectName)
+          )
+      )
+      .toBe(true);
+    expect(fs.readFileSync(path.join(textBackupDirectory, "projects.json"), "utf8")).toContain(
+      projectName
+    );
+
     await backupRow.getByRole("button", { name: "Restore Preview" }).click();
     const restorePreview = page.locator('[aria-label="Restore Preview"]');
     await expect(restorePreview).toBeVisible();

@@ -53,6 +53,7 @@ import type {
   SaveProjectTemplateInput,
   SaveWbsTemplateInput,
   TemplateRecord,
+  TextBackupResult,
   RendererApi,
   UpsertRecurrenceRuleInput,
   UpdateAppSettingsInput,
@@ -152,6 +153,35 @@ export const browserApi: RendererApi = {
     },
     async create(): Promise<BackupEntry> {
       return createBrowserBackupSnapshot({ triggerDownload: true, kind: "manual" });
+    },
+    async createText(): Promise<TextBackupResult> {
+      const createdAt = new Date().toISOString();
+      const fileName = `sgc-text-backup-${createdAt
+        .replace(/[-:]/g, "")
+        .replace(/\.\d+Z$/u, "")
+        .replace("T", "-")}.json`;
+      const payload = JSON.stringify(
+        cloneBrowserBackupSnapshot({
+          projects: memory.projects,
+          items: memory.items,
+          dependencies: memory.dependencies,
+          templates: memory.templates,
+          recurrenceRules: memory.recurrenceRules,
+          settings: memory.settings,
+        }),
+        null,
+        2
+      );
+      triggerBrowserDownload(fileName, payload, "application/json");
+      return {
+        directoryPath: "browser-downloads",
+        createdAt,
+        fileNames: [fileName],
+        gitAvailable: false,
+        gitCommitted: false,
+        commitSha: null,
+        warning: "Browser mode cannot run git; downloaded a text JSON snapshot instead",
+      };
     },
     async ensureAuto(): Promise<BackupAutoResult> {
       return ensureBrowserAutoBackup();
@@ -1081,13 +1111,7 @@ function createBrowserBackupSnapshot(input: {
   const payload = JSON.stringify(snapshot);
 
   if (input.triggerDownload) {
-    const blob = new Blob([payload], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = fileName;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    triggerBrowserDownload(fileName, payload, "application/json");
   }
 
   const entry: BackupEntry = {
@@ -1101,6 +1125,16 @@ function createBrowserBackupSnapshot(input: {
     right.createdAt.localeCompare(left.createdAt)
   );
   return entry;
+}
+
+function triggerBrowserDownload(fileName: string, payload: string, type: string): void {
+  const blob = new Blob([payload], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 function ensureBrowserAutoBackup(): BackupAutoResult {

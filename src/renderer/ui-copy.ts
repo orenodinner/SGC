@@ -21,6 +21,7 @@ export interface UiCopy {
     localBackups: string;
     autoBackupPolicy: string;
     backupNow: string;
+    textGitBackup: string;
     noBackups: string;
     restorePreview: string;
   };
@@ -257,6 +258,7 @@ const JA_COPY: UiCopy = {
     localBackups: "Local Backups",
     autoBackupPolicy: "自動: 起動時に日次1回 / auto 7件保持",
     backupNow: "Backup now",
+    textGitBackup: "Text Git backup",
     noBackups: "まだ backup はありません。",
     restorePreview: "Restore Preview",
   },
@@ -493,6 +495,7 @@ const EN_COPY: UiCopy = {
     localBackups: "Local Backups",
     autoBackupPolicy: "Auto: once per local day on startup / keep 7 auto backups",
     backupNow: "Backup now",
+    textGitBackup: "Text Git backup",
     noBackups: "No backups yet.",
     restorePreview: "Restore Preview",
   },

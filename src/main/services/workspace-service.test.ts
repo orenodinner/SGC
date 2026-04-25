@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseManager } from "../../infra/db/database";
 import { EXCEL_TASKS_SHEET_COLUMNS } from "../../domain/excel-contract";
@@ -845,6 +846,51 @@ describe("WorkspaceService quick capture", () => {
     expect(
       restoredService.getProjectDetail(project.id).items.some((entry) => entry.title === "退避対象")
     ).toBe(true);
+  });
+
+  it("writes a diff-friendly text backup and commits it when git is available", () => {
+    const project = service.createProject({
+      name: "Text Backup案件",
+      code: "PRJ-TEXT",
+    });
+    service.createItem({
+      projectId: project.id,
+      title: "テキスト退避対象",
+      type: "task",
+    });
+
+    const result = service.createTextBackup({
+      now: new Date("2026-04-26T10:00:00.000Z"),
+    });
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(result.directoryPath, "manifest.json"), "utf8")
+    ) as { counts: { projects: number; items: number } };
+    const projectMarkdownPath = result.fileNames
+      .filter((fileName) => fileName.startsWith("projects/"))
+      .map((fileName) => path.join(result.directoryPath, fileName))
+      .find((filePath) => fs.readFileSync(filePath, "utf8").includes("Text Backup案件"));
+    expect(projectMarkdownPath).toBeTruthy();
+    const projectMarkdown = fs.readFileSync(projectMarkdownPath!, "utf8");
+    const gitVersionAvailable =
+      spawnSync("git", ["--version"], { encoding: "utf8", windowsHide: true }).status === 0;
+
+    expect(result.fileNames).toEqual(
+      expect.arrayContaining(["manifest.json", "projects.json", "items.json"])
+    );
+    expect(manifest.counts.projects).toBeGreaterThanOrEqual(1);
+    expect(manifest.counts.items).toBeGreaterThanOrEqual(1);
+    expect(fs.readFileSync(path.join(result.directoryPath, "projects.json"), "utf8")).toContain(
+      "Text Backup案件"
+    );
+    expect(projectMarkdown).toContain("テキスト退避対象");
+    expect(result.gitAvailable).toBe(gitVersionAvailable);
+    if (gitVersionAvailable) {
+      expect(fs.existsSync(path.join(result.directoryPath, ".git"))).toBe(true);
+      expect(result.gitCommitted).toBe(true);
+      expect(result.commitSha).toMatch(/^[0-9a-f]{7,}$/);
+    } else {
+      expect(result.warning).toContain("git command is not available");
+    }
   });
 
   it("builds a read-only restore preview from a local backup", async () => {
