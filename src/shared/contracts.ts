@@ -218,6 +218,7 @@ export const updateProjectInputSchema = z.object({
   id: z.string(),
   name: z.string().trim().min(1).max(120),
   code: z.string().trim().min(1).max(32),
+  ownerName: z.string().trim().max(80).optional(),
 });
 
 export const createItemInputSchema = z.object({

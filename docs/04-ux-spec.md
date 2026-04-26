@@ -259,3 +259,11 @@
 - フォーカス見失い防止
 - 色だけで状態を表現しない
 - 主要アイコンにはラベル併記
+
+## 4.8 Team / workload usability
+- Project Detail の header で `メイン担当` を直接編集できるようにする
+- Project Detail は `メイン担当` と task の `担当` を集計し、担当者別 chip に `未完了 / 完了 / 遅延` を表示する
+- 担当者 chip は Project Detail の担当者フィルタへ接続し、日程変更対象の task を探しやすくする
+- サブタスクが7件前後になる前提で、選択行の下へ1行1タスクの multiline 入力からまとめて追加できる導線を置く
+- Portfolio は担当者別の project / 未完了 / 遅延件数を表示し、担当者クリックで該当 project へ絞り込めるようにする
+- Year / FY Roadmap は表示中 task を月別に集計した workload strip を出し、年間の山谷を表より先に視認できるようにする

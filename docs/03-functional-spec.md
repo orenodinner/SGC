@@ -436,3 +436,12 @@
 - 更新日時
 - 完了日時
 - 直近変更者（MVPではローカルユーザー名相当）
+
+## 3.8 担当者と負荷集計
+- project は `ownerName` をメイン担当として保持し、Project Detail から編集できる
+- 複数担当の project team は当面、メイン担当と各 item の `assigneeName` から派生して集計する
+- `assigneeName` は `,` / `、` / `/` / 改行区切りで複数名を扱ってよい
+- Project Detail の担当者別集計は、未完了 / 完了 / 遅延 task 件数を表示し、担当者フィルタへ接続する
+- Portfolio の担当者別集計は、担当 project 数 / 未完了 task 数 / 遅延 task 数を表示し、project 一覧を担当者で絞り込める
+- Roadmap の workload は、表示中の scheduled task を month bucket ごとに数え、担当者数と task 件数を表示する
+- project membership 専用 table はこの slice では追加しない。Excel round-trip / backup contract への影響を避けるため、正式な member registry は後続拡張とする

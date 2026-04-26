@@ -34,6 +34,8 @@ export interface UiCopy {
     headerLabel: string;
     nameLabel: string;
     codeLabel: string;
+    ownerLabel: string;
+    ownerPlaceholder: string;
     totalTasks: string;
     openTasks: string;
     completedTasks: string;
@@ -68,6 +70,18 @@ export interface UiCopy {
     quickAddTitle: string;
     quickAddPlaceholder: string;
     quickAddButton: string;
+    teamSummaryLabel: string;
+    teamSummaryTitle: string;
+    teamSummaryCopy: string;
+    mainOwnerBadge: string;
+    noAssignees: string;
+    assigneeSummary: (open: number, done: number, overdue: number) => string;
+    bulkAddLabel: string;
+    bulkAddChildTitle: string;
+    bulkAddRootTitle: string;
+    bulkAddRootHelp: string;
+    bulkAddPlaceholder: string;
+    bulkAddButton: string;
     emptyFilteredRows: string;
     emptyTreeRows: string;
     emptyTimelineRows: string;
@@ -110,6 +124,11 @@ export interface UiCopy {
     filterAll: string;
     filterOverdue: string;
     filterWeekMilestone: string;
+    assigneeBoardTitle: string;
+    assigneeBoardCopy: string;
+    assigneeAll: string;
+    assigneeAllHelp: string;
+    assigneeSummary: (projectCount: number, open: number, overdue: number) => string;
     emptyFiltered: string;
   };
   roadmap: {
@@ -125,6 +144,10 @@ export interface UiCopy {
     previousYear: string;
     nextYear: string;
     itemHeader: string;
+    workloadLabel: string;
+    workloadTitle: string;
+    workloadCopy: string;
+    workloadPeople: (assigneeCount: number) => string;
     loading: string;
     emptyFiltered: string;
   };
@@ -280,6 +303,8 @@ const JA_COPY: UiCopy = {
     headerLabel: "プロジェクト詳細",
     nameLabel: "名前",
     codeLabel: "コード",
+    ownerLabel: "メイン担当",
+    ownerPlaceholder: "例: 佐藤",
     totalTasks: "総タスク",
     openTasks: "未完了",
     completedTasks: "完了",
@@ -314,6 +339,18 @@ const JA_COPY: UiCopy = {
     quickAddTitle: "プロジェクト直下にタスクを追加",
     quickAddPlaceholder: "例: 要件レビュー",
     quickAddButton: "タスク追加",
+    teamSummaryLabel: "Team",
+    teamSummaryTitle: "担当者別の状況",
+    teamSummaryCopy: "メイン担当と各タスク担当を集計します。クリックするとこのプロジェクトを担当者で絞り込みます。",
+    mainOwnerBadge: "主担当",
+    noAssignees: "担当者はまだ未設定です",
+    assigneeSummary: (open, done, overdue) => `未完了 ${open} / 完了 ${done} / 遅延 ${overdue}`,
+    bulkAddLabel: "複数サブタスク追加",
+    bulkAddChildTitle: "選択行の下にまとめて追加",
+    bulkAddRootTitle: "プロジェクト直下にまとめて追加",
+    bulkAddRootHelp: "行を選択すると、その下にサブタスクとして追加できます。",
+    bulkAddPlaceholder: "例:\n要件整理\nデザイン確認\n見積作成\nレビュー\n修正\n承認\nリリース準備",
+    bulkAddButton: "まとめて追加",
     emptyFilteredRows: "条件に合う row はありません。",
     emptyTreeRows: "親・子・孫を作れる最小 CRUD から開始して下さい。",
     emptyTimelineRows: "日付が入った項目を表示します",
@@ -356,6 +393,11 @@ const JA_COPY: UiCopy = {
     filterAll: "全案件",
     filterOverdue: "遅延中",
     filterWeekMilestone: "今週マイルストーン",
+    assigneeBoardTitle: "担当者別タスク状況",
+    assigneeBoardCopy: "担当者をクリックすると、担当プロジェクトだけに絞り込めます。",
+    assigneeAll: "全担当",
+    assigneeAllHelp: "担当者フィルタなし",
+    assigneeSummary: (projectCount, open, overdue) => `${projectCount}件 / 未完了 ${open} / 遅延 ${overdue}`,
     emptyFiltered: "条件に合う project はありません",
   },
   roadmap: {
@@ -371,6 +413,10 @@ const JA_COPY: UiCopy = {
     previousYear: "前年",
     nextYear: "次年",
     itemHeader: "項目",
+    workloadLabel: "Workload",
+    workloadTitle: "年間の月別負荷",
+    workloadCopy: "表示中のタスクを月別に集計し、山になっている月を先に把握できます。",
+    workloadPeople: (assigneeCount) => `${assigneeCount}人`,
     loading: "roadmap を読み込み中です",
     emptyFiltered: "条件に合う project / root item はありません",
   },
@@ -526,6 +572,8 @@ const EN_COPY: UiCopy = {
     headerLabel: "Project Detail",
     nameLabel: "Name",
     codeLabel: "Code",
+    ownerLabel: "Main owner",
+    ownerPlaceholder: "Example: Sato",
     totalTasks: "Total Tasks",
     openTasks: "Open",
     completedTasks: "Done",
@@ -560,6 +608,18 @@ const EN_COPY: UiCopy = {
     quickAddTitle: "Add a task under this project",
     quickAddPlaceholder: "Example: Requirements review",
     quickAddButton: "Add Task",
+    teamSummaryLabel: "Team",
+    teamSummaryTitle: "Assignee status",
+    teamSummaryCopy: "Summarizes the main owner and task assignees. Click a person to filter this project.",
+    mainOwnerBadge: "main",
+    noAssignees: "No assignees yet.",
+    assigneeSummary: (open, done, overdue) => `Open ${open} / Done ${done} / Overdue ${overdue}`,
+    bulkAddLabel: "Bulk subtask add",
+    bulkAddChildTitle: "Add multiple rows under the selected row",
+    bulkAddRootTitle: "Add multiple rows under this project",
+    bulkAddRootHelp: "Select a row to add these as subtasks under it.",
+    bulkAddPlaceholder: "Example:\nRequirements\nDesign review\nEstimate\nReview\nFixes\nApproval\nRelease prep",
+    bulkAddButton: "Add Rows",
     emptyFilteredRows: "No rows match the current filter.",
     emptyTreeRows: "Start from the minimum CRUD flow that creates parent, child, and grandchild rows.",
     emptyTimelineRows: "Rows with dates appear here.",
@@ -602,6 +662,11 @@ const EN_COPY: UiCopy = {
     filterAll: "All Projects",
     filterOverdue: "Overdue",
     filterWeekMilestone: "This Week's Milestones",
+    assigneeBoardTitle: "Assignee Task Status",
+    assigneeBoardCopy: "Click a person to filter the portfolio to their projects.",
+    assigneeAll: "All assignees",
+    assigneeAllHelp: "No assignee filter",
+    assigneeSummary: (projectCount, open, overdue) => `${projectCount} projects / Open ${open} / Overdue ${overdue}`,
     emptyFiltered: "No projects match the current filter.",
   },
   roadmap: {
@@ -617,6 +682,10 @@ const EN_COPY: UiCopy = {
     previousYear: "Previous",
     nextYear: "Next",
     itemHeader: "Item",
+    workloadLabel: "Workload",
+    workloadTitle: "Monthly workload across the year",
+    workloadCopy: "Counts visible scheduled tasks by month so heavy months stand out before rescheduling.",
+    workloadPeople: (assigneeCount) => `${assigneeCount} people`,
     loading: "Loading roadmap...",
     emptyFiltered: "No projects or root items match the current filter.",
   },

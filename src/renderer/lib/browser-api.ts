@@ -521,6 +521,7 @@ export const browserApi: RendererApi = {
       const project = requireProject(input.id);
       project.name = input.name;
       project.code = input.code;
+      project.ownerName = input.ownerName ?? project.ownerName;
       project.updatedAt = new Date().toISOString();
       return project;
     },

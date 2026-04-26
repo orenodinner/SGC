@@ -165,10 +165,11 @@ export class ProjectRepository {
     );
   }
 
-  update(project: { id: string; name: string; code: string; updatedAt: string }): void {
-    this.db.run("UPDATE project SET name = ?, code = ?, updated_at = ? WHERE id = ?", [
+  update(project: { id: string; name: string; code: string; ownerName: string; updatedAt: string }): void {
+    this.db.run("UPDATE project SET name = ?, code = ?, owner_name = ?, updated_at = ? WHERE id = ?", [
       project.name,
       project.code,
+      project.ownerName,
       project.updatedAt,
       project.id,
     ]);

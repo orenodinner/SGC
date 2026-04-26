@@ -326,3 +326,18 @@ epics:
           - Week / month Gantt scale buttons are not shown in Project Detail
           - Timeline keyboard move / resize remains one-day based
           - Desktop E2E verifies the date-based Gantt header and absence of week / month scale buttons
+
+  - id: EPIC-16
+    name: Team workload usability
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-1601
+        title: Improve team assignment, subtask entry, and workload overview
+        status: done
+        done_when:
+          - Project Detail can edit the main project owner
+          - Project Detail summarizes owner and task assignees as clickable filter chips
+          - Project Detail can add multiple subtasks from one multiline input
+          - Portfolio shows assignee status chips and can filter projects by assignee
+          - Roadmap shows a month-by-month workload strip for the visible year / FY range

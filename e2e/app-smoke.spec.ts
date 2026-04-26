@@ -28,7 +28,7 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     const futureTitle = `Future Row ${timestamp}`;
     const today = new Date();
     const todayText = formatDateInput(today);
-    const milestoneDateText = formatDateInput(addDays(today, 1));
+    const milestoneDateText = todayText;
     const overdueStart = addDays(today, -5);
     const overdueEnd = addDays(today, -4);
     const futureEnd = addDays(today, 20);
@@ -39,6 +39,8 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
 
     await expect(page.getByRole("button", { name: "Project Detail" })).toBeEnabled();
     await expect(page.locator(`input[value="${overdueProjectName}"]`).first()).toBeVisible();
+    await page.getByLabel("メイン担当").fill("佐藤");
+    await page.getByLabel("メイン担当").press("Tab");
     await page.getByRole("button", { name: "ルート行を追加" }).click();
     const firstDataRow = page.locator(".table-body .table-row").first();
     const titleInput = firstDataRow.locator('input[value="新しいタスク"]').first();
@@ -59,6 +61,28 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await overdueTaskRow.locator('input[type="date"]').nth(0).fill(formatDateInput(overdueStart));
     await overdueTaskRow.locator('input[type="date"]').nth(1).fill(formatDateInput(overdueEnd));
     await overdueTaskRow.locator('input[type="date"]').nth(1).press("Tab");
+    await page.evaluate(async ({ targetProjectName, targetTaskTitle }) => {
+      if (!window.sgc) {
+        throw new Error("Renderer API unavailable");
+      }
+      const project = (await window.sgc.projects.list()).find((entry) => entry.name === targetProjectName);
+      if (!project) {
+        throw new Error("Project not found");
+      }
+      const detail = await window.sgc.projects.get(project.id);
+      const task = detail.items.find((entry) => entry.title === targetTaskTitle);
+      if (!task) {
+        throw new Error("Task not found");
+      }
+      await window.sgc.items.update({
+        id: task.id,
+        assigneeName: "田中",
+      });
+    }, { targetProjectName: overdueProjectName, targetTaskTitle: overdueTaskTitle });
+    await page.locator(".project-card").filter({ hasText: overdueProjectName }).click();
+    await expect(page.getByText("担当者別の状況")).toBeVisible();
+    await expect(page.locator(".assignee-summary-chip").filter({ hasText: "佐藤" }).first()).toBeVisible();
+    await expect(page.locator(".assignee-summary-chip").filter({ hasText: "田中" }).first()).toBeVisible();
 
     await page.getByLabel("プロジェクト名").fill(milestoneProjectName);
     await page.getByRole("button", { name: "プロジェクト作成" }).click();
@@ -112,6 +136,8 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await expect(page.locator(".notice-banner")).toContainText("Excel import applied:");
 
     await page.getByRole("button", { name: "Portfolio" }).click();
+    await expect(page.getByText("担当者別タスク状況")).toBeVisible();
+    await expect(page.locator(".assignee-board .assignee-summary-chip").filter({ hasText: "田中" }).first()).toBeVisible();
     await expect(page.locator(".portfolio-table-button").filter({ hasText: overdueProjectName }).first()).toBeVisible();
     await expect(page.locator(".portfolio-table-button").filter({ hasText: milestoneProjectName }).first()).toBeVisible();
     await page.getByRole("button", { name: "遅延中" }).click();
@@ -124,6 +150,8 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await expect(page.locator(".portfolio-phase-row").filter({ hasText: overdueTitle }).first()).toBeVisible();
     await page.getByRole("button", { name: "Year / FY" }).click();
     await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toBeVisible();
+    await expect(page.getByText("年間の月別負荷")).toBeVisible();
+    await expect(page.locator(".workload-month-card").first()).toBeVisible();
     await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q1" }).first()).toBeVisible();
     await expect(page.locator(".roadmap-header-cell").filter({ hasText: "4" }).first()).toBeVisible();
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: overdueTitle }).first()).toBeVisible();
@@ -1308,6 +1336,12 @@ test("sidebar project list stays compact and quick-add creates a task under the 
     await page.getByRole("button", { name: "タスク追加" }).click();
     await expect(page.locator(`.table-body input[value="${quickTaskTitle}"]`).first()).toBeVisible();
     await expect(page.locator(".table-body .table-row").first().locator("select").first()).toHaveValue("task");
+
+    const bulkChildTitle = `Bulk Child 01 ${timestamp}`;
+    await page.getByLabel("複数サブタスク追加").fill(`${bulkChildTitle}\nBulk Child 02 ${timestamp}\nBulk Child 03 ${timestamp}`);
+    await page.getByRole("button", { name: "まとめて追加" }).click();
+    await expect(page.locator(`.table-body input[value="${bulkChildTitle}"]`).first()).toBeVisible();
+    await expect(page.locator(".table-body .table-row")).toHaveCount(4);
 
     await page.getByRole("button", { name: "折りたたむ" }).click();
     await expect(page.locator(".project-list")).toHaveCount(0);

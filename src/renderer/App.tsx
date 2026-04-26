@@ -18,6 +18,7 @@ import {
   buildRoadmapBuckets,
   buildRoadmapLayout,
   buildRoadmapQuarterHeaders,
+  type RoadmapBucket,
   type RoadmapScale,
 } from "../domain/roadmap";
 import {
@@ -86,6 +87,24 @@ const PROJECT_TIMELINE_SCALE: TimelineScale = "day";
 const ROADMAP_ROW_HEIGHT = 62;
 const ROADMAP_VIRTUAL_OVERSCAN = 6;
 const ROADMAP_DEFAULT_VIEWPORT_HEIGHT = 620;
+
+interface AssigneeSummary {
+  name: string;
+  projectCount: number;
+  total: number;
+  open: number;
+  done: number;
+  overdue: number;
+}
+
+interface WorkloadBucketSummary {
+  key: string;
+  label: string;
+  shortLabel: string;
+  count: number;
+  assigneeCount: number;
+}
+
 export default function App() {
   const {
     settings,
@@ -154,6 +173,7 @@ export default function App() {
   const [projectListCollapsed, setProjectListCollapsed] = useState(false);
   const [projectListQuery, setProjectListQuery] = useState("");
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
+  const [bulkTaskTitles, setBulkTaskTitles] = useState("");
   const [quickCaptureText, setQuickCaptureText] = useState("");
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
@@ -316,12 +336,25 @@ export default function App() {
     },
     [hasProjectSearchFilter, projectDetail?.items, rows, selectedItemId, viewMode, visibleProjectRowIds]
   );
+  const bulkTaskParent = selectedItemId && selectedItem?.id === selectedItemId ? selectedItem : null;
   const metricItems =
     viewMode === "project" && hasProjectSearchFilter
       ? (projectDetail?.items ?? []).filter((item) => visibleProjectRowIds.has(item.id))
       : projectDetail?.items ?? [];
   const openCount = metricItems.filter((item) => item.status !== "done").length;
   const completedCount = metricItems.filter((item) => item.status === "done").length;
+  const projectAssigneeSummaries = useMemo(
+    () =>
+      projectDetail
+        ? buildAssigneeSummaries([
+            {
+              project: projectDetail.project,
+              items: projectDetail.items,
+            },
+          ])
+        : [],
+    [projectDetail]
+  );
   const activeSearchFilterChips = useMemo(
     () =>
       searchableViewMode
@@ -1045,6 +1078,7 @@ export default function App() {
                           id: projectDetail.project.id,
                           name: event.target.value.trim() || projectDetail.project.name,
                           code: projectDetail.project.code,
+                          ownerName: projectDetail.project.ownerName,
                         })
                       }
                     />
@@ -1059,6 +1093,23 @@ export default function App() {
                           id: projectDetail.project.id,
                           name: projectDetail.project.name,
                           code: event.target.value.trim() || projectDetail.project.code,
+                          ownerName: projectDetail.project.ownerName,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    {copy.project.ownerLabel}
+                    <input
+                      key={`${projectDetail.project.id}-owner-${projectDetail.project.updatedAt}`}
+                      defaultValue={projectDetail.project.ownerName}
+                      placeholder={copy.project.ownerPlaceholder}
+                      onBlur={(event) =>
+                        void updateProject({
+                          id: projectDetail.project.id,
+                          name: projectDetail.project.name,
+                          code: projectDetail.project.code,
+                          ownerName: event.target.value.trim(),
                         })
                       }
                     />
@@ -1078,6 +1129,36 @@ export default function App() {
                 <strong className="timeline-scale-badge">{copy.project.timelineDay}</strong>
                 <p className="timeline-keyboard-hint">{copy.project.timelineKeyboardHint}</p>
               </div>
+
+              <section className="assignee-summary-panel" aria-label={copy.project.teamSummaryTitle}>
+                <div>
+                  <p className="sidebar-label">{copy.project.teamSummaryLabel}</p>
+                  <strong>{copy.project.teamSummaryTitle}</strong>
+                  <p>{copy.project.teamSummaryCopy}</p>
+                </div>
+                <div className="assignee-chip-grid">
+                  {projectAssigneeSummaries.length === 0 ? (
+                    <span className="empty-chip">{copy.project.noAssignees}</span>
+                  ) : (
+                    projectAssigneeSummaries.map((summary) => (
+                      <button
+                        key={summary.name}
+                        type="button"
+                        className="assignee-summary-chip"
+                        onClick={() => updateCurrentSearchFilter({ assigneeText: summary.name })}
+                      >
+                        <strong>
+                          {summary.name}
+                          {summary.name === projectDetail.project.ownerName ? ` / ${copy.project.mainOwnerBadge}` : ""}
+                        </strong>
+                        <span>
+                          {copy.project.assigneeSummary(summary.open, summary.done, summary.overdue)}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </section>
             </header>
 
             {importPreview ? (
@@ -1180,6 +1261,50 @@ export default function App() {
               />
               <button type="submit" disabled={!quickTaskTitle.trim()}>
                 {copy.project.quickAddButton}
+              </button>
+            </form>
+
+            <form
+              className="bulk-task-add"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const titles = parseBulkTaskTitles(bulkTaskTitles);
+                if (titles.length === 0) {
+                  return;
+                }
+
+                let lastCreatedItem: ItemRecord | null = null;
+                const parentId = bulkTaskParent?.id ?? null;
+                for (const title of titles) {
+                  const createdItem = await createItem(projectDetail.project.id, parentId, title, "task");
+                  if (createdItem) {
+                    lastCreatedItem = createdItem;
+                  }
+                }
+
+                if (parentId) {
+                  setExpandedIds((current) => new Set(current).add(parentId));
+                }
+                if (lastCreatedItem) {
+                  setSelectedItemId(lastCreatedItem.id);
+                  setBulkTaskTitles("");
+                }
+              }}
+            >
+              <div>
+                <p className="sidebar-label">{copy.project.bulkAddLabel}</p>
+                <strong>{bulkTaskParent ? copy.project.bulkAddChildTitle : copy.project.bulkAddRootTitle}</strong>
+                <span>{bulkTaskParent ? bulkTaskParent.title : copy.project.bulkAddRootHelp}</span>
+              </div>
+              <textarea
+                aria-label={copy.project.bulkAddLabel}
+                value={bulkTaskTitles}
+                onChange={(event) => setBulkTaskTitles(event.target.value)}
+                placeholder={copy.project.bulkAddPlaceholder}
+                rows={4}
+              />
+              <button type="submit" disabled={parseBulkTaskTitles(bulkTaskTitles).length === 0}>
+                {copy.project.bulkAddButton}
               </button>
             </form>
 
@@ -2728,6 +2853,120 @@ function SettingsView(props: {
   );
 }
 
+function parsePeopleText(value: string): string[] {
+  return value
+    .split(/[,、/;；\n]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function parseBulkTaskTitles(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:[-*・]\s*|\d+[.)]\s*)/, "").trim())
+    .filter(Boolean)
+    .slice(0, 30);
+}
+
+function buildAssigneeSummaries(
+  sources: Array<{ project: ProjectSummary; items: ItemRecord[] }>
+): AssigneeSummary[] {
+  const summaries = new Map<string, AssigneeSummary & { projectIds: Set<string> }>();
+
+  const ensureSummary = (name: string) => {
+    const current = summaries.get(name);
+    if (current) {
+      return current;
+    }
+    const next = {
+      name,
+      projectCount: 0,
+      total: 0,
+      open: 0,
+      done: 0,
+      overdue: 0,
+      projectIds: new Set<string>(),
+    };
+    summaries.set(name, next);
+    return next;
+  };
+
+  for (const source of sources) {
+    for (const ownerName of parsePeopleText(source.project.ownerName)) {
+      const summary = ensureSummary(ownerName);
+      summary.projectIds.add(source.project.id);
+    }
+
+    for (const item of source.items) {
+      if (item.archived) {
+        continue;
+      }
+
+      for (const assigneeName of parsePeopleText(item.assigneeName)) {
+        const summary = ensureSummary(assigneeName);
+        summary.projectIds.add(source.project.id);
+        summary.total += 1;
+        if (item.status === "done") {
+          summary.done += 1;
+        } else {
+          summary.open += 1;
+        }
+        if (isOverdueItem(item)) {
+          summary.overdue += 1;
+        }
+      }
+    }
+  }
+
+  return Array.from(summaries.values())
+    .map(({ projectIds, ...summary }) => ({
+      ...summary,
+      projectCount: projectIds.size,
+    }))
+    .sort((left, right) => right.open - left.open || right.overdue - left.overdue || left.name.localeCompare(right.name));
+}
+
+function buildWorkloadBucketSummaries(rows: RoadmapRow[], buckets: RoadmapBucket[]): WorkloadBucketSummary[] {
+  return buckets.map((bucket, index) => {
+    const people = new Set<string>();
+    let count = 0;
+
+    for (const row of rows) {
+      if (row.kind === "project" || row.item.archived) {
+        continue;
+      }
+      if (!itemOverlapsBucket(row.item, bucket)) {
+        continue;
+      }
+
+      count += 1;
+      for (const assigneeName of parsePeopleText(row.item.assigneeName)) {
+        people.add(assigneeName);
+      }
+    }
+
+    return {
+      key: bucket.key,
+      label: bucket.label,
+      shortLabel: bucket.shortLabel || String(index + 1),
+      count,
+      assigneeCount: people.size,
+    };
+  });
+}
+
+function itemOverlapsBucket(item: ItemRecord, bucket: RoadmapBucket): boolean {
+  const startText = item.startDate ?? item.dueDate ?? item.endDate;
+  const endText = item.endDate ?? item.startDate ?? item.dueDate;
+  if (!startText || !endText) {
+    return false;
+  }
+
+  const startDate = parseISO(startText);
+  const endDate = parseISO(endText);
+  return startDate <= bucket.end && endDate >= bucket.start;
+}
+
 function PortfolioView(props: {
   language: AppLanguage;
   projects: ProjectSummary[];
@@ -2741,6 +2980,7 @@ function PortfolioView(props: {
   const portfolioApi = window.sgc?.portfolio ?? browserApi.portfolio;
   const projectsApi = window.sgc?.projects ?? browserApi.projects;
   const [filterMode, setFilterMode] = useState<PortfolioFilter>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(new Set());
   const [phaseMap, setPhaseMap] = useState<Record<string, PortfolioPhaseSummary[]>>({});
   const [projectDetails, setProjectDetails] = useState<Record<string, ProjectDetail>>({});
@@ -2778,7 +3018,7 @@ function PortfolioView(props: {
     () => new Map(props.projects.map((project) => [project.id, project])),
     [props.projects]
   );
-  const filteredProjects = projects.filter((project) => {
+  const baseFilteredProjects = projects.filter((project) => {
     if (!portfolioProjectMatchesFilter(project, filterMode, props.weekStartsOn)) {
       return false;
     }
@@ -2792,6 +3032,31 @@ function PortfolioView(props: {
       filter: props.searchFilter,
     });
   });
+  const assigneeSummaries = useMemo(
+    () =>
+      buildAssigneeSummaries(
+        baseFilteredProjects
+          .map((project) => {
+            const projectRecord = projectMap.get(project.id);
+            const detail = projectDetails[project.id];
+            return projectRecord && detail
+              ? {
+                  project: projectRecord,
+                  items: detail.items,
+                }
+              : null;
+          })
+          .filter((entry): entry is { project: ProjectSummary; items: ItemRecord[] } => Boolean(entry))
+      ),
+    [baseFilteredProjects, projectDetails, projectMap]
+  );
+  const filteredProjects = assigneeFilter
+    ? baseFilteredProjects.filter((project) =>
+        (projectDetails[project.id]?.items ?? []).some((item) =>
+          parsePeopleText(item.assigneeName).includes(assigneeFilter)
+        ) || project.ownerName === assigneeFilter
+      )
+    : baseFilteredProjects;
 
   if (projects.length === 0) {
     return (
@@ -2883,6 +3148,35 @@ function PortfolioView(props: {
             </button>
           ))}
         </div>
+        {assigneeSummaries.length > 0 ? (
+          <div className="assignee-board" aria-label={copy.portfolio.assigneeBoardTitle}>
+            <div>
+              <strong>{copy.portfolio.assigneeBoardTitle}</strong>
+              <p>{copy.portfolio.assigneeBoardCopy}</p>
+            </div>
+            <div className="assignee-chip-grid">
+              <button
+                type="button"
+                className={assigneeFilter === null ? "assignee-summary-chip active" : "assignee-summary-chip"}
+                onClick={() => setAssigneeFilter(null)}
+              >
+                <strong>{copy.portfolio.assigneeAll}</strong>
+                <span>{copy.portfolio.assigneeAllHelp}</span>
+              </button>
+              {assigneeSummaries.map((summary) => (
+                <button
+                  key={summary.name}
+                  type="button"
+                  className={assigneeFilter === summary.name ? "assignee-summary-chip active" : "assignee-summary-chip"}
+                  onClick={() => setAssigneeFilter(summary.name)}
+                >
+                  <strong>{summary.name}</strong>
+                  <span>{copy.portfolio.assigneeSummary(summary.projectCount, summary.open, summary.overdue)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {loadError ? <div className="error-banner">{loadError}</div> : null}
 
         <div className="portfolio-table">
@@ -3160,6 +3454,11 @@ function RoadmapView(props: {
     () => buildRoadmapLayout(roadmapRows.map((row) => row.item), buckets),
     [buckets, roadmapRows]
   );
+  const workloadBuckets = useMemo(
+    () => buildWorkloadBucketSummaries(roadmapRows, buckets),
+    [buckets, roadmapRows]
+  );
+  const maxWorkloadCount = Math.max(1, ...workloadBuckets.map((bucket) => bucket.count));
   const roadmapVirtualWindow = useMemo(
     () =>
       buildVirtualWindow({
@@ -3252,6 +3551,29 @@ function RoadmapView(props: {
               {copy.roadmap.nextYear}
             </button>
           </div>
+        </div>
+      </section>
+
+      <section className="workload-strip" aria-label={copy.roadmap.workloadTitle}>
+        <div>
+          <p className="sidebar-label">{copy.roadmap.workloadLabel}</p>
+          <strong>{copy.roadmap.workloadTitle}</strong>
+          <p>{copy.roadmap.workloadCopy}</p>
+        </div>
+        <div className="workload-month-grid">
+          {workloadBuckets.map((bucket) => (
+            <div key={bucket.key} className="workload-month-card" title={bucket.label}>
+              <span>{bucket.shortLabel}</span>
+              <div className="workload-bar-track" aria-hidden="true">
+                <div
+                  className="workload-bar-fill"
+                  style={{ height: `${Math.max(8, Math.round((bucket.count / maxWorkloadCount) * 100))}%` }}
+                />
+              </div>
+              <strong>{bucket.count}</strong>
+              <small>{copy.roadmap.workloadPeople(bucket.assigneeCount)}</small>
+            </div>
+          ))}
         </div>
       </section>
 

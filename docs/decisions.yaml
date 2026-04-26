@@ -552,3 +552,9 @@ decisions:
     status: accepted
     decision: Project Detail のガントタイムラインは日付単位に固定し、週 / 月粒度への切替 UI は出さない。既存の timeline interaction は `day` scale を常に使い、keyboard move / resize は1日単位で実行する
     rationale: ユーザー要望は時間ではなく日付単位のガントであること。週 / 月切替は長期俯瞰には有用だが、Project Detail の編集画面では粒度が変わることで操作結果の単位が曖昧になるため、日付単位に固定して日々の編集と受け入れ試験を一致させる。
+
+  - id: DEC-092
+    topic: Team workload usability without new membership table
+    status: accepted
+    decision: `TASK-1601` では project-level membership table を追加せず、既存の `project.ownerName` をメイン担当として編集可能にし、複数担当は task `assigneeName` から集計する。Project Detail / Portfolio / Roadmap はこの派生集計を使って担当者別状況と月別負荷を表示する
+    rationale: ユーザー要望は担当者登録と担当者別閲覧、頻繁なサブタスク日程変更、年間負荷把握である。新しい membership schema を入れると migration / Excel round-trip / backup contract の調整が大きくなるため、まず既存データだけで日常操作の視認性と入力速度を上げるのが安全である。

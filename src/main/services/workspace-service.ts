@@ -433,13 +433,14 @@ export class WorkspaceService {
 
   updateProject(input: UpdateProjectInput): ProjectSummary {
     const parsed = updateProjectInputSchema.parse(input);
-    this.mustGetProject(parsed.id);
+    const currentProject = this.mustGetProject(parsed.id);
 
     this.db.withTransaction(() => {
       this.projects.update({
         id: parsed.id,
         name: parsed.name,
         code: parsed.code,
+        ownerName: parsed.ownerName ?? currentProject.ownerName,
         updatedAt: new Date().toISOString(),
       });
     });

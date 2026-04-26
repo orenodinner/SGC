@@ -559,6 +559,7 @@ textarea {
 .project-header,
 .toolbar,
 .quick-task-add,
+.bulk-task-add,
 .table-shell,
 .empty-panel,
 .capture-panel,
@@ -569,6 +570,7 @@ textarea {
 .portfolio-overview,
 .portfolio-panel,
 .roadmap-overview,
+.workload-strip,
 .roadmap-panel {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
@@ -584,6 +586,7 @@ textarea {
 .portfolio-overview,
 .portfolio-panel,
 .roadmap-overview,
+.workload-strip,
 .roadmap-panel {
   padding: 22px;
 }
@@ -812,6 +815,104 @@ textarea {
   font-size: 24px;
 }
 
+.assignee-summary-panel,
+.assignee-board,
+.workload-strip {
+  display: grid;
+  gap: 14px;
+}
+
+.assignee-summary-panel {
+  padding: 16px;
+  border: 1px solid var(--row-border);
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--selection-border) 10%, transparent), transparent 58%),
+    var(--row-soft-bg);
+}
+
+.assignee-summary-panel p,
+.assignee-board p,
+.workload-strip p {
+  margin: 4px 0 0;
+  color: var(--helper-text);
+  font-size: 13px;
+}
+
+.assignee-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.assignee-summary-chip,
+.empty-chip {
+  display: grid;
+  gap: 4px;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid var(--row-border);
+  border-radius: 14px;
+  background: var(--panel-bg);
+  color: inherit;
+  text-align: left;
+}
+
+.assignee-summary-chip {
+  cursor: pointer;
+}
+
+.assignee-summary-chip:hover,
+.assignee-summary-chip.active {
+  border-color: var(--selection-border);
+  background: color-mix(in srgb, var(--selection-border) 12%, var(--panel-bg));
+}
+
+.assignee-summary-chip span,
+.empty-chip {
+  color: var(--helper-text);
+  font-size: 12px;
+}
+
+.workload-month-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(54px, 1fr));
+  gap: 8px;
+}
+
+.workload-month-card {
+  display: grid;
+  grid-template-rows: auto 72px auto auto;
+  gap: 6px;
+  justify-items: center;
+  padding: 10px 6px;
+  border: 1px solid var(--row-border);
+  border-radius: 14px;
+  background: var(--row-soft-bg);
+}
+
+.workload-month-card span,
+.workload-month-card small {
+  color: var(--helper-text);
+  font-size: 11px;
+}
+
+.workload-bar-track {
+  display: flex;
+  align-items: end;
+  width: 14px;
+  height: 72px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--selection-border) 10%, var(--panel-bg));
+}
+
+.workload-bar-fill {
+  width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, var(--button-bg), var(--selection-border));
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -831,7 +932,8 @@ textarea {
   gap: 8px;
 }
 
-.quick-task-add {
+.quick-task-add,
+.bulk-task-add {
   display: grid;
   grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1fr) auto;
   align-items: end;
@@ -840,16 +942,29 @@ textarea {
 }
 
 .quick-task-add input,
-.quick-task-add button {
+.quick-task-add button,
+.bulk-task-add textarea,
+.bulk-task-add button {
   min-height: 40px;
 }
 
-.quick-task-add button {
+.quick-task-add button,
+.bulk-task-add button {
   white-space: nowrap;
 }
 
-.quick-task-add strong {
+.quick-task-add strong,
+.bulk-task-add strong {
   display: block;
+}
+
+.bulk-task-add textarea {
+  resize: vertical;
+}
+
+.bulk-task-add span {
+  color: var(--helper-text);
+  font-size: 12px;
 }
 
 .template-section-grid {
@@ -1135,6 +1250,7 @@ textarea {
 .portfolio-overview,
 .portfolio-panel,
 .roadmap-overview,
+.workload-strip,
 .roadmap-panel,
 .portfolio-table,
 .portfolio-table-group,
@@ -1147,6 +1263,7 @@ textarea {
 .portfolio-overview,
 .portfolio-panel,
 .roadmap-overview,
+.workload-strip,
 .roadmap-panel {
   gap: 18px;
 }
@@ -2073,9 +2190,14 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .quick-task-add {
+  .quick-task-add,
+  .bulk-task-add {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .workload-month-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .recurrence-editor-form {

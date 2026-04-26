@@ -563,6 +563,7 @@ describe("WorkspaceService quick capture", () => {
       id: project.id,
       name: "Project Template案件 改",
       code: "PRJ-PROJTPL",
+      ownerName: "高橋",
     });
     const root = service.createItem({
       projectId: project.id,
@@ -607,7 +608,7 @@ describe("WorkspaceService quick capture", () => {
     expect(saved.body.projectFields).toMatchObject({
       name: "Project Template案件 改",
       description: "",
-      ownerName: "",
+      ownerName: "高橋",
       priority: "medium",
       color: "",
     });

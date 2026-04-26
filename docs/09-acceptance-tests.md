@@ -642,3 +642,13 @@
 - `週` / `月` の粒度切替ボタンは表示されない
 - `Alt+→` は開始日と終了日を1日進める
 - `Alt+Shift+→` は右端を1日だけ延ばす
+
+### ACC-068 Team workload usability
+**Given** 1 project にメイン担当と複数の task 担当者があり、subtask が複数登録される
+**When** Project Detail / Portfolio / Year-FY Roadmap を確認する
+**Then**
+- Project Detail でメイン担当を編集できる
+- 1行1タスクの multiline 入力から、選択行の下へ複数 subtask をまとめて追加できる
+- Project Detail の担当者 chip から、その担当者の task へ絞り込める
+- Portfolio で担当者別の project / 未完了 / 遅延件数を見られる
+- Year-FY Roadmap で表示範囲の月別 workload を把握できる
