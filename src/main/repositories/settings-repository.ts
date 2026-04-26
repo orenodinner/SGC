@@ -12,6 +12,7 @@ interface AppSettingsRow {
   excel_default_assignee: AppSettings["excelDefaultAssignee"];
   week_starts_on: AppSettings["weekStartsOn"];
   fy_start_month: number;
+  show_roadmap_workload: number;
   working_day_numbers: string;
   default_view: AppSettings["defaultView"];
   created_at: string;
@@ -27,6 +28,7 @@ export interface UpsertAppSettingsRow {
   excelDefaultAssignee: AppSettings["excelDefaultAssignee"];
   weekStartsOn: AppSettings["weekStartsOn"];
   fyStartMonth: number;
+  showRoadmapWorkload: AppSettings["showRoadmapWorkload"];
   workingDayNumbers: AppSettings["workingDayNumbers"];
   defaultView: AppSettings["defaultView"];
   createdAt: string;
@@ -48,6 +50,7 @@ export class SettingsRepository {
         excel_default_assignee,
         week_starts_on,
         fy_start_month,
+        show_roadmap_workload,
         working_day_numbers,
         default_view,
         created_at,
@@ -72,11 +75,12 @@ export class SettingsRepository {
         excel_default_assignee,
         week_starts_on,
         fy_start_month,
+        show_roadmap_workload,
         working_day_numbers,
         default_view,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         DEFAULT_WORKSPACE_ID,
         input.language,
@@ -87,6 +91,7 @@ export class SettingsRepository {
         input.excelDefaultAssignee,
         input.weekStartsOn,
         input.fyStartMonth,
+        input.showRoadmapWorkload ? 1 : 0,
         serializeWorkingDayNumbers(input.workingDayNumbers),
         input.defaultView,
         input.createdAt,
@@ -98,7 +103,7 @@ export class SettingsRepository {
   update(input: Omit<UpsertAppSettingsRow, "createdAt">): void {
     this.db.run(
       `UPDATE app_settings
-       SET language = ?, theme = ?, auto_backup_enabled = ?, auto_backup_retention_limit = ?, excel_default_priority = ?, excel_default_assignee = ?, week_starts_on = ?, fy_start_month = ?, working_day_numbers = ?, default_view = ?, updated_at = ?
+       SET language = ?, theme = ?, auto_backup_enabled = ?, auto_backup_retention_limit = ?, excel_default_priority = ?, excel_default_assignee = ?, week_starts_on = ?, fy_start_month = ?, show_roadmap_workload = ?, working_day_numbers = ?, default_view = ?, updated_at = ?
        WHERE workspace_id = ?`,
       [
         input.language,
@@ -109,6 +114,7 @@ export class SettingsRepository {
         input.excelDefaultAssignee,
         input.weekStartsOn,
         input.fyStartMonth,
+        input.showRoadmapWorkload ? 1 : 0,
         serializeWorkingDayNumbers(input.workingDayNumbers),
         input.defaultView,
         input.updatedAt,
@@ -129,6 +135,7 @@ function mapSettingsRow(row: AppSettingsRow): AppSettings {
     excelDefaultAssignee: row.excel_default_assignee,
     weekStartsOn: row.week_starts_on,
     fyStartMonth: row.fy_start_month,
+    showRoadmapWorkload: row.show_roadmap_workload === 1,
     workingDayNumbers: parseWorkingDayNumbers(row.working_day_numbers),
     defaultView: row.default_view,
     createdAt: row.created_at,

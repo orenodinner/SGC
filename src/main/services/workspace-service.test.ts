@@ -277,6 +277,7 @@ describe("WorkspaceService quick capture", () => {
       excelDefaultAssignee: "",
       weekStartsOn: "monday",
       fyStartMonth: 4,
+      showRoadmapWorkload: false,
       workingDayNumbers: [1, 2, 3, 4, 5],
       defaultView: "home",
     });
@@ -290,6 +291,7 @@ describe("WorkspaceService quick capture", () => {
       excelDefaultAssignee: "田中",
       weekStartsOn: "sunday",
       fyStartMonth: 7,
+      showRoadmapWorkload: true,
       workingDayNumbers: [0, 1, 2, 3, 4],
       defaultView: "roadmap",
     });
@@ -304,6 +306,7 @@ describe("WorkspaceService quick capture", () => {
       excelDefaultAssignee: "田中",
       weekStartsOn: "sunday",
       fyStartMonth: 7,
+      showRoadmapWorkload: true,
       workingDayNumbers: [0, 1, 2, 3, 4],
       defaultView: "roadmap",
     });
@@ -316,6 +319,7 @@ describe("WorkspaceService quick capture", () => {
       excelDefaultAssignee: "田中",
       weekStartsOn: "sunday",
       fyStartMonth: 7,
+      showRoadmapWorkload: true,
       workingDayNumbers: [0, 1, 2, 3, 4],
       defaultView: "roadmap",
     });

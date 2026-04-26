@@ -81,6 +81,7 @@ const memory = {
     excelDefaultAssignee: "",
     weekStartsOn: "monday",
     fyStartMonth: 4,
+    showRoadmapWorkload: false,
     workingDayNumbers: [1, 2, 3, 4, 5],
     defaultView: "home",
     createdAt: new Date().toISOString(),

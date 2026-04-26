@@ -201,4 +201,11 @@ export const migrations: Migration[] = [
       ADD COLUMN excel_default_assignee TEXT NOT NULL DEFAULT '';
     `,
   },
+  {
+    id: "012_add_roadmap_workload_setting_to_app_settings",
+    sql: `
+      ALTER TABLE app_settings
+      ADD COLUMN show_roadmap_workload INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];

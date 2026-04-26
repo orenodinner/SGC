@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 18:15 JST
+最終更新日時: 2026-04-26 19:28 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 99
-- 今回完了したサイクル: Roadmap year and fiscal quarter headers
+- 完了サイクル数: 100
+- 今回完了したサイクル: Roadmap density and workload setting
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -21,9 +21,17 @@
 - EPIC-17 `Multi-year roadmap and event days` / `TASK-1701 Add multi-year roadmap slider and event-day subtask entry` は完了
 - EPIC-18 `Structured demo data` / `TASK-1801 Replace messy dummy projects with structured yearly demo data` は完了
 - EPIC-19 `Roadmap year and fiscal quarter headers` / `TASK-1901 Add calendar year header and fiscal quarter labels to roadmap` は完了
+- EPIC-20 `Roadmap density and workload setting` / `TASK-2001 Hide roadmap workload by default and remove redundant intro copy` は完了
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- Year / FY Roadmap の `年間の月別負荷` strip を既定非表示にし、Settings の `年次FY画面に月別負荷を表示` で再表示できるようにした
+- Year / FY Roadmap 先頭の `長期計画を月単位で俯瞰` 見出しと説明文をレンダリング対象から外し、scale / filter / range / 表示年数操作を先頭に寄せた
+- `showRoadmapWorkload` を app settings contract / SQLite migration / desktop service / browser fallback に追加し、既存DBでは default false で移行するようにした
+- `ACC-072` / `DEC-096` と `EPIC-20` / `TASK-2001` を追加し、Roadmap workload visibility の既定方針を仕様化した
+- `typecheck / lint / test / build`、targeted settings unit tests、targeted desktop E2E 2件を通過した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `154,577,956 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - Roadmap の header を `西暦 / Q / 月` の3段にし、月表示とQ表示の上に calendar year header を追加した
 - Year / FY Roadmap の Q header を FY 開始月基準へ統一し、FY開始月=4 のとき `Q1=4-6月`, `Q4=1-3月` になるようにした
 - Year view でも 1-3月は `Q4`、4-6月は `Q1` として表示されるよう、quarter header 生成を月bucketの実月から算出する実装へ変更した

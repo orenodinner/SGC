@@ -44,6 +44,7 @@ describe("DatabaseManager", () => {
     expect(appSettingsColumns.map((column) => column.name)).toContain("auto_backup_retention_limit");
     expect(appSettingsColumns.map((column) => column.name)).toContain("excel_default_priority");
     expect(appSettingsColumns.map((column) => column.name)).toContain("excel_default_assignee");
+    expect(appSettingsColumns.map((column) => column.name)).toContain("show_roadmap_workload");
   });
 
   it("creates and lists timestamped backup files", async () => {

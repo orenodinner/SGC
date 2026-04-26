@@ -81,6 +81,7 @@ describe("browserApi import preview fallback", () => {
         excelDefaultAssignee: "佐藤",
         weekStartsOn: "sunday",
         fyStartMonth: 7,
+        showRoadmapWorkload: true,
         workingDayNumbers: [0, 1, 2, 3, 4],
         defaultView: "roadmap",
       });
@@ -94,6 +95,7 @@ describe("browserApi import preview fallback", () => {
         excelDefaultAssignee: "佐藤",
         weekStartsOn: "sunday",
         fyStartMonth: 7,
+        showRoadmapWorkload: true,
         workingDayNumbers: [0, 1, 2, 3, 4],
         defaultView: "roadmap",
       });
@@ -106,6 +108,7 @@ describe("browserApi import preview fallback", () => {
         excelDefaultAssignee: "佐藤",
         weekStartsOn: "sunday",
         fyStartMonth: 7,
+        showRoadmapWorkload: true,
         workingDayNumbers: [0, 1, 2, 3, 4],
         defaultView: "roadmap",
       });
@@ -119,6 +122,7 @@ describe("browserApi import preview fallback", () => {
         excelDefaultAssignee: original.excelDefaultAssignee,
         weekStartsOn: original.weekStartsOn,
         fyStartMonth: original.fyStartMonth,
+        showRoadmapWorkload: original.showRoadmapWorkload,
         workingDayNumbers: original.workingDayNumbers,
         defaultView: original.defaultView,
       });

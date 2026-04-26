@@ -1050,6 +1050,7 @@ export default function App() {
             projects={projects}
             searchFilter={searchFiltersByView.roadmap}
             fyStartMonth={settings?.fyStartMonth ?? 4}
+            showRoadmapWorkload={settings?.showRoadmapWorkload ?? false}
             onOpenProject={(projectId) => {
               switchView("project");
               void selectProject(projectId);
@@ -2707,6 +2708,7 @@ function SettingsView(props: {
     excelDefaultAssignee?: AppSettings["excelDefaultAssignee"];
     weekStartsOn?: AppSettings["weekStartsOn"];
     fyStartMonth?: number;
+    showRoadmapWorkload?: boolean;
     workingDayNumbers?: AppSettings["workingDayNumbers"];
     defaultView?: AppDefaultView;
   }) => Promise<unknown>;
@@ -2730,6 +2732,7 @@ function SettingsView(props: {
     settings?.weekStartsOn ?? "monday"
   );
   const [fyStartMonth, setFyStartMonth] = useState(String(settings?.fyStartMonth ?? 4));
+  const [showRoadmapWorkload, setShowRoadmapWorkload] = useState(settings?.showRoadmapWorkload ?? false);
   const [workingDayNumbers, setWorkingDayNumbers] = useState<AppSettings["workingDayNumbers"]>(
     settings?.workingDayNumbers ?? [1, 2, 3, 4, 5]
   );
@@ -2762,6 +2765,7 @@ function SettingsView(props: {
       excelDefaultAssignee,
       weekStartsOn,
       fyStartMonth: parsedFyStartMonth,
+      showRoadmapWorkload,
       workingDayNumbers,
       defaultView,
     });
@@ -2878,6 +2882,19 @@ function SettingsView(props: {
             ))}
           </select>
         </label>
+
+        <fieldset className="settings-working-day-fieldset">
+          <legend>{copy.settings.showRoadmapWorkloadLabel}</legend>
+          <label className="settings-toggle-field">
+            <input
+              type="checkbox"
+              aria-label={copy.settings.showRoadmapWorkloadLabel}
+              checked={showRoadmapWorkload}
+              onChange={(event) => setShowRoadmapWorkload(event.target.checked)}
+            />
+            <span>{copy.settings.showRoadmapWorkloadHelp}</span>
+          </label>
+        </fieldset>
 
         <fieldset className="settings-working-day-fieldset">
           <legend>{copy.settings.workingDaysLegend}</legend>
@@ -3361,6 +3378,7 @@ function RoadmapView(props: {
   projects: ProjectSummary[];
   searchFilter: SearchFilterState;
   fyStartMonth: number;
+  showRoadmapWorkload: boolean;
   onOpenProject: (projectId: string) => void;
 }) {
   const copy = getUiCopy(props.language);
@@ -3517,8 +3535,8 @@ function RoadmapView(props: {
     [buckets, roadmapRows]
   );
   const workloadBuckets = useMemo(
-    () => buildWorkloadBucketSummaries(roadmapRows, buckets),
-    [buckets, roadmapRows]
+    () => (props.showRoadmapWorkload ? buildWorkloadBucketSummaries(roadmapRows, buckets) : []),
+    [buckets, props.showRoadmapWorkload, roadmapRows]
   );
   const maxWorkloadCount = Math.max(1, ...workloadBuckets.map((bucket) => bucket.count));
   const roadmapVirtualWindow = useMemo(
@@ -3570,11 +3588,6 @@ function RoadmapView(props: {
   return (
     <>
       <section className="roadmap-overview">
-        <div>
-          <p className="sidebar-label">Year / FY Roadmap</p>
-          <h2>{copy.roadmap.heading}</h2>
-          <p className="capture-copy">{copy.roadmap.copy}</p>
-        </div>
         <div className="roadmap-toolbar">
           <div className="timeline-scale-buttons">
             <button
@@ -3639,31 +3652,33 @@ function RoadmapView(props: {
         </div>
       </section>
 
-      <section className="workload-strip" aria-label={copy.roadmap.workloadTitle}>
-        <div>
-          <p className="sidebar-label">{copy.roadmap.workloadLabel}</p>
-          <strong>{copy.roadmap.workloadTitle}</strong>
-          <p>{copy.roadmap.workloadCopy}</p>
-        </div>
-        <div
-          className="workload-month-grid"
-          style={{ gridTemplateColumns: `repeat(${workloadBuckets.length}, minmax(54px, 1fr))` }}
-        >
-          {workloadBuckets.map((bucket) => (
-            <div key={bucket.key} className="workload-month-card" title={bucket.label}>
-              <span>{bucket.shortLabel}</span>
-              <div className="workload-bar-track" aria-hidden="true">
-                <div
-                  className="workload-bar-fill"
-                  style={{ height: `${Math.max(8, Math.round((bucket.count / maxWorkloadCount) * 100))}%` }}
-                />
+      {props.showRoadmapWorkload ? (
+        <section className="workload-strip" aria-label={copy.roadmap.workloadTitle}>
+          <div>
+            <p className="sidebar-label">{copy.roadmap.workloadLabel}</p>
+            <strong>{copy.roadmap.workloadTitle}</strong>
+            <p>{copy.roadmap.workloadCopy}</p>
+          </div>
+          <div
+            className="workload-month-grid"
+            style={{ gridTemplateColumns: `repeat(${workloadBuckets.length}, minmax(54px, 1fr))` }}
+          >
+            {workloadBuckets.map((bucket) => (
+              <div key={bucket.key} className="workload-month-card" title={bucket.label}>
+                <span>{bucket.shortLabel}</span>
+                <div className="workload-bar-track" aria-hidden="true">
+                  <div
+                    className="workload-bar-fill"
+                    style={{ height: `${Math.max(8, Math.round((bucket.count / maxWorkloadCount) * 100))}%` }}
+                  />
+                </div>
+                <strong>{bucket.count}</strong>
+                <small>{copy.roadmap.workloadPeople(bucket.assigneeCount)}</small>
               </div>
-              <strong>{bucket.count}</strong>
-              <small>{copy.roadmap.workloadPeople(bucket.assigneeCount)}</small>
-            </div>
-          ))}
-        </div>
-      </section>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="roadmap-panel">
         {error ? <div className="error-banner">{error}</div> : null}

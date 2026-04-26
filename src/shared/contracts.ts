@@ -36,6 +36,7 @@ export const appSettingsSchema = z.object({
   excelDefaultAssignee: z.string().max(80),
   weekStartsOn: weekStartsOnSchema,
   fyStartMonth: z.number().int().min(1).max(12),
+  showRoadmapWorkload: z.boolean().default(false),
   workingDayNumbers: workingDayNumbersSchema,
   defaultView: appDefaultViewSchema,
   createdAt: z.string(),
@@ -50,6 +51,7 @@ export const updateAppSettingsInputSchema = z.object({
   excelDefaultAssignee: z.string().max(80).optional(),
   weekStartsOn: weekStartsOnSchema.optional(),
   fyStartMonth: z.number().int().min(1).max(12).optional(),
+  showRoadmapWorkload: z.boolean().optional(),
   workingDayNumbers: workingDayNumbersSchema.optional(),
   defaultView: appDefaultViewSchema.optional(),
 });

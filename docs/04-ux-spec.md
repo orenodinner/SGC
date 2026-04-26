@@ -156,6 +156,8 @@
 
 - month header の上に quarter header、その上に西暦 year header を置く
 - Year / FY view の quarter は FY 開始月基準で並べ、FY開始月=4 の場合は 4月が Q1、3月が Q4 の終わりになる
+- Year / FY Roadmap の先頭には長い説明文を置かず、scale / filter / range / 表示年数の操作をすぐ使える状態にする
+- 月別 workload strip は既定では非表示にし、Settings の `年次FY画面に月別負荷を表示` が有効な場合だけ Roadmap 上部へ表示する
 - roadmap の初期 filter chip は `全件 / 期限超過 / マイルストーン`
 - roadmap の root-level group row には expand/collapse ボタンを置く
 - expand 後は dated descendant を indented row として同じ表の中に出す

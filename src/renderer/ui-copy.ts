@@ -181,6 +181,8 @@ export interface UiCopy {
     weekStartsOnMonday: string;
     weekStartsOnSunday: string;
     fyStartMonthLabel: string;
+    showRoadmapWorkloadLabel: string;
+    showRoadmapWorkloadHelp: string;
     workingDaysLegend: string;
     workingDaysHelp: string;
     defaultViewLabel: string;
@@ -460,6 +462,8 @@ const JA_COPY: UiCopy = {
     weekStartsOnMonday: "月曜始まり",
     weekStartsOnSunday: "日曜始まり",
     fyStartMonthLabel: "FY開始月",
+    showRoadmapWorkloadLabel: "年次FY画面に月別負荷を表示",
+    showRoadmapWorkloadHelp: "通常は非表示にして、必要な時だけ Year / FY Roadmap の上部に月別負荷を出します。",
     workingDaysLegend: "稼働日",
     workingDaysHelp: "dependency 自動後ろ倒しの next working day 計算に使います。",
     defaultViewLabel: "既定表示",
@@ -739,6 +743,8 @@ const EN_COPY: UiCopy = {
     weekStartsOnMonday: "Monday",
     weekStartsOnSunday: "Sunday",
     fyStartMonthLabel: "FY Start Month",
+    showRoadmapWorkloadLabel: "Show monthly workload on Year / FY",
+    showRoadmapWorkloadHelp: "Keep the Year / FY Roadmap compact by default and show the workload strip only when needed.",
     workingDaysLegend: "Working Days",
     workingDaysHelp: "Used by dependency auto-shift when resolving the next working day.",
     defaultViewLabel: "Default View",

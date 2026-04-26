@@ -385,3 +385,17 @@ epics:
           - Year and FY roadmap quarter labels use FY start month, with April as Q1 by default
           - Year view shows Jan-Mar as Q4 and Apr-Jun as Q1 when FY start is April
           - Unit tests cover fiscal quarter labels and calendar year grouping
+
+  - id: EPIC-20
+    name: Roadmap density and workload setting
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-2001
+        title: Hide roadmap workload by default and remove redundant intro copy
+        status: done
+        done_when:
+          - Year / FY Roadmap does not show the monthly workload strip by default
+          - Settings can enable the monthly workload strip when it is needed
+          - Redundant roadmap intro heading and description are not rendered
+          - Unit and desktop E2E coverage verify the default hidden state and setting-enabled state

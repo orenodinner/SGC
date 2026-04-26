@@ -680,3 +680,11 @@
 - Q header は4月開始で `Q1=4-6月`, `Q2=7-9月`, `Q3=10-12月`, `Q4=1-3月` として表示される
 - 年次表示の1-3月は `Q4`、4-6月は `Q1` として見える
 - 複数年 / FY 跨ぎでは calendar year ごとに year header が分割される
+
+### ACC-072 Roadmap workload display setting
+**Given** Year / FY Roadmap を表示している
+**When** Settings の `年次FY画面に月別負荷を表示` が無効
+**Then**
+- `年間の月別負荷` strip は表示されない
+- Roadmap 先頭の説明見出し `長期計画を月単位で俯瞰` と説明文は表示されない
+- Settings で同項目を有効化すると、Year / FY Roadmap に月別 workload strip が表示される

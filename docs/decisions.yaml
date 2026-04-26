@@ -576,3 +576,9 @@ decisions:
     status: accepted
     decision: Roadmap の Q header は Year / FY のどちらでも FY 開始月を基準に算出し、FY開始月=4 では `Q1=4-6月`, `Q2=7-9月`, `Q3=10-12月`, `Q4=1-3月` とする。Q / month header の上には calendar year ごとに結合した西暦 year header を表示する
     rationale: ユーザーが確認したいのは暦年四半期ではなく業務年度の四半期である。年次表示でも 4月始まりのQを使い、上段に西暦を併記すれば、1-3月が前年FYのQ4であることと calendar year の境界を同時に把握できる。
+
+  - id: DEC-096
+    topic: Roadmap workload visibility default
+    status: accepted
+    decision: Year / FY Roadmap の月別 workload strip は既定で非表示にし、Settings の `年次FY画面に月別負荷を表示` が有効な場合だけ表示する。Roadmap 先頭の長い説明見出しと説明文は表示しない
+    rationale: Roadmap は複数年・多数projectを俯瞰する画面であり、常時 workload strip と説明文を置くと縦方向の視認性を落とす。必要な時だけ workload を表示できる設定にすることで、通常操作では表本体を優先しつつ、年間負荷確認の用途も残せる。

@@ -235,6 +235,7 @@
 - 既定表示
 - 自動バックアップ設定
 - Excel テンプレート既定値
+- 年次FY画面の月別負荷表示
 - `TASK-1001` の first slice では Settings 画面を追加し、`週開始曜日 / FY開始月 / 既定表示` の3項目を user-facing に編集 / 永続化できるようにする
 - first slice の `週開始曜日` は `日曜始まり / 月曜始まり` の2値とし、Home / Today の `今週` 集計と `今週マイルストーン` 判定に反映する
 - first slice の `FY 開始月` は 1-12 月から選択でき、Year / FY Roadmap の FY bucket と quarter header に反映する
@@ -272,6 +273,7 @@
 - 初期の Excel defaults slice は import 振る舞いを変えず、project 単位 export の `MasterData` sheet に `Default` category のヒントとして反映する
 - `自動バックアップ` を無効にした場合、app bootstrap 時の auto backup create と auto backup retention は実行しない
 - `自動バックアップ` 設定は sidebar の Data Protection helper copy にも反映してよい
+- `年次FY画面の月別負荷表示` は既定 false とし、Year / FY Roadmap の上部 workload strip は設定で有効化した場合だけ表示する
 - 初期 recovery prompt slice では DB 初期化や bootstrap 失敗を検知した場合でも app window 自体は開き、通常 workspace の代わりに recovery screen を表示する
 - recovery screen では startup error message と recent backups を表示し、backup preview を経由した restore を許可する
 - recovery screen から restore を実行する場合も desktop では apply 前に current DB file の safety backup を自動作成する
@@ -443,13 +445,13 @@
 - `assigneeName` は `,` / `、` / `/` / 改行区切りで複数名を扱ってよい
 - Project Detail の担当者別集計は、未完了 / 完了 / 遅延 task 件数を表示し、担当者フィルタへ接続する
 - Portfolio の担当者別集計は、担当 project 数 / 未完了 task 数 / 遅延 task 数を表示し、project 一覧を担当者で絞り込める
-- Roadmap の workload は、表示中の scheduled task を month bucket ごとに数え、担当者数と task 件数を表示する
+- Roadmap の workload は、設定で有効化した場合に限り、表示中の scheduled task を month bucket ごとに数え、担当者数と task 件数を表示する
 - project membership 専用 table はこの slice では追加しない。Excel round-trip / backup contract への影響を避けるため、正式な member registry は後続拡張とする
 
 ## 3.9 複数年ロードマップとイベント日
 - Year / FY Roadmap は 1-5 年の表示年数 slider を持ち、選択年数 x 12 か月の month bucket を表示できる
 - Year scale は anchor year の1月から、FY scale は設定済み FY 開始月から表示年数分を連続表示する
-- 複数年表示でも existing filter / expand / workload 集計は同じ表示範囲に対して適用する
+- 複数年表示でも existing filter / expand / workload 集計は同じ表示範囲に対して適用する。ただし workload strip は Settings で有効な場合だけ表示する
 - 複数年表示の header は上から `西暦 / Q / 月` の3段とし、Q は設定済み FY 開始月を基準にする
 - Project Detail では selected row の下にイベント日を追加できる
 - イベント日は既存 item type `milestone` として保存し、startDate / endDate は同じ日付にそろえる

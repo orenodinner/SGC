@@ -149,9 +149,10 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await page.getByRole("button", { name: `${overdueProjectName} の phase を展開する` }).click();
     await expect(page.locator(".portfolio-phase-row").filter({ hasText: overdueTitle }).first()).toBeVisible();
     await page.getByRole("button", { name: "Year / FY" }).click();
-    await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toBeVisible();
-    await expect(page.getByText("年間の月別負荷")).toBeVisible();
-    await expect(page.locator(".workload-month-card").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toHaveCount(0);
+    await expect(page.getByText("project と主要 row を month bucket")).toHaveCount(0);
+    await expect(page.getByText("年間の月別負荷")).toHaveCount(0);
+    await expect(page.locator(".workload-month-card")).toHaveCount(0);
     await expect(page.locator(".roadmap-year-cell").filter({ hasText: String(today.getFullYear()) }).first()).toBeVisible();
     await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q4" }).first()).toBeVisible();
     await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q1" }).first()).toBeVisible();
@@ -169,6 +170,13 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await page.locator(".roadmap-year-span-slider input").press("ArrowRight");
     await expect(page.locator(".roadmap-header-cell")).toHaveCount(24);
     await expect(page.getByText(`${today.getFullYear()}年 - ${today.getFullYear() + 1}年`)).toBeVisible();
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    await page.getByRole("checkbox", { name: "年次FY画面に月別負荷を表示" }).check();
+    await page.getByRole("button", { name: "設定を保存" }).click();
+    await expect(page.locator(".notice-banner")).toContainText("Settings saved");
+    await page.getByRole("button", { name: "Year / FY" }).click();
+    await expect(page.getByText("年間の月別負荷")).toBeVisible();
+    await expect(page.locator(".workload-month-card").first()).toBeVisible();
   } finally {
     await app.close();
   }
@@ -643,6 +651,7 @@ test("settings shell persists week start, FY start month, and default view", asy
     await page.getByLabel("担当既定値").fill("佐藤");
     await page.getByLabel("週開始曜日").selectOption("sunday");
     await page.getByLabel("FY開始月").selectOption("7");
+    await page.getByRole("checkbox", { name: "年次FY画面に月別負荷を表示" }).check();
     await page.getByRole("checkbox", { name: "金曜" }).uncheck();
     await page.getByRole("checkbox", { name: "日曜" }).check();
     await page.getByLabel("既定表示").selectOption("roadmap");
@@ -658,9 +667,10 @@ test("settings shell persists week start, FY start month, and default view", asy
   try {
     const page = await secondApp.firstWindow();
 
-    await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toHaveCount(0);
     await page.getByRole("button", { name: "FY", exact: true }).click();
     await expect(page.locator(".roadmap-header-cell").first()).toContainText("7");
+    await expect(page.getByText("年間の月別負荷")).toBeVisible();
 
     await page.getByRole("button", { name: "Home / Today" }).click();
     await expect(page.getByText(milestoneTitle).first()).toBeVisible();
@@ -672,6 +682,7 @@ test("settings shell persists week start, FY start month, and default view", asy
     await expect(page.getByLabel("担当既定値")).toHaveValue("佐藤");
     await expect(page.getByLabel("週開始曜日")).toHaveValue("sunday");
     await expect(page.getByLabel("FY開始月")).toHaveValue("7");
+    await expect(page.getByRole("checkbox", { name: "年次FY画面に月別負荷を表示" })).toBeChecked();
     await expect(page.getByRole("checkbox", { name: "日曜" })).toBeChecked();
     await expect(page.getByRole("checkbox", { name: "金曜" })).not.toBeChecked();
     await expect(page.getByLabel("既定表示")).toHaveValue("roadmap");
@@ -1658,9 +1669,7 @@ test("search and filter drawer narrows home, portfolio, and roadmap views", asyn
     await expect(page.locator(".portfolio-table-button").filter({ hasText: betaProjectName }).first()).toBeVisible();
 
     await page.getByRole("button", { name: /^(Year \/ FY|年次 \/ FY)$/ }).click();
-    await expect(
-      page.getByRole("heading", { name: /^(長期計画を月単位で俯瞰|No Roadmap Projects)$/ })
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "FY", exact: true })).toBeVisible();
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: alphaTaskTitle }).first()).toBeVisible();
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: betaTaskTitle }).first()).toBeVisible();
     await page.getByRole("button", { name: "Search / Filter" }).click();
