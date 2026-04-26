@@ -24,7 +24,14 @@ module.exports = tseslint.config(
     },
   },
   {
-    files: ["src/main/**/*.ts", "src/preload/**/*.ts", "src/domain/**/*.ts", "src/shared/**/*.ts", "*.config.ts"],
+    files: [
+      "src/main/**/*.ts",
+      "src/preload/**/*.ts",
+      "src/domain/**/*.ts",
+      "src/shared/**/*.ts",
+      "scripts/**/*.mjs",
+      "*.config.ts",
+    ],
     languageOptions: {
       globals: {
         ...globals.node,

@@ -356,3 +356,18 @@ epics:
           - Project Detail can add an event day under the selected row
           - Event day entries are stored as same-day milestones
           - Unit and desktop E2E coverage verify the multi-year and event-day paths
+
+  - id: EPIC-18
+    name: Structured demo data
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-1801
+        title: Replace messy dummy projects with structured yearly demo data
+        status: done
+        done_when:
+          - Demo data source defines 8 projects in one year
+          - Each project has a main owner and 2-3 assignees across items
+          - Each project has 7 items including a final milestone event day
+          - Reset script backs up the current SQLite database before replacing demo projects
+          - Test coverage verifies the demo data shape

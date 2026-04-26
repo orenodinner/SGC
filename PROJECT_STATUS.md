@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 17:43 JST
+最終更新日時: 2026-04-26 17:55 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 97
-- 今回完了したサイクル: Multi-year roadmap and event-day entry
+- 完了サイクル数: 98
+- 今回完了したサイクル: Structured demo workspace reset
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -19,9 +19,15 @@
 - EPIC-15 `Date-based Gantt timeline` / `TASK-1501 Lock Project Detail Gantt to date units` は完了
 - EPIC-16 `Team workload usability` / `TASK-1601 Improve team assignment, subtask entry, and workload overview` は完了
 - EPIC-17 `Multi-year roadmap and event days` / `TASK-1701 Add multi-year roadmap slider and event-day subtask entry` は完了
+- EPIC-18 `Structured demo data` / `TASK-1801 Replace messy dummy projects with structured yearly demo data` は完了
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- `spec/demo-workspace-data.json` を追加し、2026年内の8 project、各7 item、各 project 2〜3名担当＋メイン担当のデモデータを source of truth 化した
+- `npm run reset:demo` を追加し、実行前に `sgc-demo-reset-backup-*.sqlite` を作ってから既存テスト project / item を structured demo set へ入れ替えられるようにした
+- 実DB `C:\Users\oreno\AppData\Roaming\sgc\data\sgc.sqlite` に reset を適用し、8 project / 56 item / 各 project 7 item を直接検査して確認した
+- `ACC-070` / `DEC-094` と `EPIC-18` / `TASK-1801` を追加し、デモデータ再作成手順を README に追記した
+- `typecheck` と demo data unit test を通過した
 - Year / FY Roadmap に `表示年数` slider を追加し、1-5年の複数年を同じ俯瞰画面で確認できるようにした
 - Roadmap の月 bucket、range label、workload strip を選択年数に連動させ、単年 / FY 表示の既存既定値は維持した
 - Project Detail の `複数サブタスク追加` の下に `イベント日追加` form を追加し、選択 row 配下へ同日 start/end の milestone を素早く登録できるようにした

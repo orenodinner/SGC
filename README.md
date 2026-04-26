@@ -79,6 +79,16 @@ npm run build
 npm run preview
 ```
 
+### デモデータを作り直す
+
+UI確認用のダミープロジェクトを整った状態へ戻す場合は、アプリを閉じた状態で次を実行します。
+
+```powershell
+npm run reset:demo
+```
+
+既存のSQLiteは `backups/sgc-demo-reset-backup-*.sqlite` に退避され、2026年内の8プロジェクト、各7サブタスク、各プロジェクト2〜3名担当＋メイン担当のデモデータに入れ替わります。
+
 ## よく使うコマンド
 
 ```powershell

@@ -453,3 +453,10 @@
 - Project Detail では selected row の下にイベント日を追加できる
 - イベント日は既存 item type `milestone` として保存し、startDate / endDate は同じ日付にそろえる
 - selected row が無い場合は project 直下の milestone として登録する
+
+## 3.10 Demo workspace data
+- テスト / UI 確認用デモデータは `spec/demo-workspace-data.json` を source of truth とする
+- デモデータは 1 年間に 8 project を配置し、各 project はメイン担当者を持つ
+- 各 project は 7 item を持ち、担当者は project ごとに 2〜3 名へ分散する
+- 最終 item は単日 milestone とし、Roadmap / Project Detail / Portfolio の確認に使えるようにする
+- 既存の実DBをデモデータへ作り直す場合は `npm run reset:demo` を使い、実行前の SQLite は `backups/sgc-demo-reset-backup-*.sqlite` に退避する

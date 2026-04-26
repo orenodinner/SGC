@@ -662,3 +662,12 @@
 - workload strip も同じ表示範囲の month bucket 数へ広がる
 - イベント日は selected row の subtask として `milestone` で作成される
 - イベント日の開始日と終了日は同じ日付で保存される
+
+### ACC-070 Structured demo workspace reset
+**Given** UI確認用の既存テストDBが乱雑になっている
+**When** `npm run reset:demo` を実行する
+**Then**
+- 既存 SQLite backup が作成される
+- 2026年内に8 project が作成される
+- 各 project はメイン担当者、2〜3名の担当者、7件の item を持つ
+- 各 project の最後の item は単日 milestone として登録される

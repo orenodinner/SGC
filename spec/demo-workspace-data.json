@@ -1,0 +1,141 @@
+{
+  "year": 2026,
+  "projects": [
+    {
+      "code": "DEMO-2026-01",
+      "name": "新春キャンペーン制作",
+      "ownerName": "佐藤",
+      "description": "1月開始の販促制作案件。担当者: 佐藤, 鈴木, 田中",
+      "priority": "high",
+      "color": "#2563eb",
+      "tasks": [
+        { "title": "要件整理", "assigneeName": "佐藤", "startDate": "2026-01-05", "endDate": "2026-01-09", "status": "done", "percentComplete": 100 },
+        { "title": "構成案作成", "assigneeName": "鈴木", "startDate": "2026-01-12", "endDate": "2026-01-16", "status": "done", "percentComplete": 100 },
+        { "title": "デザイン初稿", "assigneeName": "田中", "startDate": "2026-01-19", "endDate": "2026-01-28", "status": "done", "percentComplete": 100 },
+        { "title": "社内レビュー", "assigneeName": "佐藤", "startDate": "2026-01-29", "endDate": "2026-02-02", "status": "done", "percentComplete": 100 },
+        { "title": "修正対応", "assigneeName": "田中", "startDate": "2026-02-03", "endDate": "2026-02-10", "status": "done", "percentComplete": 100 },
+        { "title": "入稿準備", "assigneeName": "鈴木", "startDate": "2026-02-12", "endDate": "2026-02-18", "status": "done", "percentComplete": 100 },
+        { "title": "公開日", "assigneeName": "佐藤", "startDate": "2026-02-20", "endDate": "2026-02-20", "type": "milestone", "status": "done", "percentComplete": 100 }
+      ]
+    },
+    {
+      "code": "DEMO-2026-02",
+      "name": "春期展示会準備",
+      "ownerName": "鈴木",
+      "description": "展示会出展の準備案件。担当者: 鈴木, 田中, 山本",
+      "priority": "high",
+      "color": "#059669",
+      "tasks": [
+        { "title": "出展計画", "assigneeName": "鈴木", "startDate": "2026-02-02", "endDate": "2026-02-06", "status": "done", "percentComplete": 100 },
+        { "title": "ブース設計", "assigneeName": "山本", "startDate": "2026-02-09", "endDate": "2026-02-20", "status": "done", "percentComplete": 100 },
+        { "title": "展示物リスト作成", "assigneeName": "田中", "startDate": "2026-02-24", "endDate": "2026-03-03", "status": "done", "percentComplete": 100 },
+        { "title": "印刷物手配", "assigneeName": "鈴木", "startDate": "2026-03-04", "endDate": "2026-03-12", "status": "in_progress", "percentComplete": 80 },
+        { "title": "搬入計画", "assigneeName": "山本", "startDate": "2026-03-13", "endDate": "2026-03-19", "status": "in_progress", "percentComplete": 60 },
+        { "title": "当日運営確認", "assigneeName": "田中", "startDate": "2026-03-23", "endDate": "2026-03-27", "status": "not_started", "percentComplete": 0 },
+        { "title": "展示会当日", "assigneeName": "鈴木", "startDate": "2026-03-30", "endDate": "2026-03-30", "type": "milestone", "status": "not_started", "percentComplete": 0 }
+      ]
+    },
+    {
+      "code": "DEMO-2026-03",
+      "name": "社内ポータル改善",
+      "ownerName": "田中",
+      "description": "業務ポータルの改善案件。担当者: 田中, 佐藤",
+      "priority": "medium",
+      "color": "#7c3aed",
+      "tasks": [
+        { "title": "現状ヒアリング", "assigneeName": "田中", "startDate": "2026-03-02", "endDate": "2026-03-06", "status": "done", "percentComplete": 100 },
+        { "title": "改善項目整理", "assigneeName": "佐藤", "startDate": "2026-03-09", "endDate": "2026-03-13", "status": "done", "percentComplete": 100 },
+        { "title": "画面設計", "assigneeName": "田中", "startDate": "2026-03-16", "endDate": "2026-03-27", "status": "in_progress", "percentComplete": 70 },
+        { "title": "実装", "assigneeName": "佐藤", "startDate": "2026-03-30", "endDate": "2026-04-17", "status": "in_progress", "percentComplete": 45 },
+        { "title": "受入テスト", "assigneeName": "田中", "startDate": "2026-04-20", "endDate": "2026-04-24", "status": "not_started", "percentComplete": 0 },
+        { "title": "操作説明", "assigneeName": "佐藤", "startDate": "2026-04-27", "endDate": "2026-04-30", "status": "not_started", "percentComplete": 0 },
+        { "title": "リリース判定会", "assigneeName": "田中", "startDate": "2026-05-01", "endDate": "2026-05-01", "type": "milestone", "status": "not_started", "percentComplete": 0 }
+      ]
+    },
+    {
+      "code": "DEMO-2026-04",
+      "name": "夏季商品カタログ",
+      "ownerName": "山本",
+      "description": "夏季向けカタログ制作案件。担当者: 山本, 鈴木, 佐藤",
+      "priority": "medium",
+      "color": "#f97316",
+      "tasks": [
+        { "title": "掲載商品選定", "assigneeName": "山本", "startDate": "2026-04-06", "endDate": "2026-04-10", "status": "done", "percentComplete": 100 },
+        { "title": "撮影計画", "assigneeName": "鈴木", "startDate": "2026-04-13", "endDate": "2026-04-17", "status": "in_progress", "percentComplete": 80 },
+        { "title": "商品撮影", "assigneeName": "佐藤", "startDate": "2026-04-20", "endDate": "2026-05-01", "status": "in_progress", "percentComplete": 55 },
+        { "title": "紙面レイアウト", "assigneeName": "山本", "startDate": "2026-05-07", "endDate": "2026-05-15", "status": "not_started", "percentComplete": 0 },
+        { "title": "価格確認", "assigneeName": "鈴木", "startDate": "2026-05-18", "endDate": "2026-05-22", "status": "not_started", "percentComplete": 0 },
+        { "title": "校正", "assigneeName": "佐藤", "startDate": "2026-05-25", "endDate": "2026-06-02", "status": "not_started", "percentComplete": 0 },
+        { "title": "印刷入稿日", "assigneeName": "山本", "startDate": "2026-06-05", "endDate": "2026-06-05", "type": "milestone", "status": "not_started", "percentComplete": 0 }
+      ]
+    },
+    {
+      "code": "DEMO-2026-05",
+      "name": "研修プログラム刷新",
+      "ownerName": "佐藤",
+      "description": "社内研修の刷新案件。担当者: 佐藤, 山本",
+      "priority": "medium",
+      "color": "#dc2626",
+      "tasks": [
+        { "title": "既存研修棚卸し", "assigneeName": "佐藤", "startDate": "2026-05-11", "endDate": "2026-05-15", "status": "in_progress", "percentComplete": 60 },
+        { "title": "受講者アンケート", "assigneeName": "山本", "startDate": "2026-05-18", "endDate": "2026-05-22", "status": "in_progress", "percentComplete": 35 },
+        { "title": "新カリキュラム設計", "assigneeName": "佐藤", "startDate": "2026-05-25", "endDate": "2026-06-05", "status": "not_started", "percentComplete": 0 },
+        { "title": "教材作成", "assigneeName": "山本", "startDate": "2026-06-08", "endDate": "2026-06-26", "status": "not_started", "percentComplete": 0 },
+        { "title": "講師調整", "assigneeName": "佐藤", "startDate": "2026-06-29", "endDate": "2026-07-03", "status": "not_started", "percentComplete": 0 },
+        { "title": "試行開催", "assigneeName": "山本", "startDate": "2026-07-06", "endDate": "2026-07-10", "status": "not_started", "percentComplete": 0 },
+        { "title": "本番開始日", "assigneeName": "佐藤", "startDate": "2026-07-15", "endDate": "2026-07-15", "type": "milestone", "status": "not_started", "percentComplete": 0 }
+      ]
+    },
+    {
+      "code": "DEMO-2026-06",
+      "name": "秋キャンペーン企画",
+      "ownerName": "鈴木",
+      "description": "秋商戦向け企画案件。担当者: 鈴木, 田中, 山本",
+      "priority": "high",
+      "color": "#ca8a04",
+      "tasks": [
+        { "title": "企画テーマ決定", "assigneeName": "鈴木", "startDate": "2026-07-01", "endDate": "2026-07-07", "status": "not_started", "percentComplete": 0 },
+        { "title": "ターゲット整理", "assigneeName": "田中", "startDate": "2026-07-08", "endDate": "2026-07-14", "status": "not_started", "percentComplete": 0 },
+        { "title": "予算案作成", "assigneeName": "山本", "startDate": "2026-07-15", "endDate": "2026-07-22", "status": "not_started", "percentComplete": 0 },
+        { "title": "制作依頼", "assigneeName": "鈴木", "startDate": "2026-07-23", "endDate": "2026-08-05", "status": "not_started", "percentComplete": 0 },
+        { "title": "素材確認", "assigneeName": "田中", "startDate": "2026-08-06", "endDate": "2026-08-14", "status": "not_started", "percentComplete": 0 },
+        { "title": "配信準備", "assigneeName": "山本", "startDate": "2026-08-17", "endDate": "2026-08-28", "status": "not_started", "percentComplete": 0 },
+        { "title": "キャンペーン開始日", "assigneeName": "鈴木", "startDate": "2026-09-01", "endDate": "2026-09-01", "type": "milestone", "status": "not_started", "percentComplete": 0 }
+      ]
+    },
+    {
+      "code": "DEMO-2026-07",
+      "name": "業務負荷分析レポート",
+      "ownerName": "田中",
+      "description": "年間の業務負荷を確認する分析案件。担当者: 田中, 佐藤",
+      "priority": "medium",
+      "color": "#0891b2",
+      "tasks": [
+        { "title": "対象データ定義", "assigneeName": "田中", "startDate": "2026-08-24", "endDate": "2026-08-28", "status": "not_started", "percentComplete": 0 },
+        { "title": "データ収集", "assigneeName": "佐藤", "startDate": "2026-08-31", "endDate": "2026-09-11", "status": "not_started", "percentComplete": 0 },
+        { "title": "集計ロジック作成", "assigneeName": "田中", "startDate": "2026-09-14", "endDate": "2026-09-25", "status": "not_started", "percentComplete": 0 },
+        { "title": "負荷グラフ作成", "assigneeName": "佐藤", "startDate": "2026-09-28", "endDate": "2026-10-09", "status": "not_started", "percentComplete": 0 },
+        { "title": "レビュー", "assigneeName": "田中", "startDate": "2026-10-13", "endDate": "2026-10-16", "status": "not_started", "percentComplete": 0 },
+        { "title": "改善提案作成", "assigneeName": "佐藤", "startDate": "2026-10-19", "endDate": "2026-10-30", "status": "not_started", "percentComplete": 0 },
+        { "title": "報告会", "assigneeName": "田中", "startDate": "2026-11-02", "endDate": "2026-11-02", "type": "milestone", "status": "not_started", "percentComplete": 0 }
+      ]
+    },
+    {
+      "code": "DEMO-2026-08",
+      "name": "年末総括資料作成",
+      "ownerName": "山本",
+      "description": "年末の振り返り資料作成案件。担当者: 山本, 鈴木, 佐藤",
+      "priority": "high",
+      "color": "#4f46e5",
+      "tasks": [
+        { "title": "年間実績収集", "assigneeName": "山本", "startDate": "2026-10-26", "endDate": "2026-11-06", "status": "not_started", "percentComplete": 0 },
+        { "title": "主要トピック整理", "assigneeName": "鈴木", "startDate": "2026-11-09", "endDate": "2026-11-13", "status": "not_started", "percentComplete": 0 },
+        { "title": "資料構成作成", "assigneeName": "佐藤", "startDate": "2026-11-16", "endDate": "2026-11-20", "status": "not_started", "percentComplete": 0 },
+        { "title": "ドラフト作成", "assigneeName": "山本", "startDate": "2026-11-24", "endDate": "2026-12-04", "status": "not_started", "percentComplete": 0 },
+        { "title": "役員レビュー", "assigneeName": "鈴木", "startDate": "2026-12-07", "endDate": "2026-12-11", "status": "not_started", "percentComplete": 0 },
+        { "title": "最終修正", "assigneeName": "佐藤", "startDate": "2026-12-14", "endDate": "2026-12-18", "status": "not_started", "percentComplete": 0 },
+        { "title": "提出日", "assigneeName": "山本", "startDate": "2026-12-22", "endDate": "2026-12-22", "type": "milestone", "status": "not_started", "percentComplete": 0 }
+      ]
+    }
+  ]
+}

@@ -17,7 +17,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
-    "preview": "cross-env NODE_ENV=production electron ."
+    "preview": "cross-env NODE_ENV=production electron .",
+    "reset:demo": "node scripts/reset-demo-data.mjs"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
