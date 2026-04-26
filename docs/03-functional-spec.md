@@ -151,8 +151,8 @@
 - FY 開始月を設定から反映
 - Year view は選択年の 1月-12月を表示する
 - FY view は `FY2026` のような表示年を fiscal year の開始年として扱い、FY開始月=4 の場合は `2026-04` から `2027-03` を表示する
-- Year view の quarter header は暦年基準の `Q1-Q4` を使う
-- FY view の quarter header は FY 開始月基準の `Q1-Q4` を使い、FY開始月=4 の場合は `Q1=4-6月`, `Q2=7-9月`, `Q3=10-12月`, `Q4=1-3月` とする
+- Year / FY view の quarter header は FY 開始月基準の `Q1-Q4` を使い、FY開始月=4 の場合は `Q1=4-6月`, `Q2=7-9月`, `Q3=10-12月`, `Q4=1-3月` とする
+- month header と quarter header の上には西暦 year header を置き、複数年 / FY 跨ぎでは `2026`, `2027` のように calendar year ごとに列をまとめる
 - roadmap の初期 filter は `全件 / 期限超過 / マイルストーン` を提供する
 - `期限超過` は effective date が今日より前で未完了の row に絞る
 - `マイルストーン` は milestone row に絞り、該当 row がある project の project row は文脈維持のため残してよい
@@ -450,6 +450,7 @@
 - Year / FY Roadmap は 1-5 年の表示年数 slider を持ち、選択年数 x 12 か月の month bucket を表示できる
 - Year scale は anchor year の1月から、FY scale は設定済み FY 開始月から表示年数分を連続表示する
 - 複数年表示でも existing filter / expand / workload 集計は同じ表示範囲に対して適用する
+- 複数年表示の header は上から `西暦 / Q / 月` の3段とし、Q は設定済み FY 開始月を基準にする
 - Project Detail では selected row の下にイベント日を追加できる
 - イベント日は既存 item type `milestone` として保存し、startDate / endDate は同じ日付にそろえる
 - selected row が無い場合は project 直下の milestone として登録する

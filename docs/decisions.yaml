@@ -570,3 +570,9 @@ decisions:
     status: accepted
     decision: UI確認用デモデータは `spec/demo-workspace-data.json` を source of truth とし、`npm run reset:demo` は実行前SQLite backupを作ったうえで通常 project / item を structured demo set に入れ替える
     rationale: E2Eや手作業で増えた乱雑なテストprojectを個別に整理するより、再実行可能な固定データへ戻せる方がUI確認の再現性が高い。実データ破壊リスクは実行前backupで抑え、複数担当者は既存方針どおり project owner と task assignee の組み合わせで表現する。
+
+  - id: DEC-095
+    topic: Roadmap fiscal quarter labeling
+    status: accepted
+    decision: Roadmap の Q header は Year / FY のどちらでも FY 開始月を基準に算出し、FY開始月=4 では `Q1=4-6月`, `Q2=7-9月`, `Q3=10-12月`, `Q4=1-3月` とする。Q / month header の上には calendar year ごとに結合した西暦 year header を表示する
+    rationale: ユーザーが確認したいのは暦年四半期ではなく業務年度の四半期である。年次表示でも 4月始まりのQを使い、上段に西暦を併記すれば、1-3月が前年FYのQ4であることと calendar year の境界を同時に把握できる。

@@ -671,3 +671,12 @@
 - 2026年内に8 project が作成される
 - 各 project はメイン担当者、2〜3名の担当者、7件の item を持つ
 - 各 project の最後の item は単日 milestone として登録される
+
+### ACC-071 Roadmap year and fiscal quarter headers
+**Given** Year / FY Roadmap を表示している
+**When** FY開始月が4月で、年次またはFY表示を開く
+**Then**
+- 月headerとQ headerの上に西暦 year header が表示される
+- Q header は4月開始で `Q1=4-6月`, `Q2=7-9月`, `Q3=10-12月`, `Q4=1-3月` として表示される
+- 年次表示の1-3月は `Q4`、4-6月は `Q1` として見える
+- 複数年 / FY 跨ぎでは calendar year ごとに year header が分割される

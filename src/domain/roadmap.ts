@@ -25,6 +25,13 @@ export interface RoadmapQuarterHeader {
   endColumn: number;
 }
 
+export interface RoadmapYearHeader {
+  key: string;
+  label: string;
+  startColumn: number;
+  endColumn: number;
+}
+
 export interface BuildRoadmapBucketsInput {
   scale: RoadmapScale;
   anchorYear: number;
@@ -82,21 +89,29 @@ export function buildRoadmapLayout(
   return layouts;
 }
 
-export function buildRoadmapQuarterHeaders(
-  buckets: RoadmapBucket[]
-): RoadmapQuarterHeader[] {
-  return Array.from({ length: Math.ceil(buckets.length / 3) }, (_, index) => {
-    const startColumn = index * 3;
-    const endColumn = Math.min(startColumn + 2, buckets.length - 1);
-    const startBucket = buckets[startColumn];
+export function buildRoadmapYearHeaders(buckets: RoadmapBucket[]): RoadmapYearHeader[] {
+  return buildContiguousHeaders(buckets, (bucket) => String(bucket.start.getFullYear())).map(
+    (header) => ({
+      ...header,
+      key: `year-header-${header.key}`,
+      label: `${header.label}`,
+    })
+  );
+}
 
-    return {
-      key: `quarter-${startBucket?.key ?? index}`,
-      label: `Q${index + 1}`,
-      startColumn,
-      endColumn,
-    };
-  }).filter((header) => header.startColumn <= header.endColumn);
+export function buildRoadmapQuarterHeaders(
+  buckets: RoadmapBucket[],
+  fiscalYearStartMonth = 4
+): RoadmapQuarterHeader[] {
+  const normalizedFiscalStart = clampMonth(fiscalYearStartMonth);
+  return buildContiguousHeaders(buckets, (bucket) => {
+    const month = bucket.start.getMonth() + 1;
+    const fiscalMonthIndex = (month - normalizedFiscalStart + 12) % 12;
+    return `Q${Math.floor(fiscalMonthIndex / 3) + 1}`;
+  }).map((header) => ({
+    ...header,
+    key: `quarter-${header.key}`,
+  }));
 }
 
 function getRoadmapRange(item: ItemRecord): { start: Date; end: Date } | null {
@@ -127,4 +142,29 @@ function clampMonth(month: number): number {
 
 function clampYearSpan(yearSpan: number): number {
   return Math.min(Math.max(Math.trunc(yearSpan), 1), 5);
+}
+
+function buildContiguousHeaders(
+  buckets: RoadmapBucket[],
+  getLabel: (bucket: RoadmapBucket) => string
+): Array<{ key: string; label: string; startColumn: number; endColumn: number }> {
+  const headers: Array<{ key: string; label: string; startColumn: number; endColumn: number }> = [];
+
+  for (const [index, bucket] of buckets.entries()) {
+    const label = getLabel(bucket);
+    const previous = headers.at(-1);
+    if (previous && previous.label === label) {
+      previous.endColumn = index;
+      continue;
+    }
+
+    headers.push({
+      key: bucket.key,
+      label,
+      startColumn: index,
+      endColumn: index,
+    });
+  }
+
+  return headers;
 }

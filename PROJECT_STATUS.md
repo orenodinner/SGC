@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 17:55 JST
+最終更新日時: 2026-04-26 18:15 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 98
-- 今回完了したサイクル: Structured demo workspace reset
+- 完了サイクル数: 99
+- 今回完了したサイクル: Roadmap year and fiscal quarter headers
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -20,9 +20,17 @@
 - EPIC-16 `Team workload usability` / `TASK-1601 Improve team assignment, subtask entry, and workload overview` は完了
 - EPIC-17 `Multi-year roadmap and event days` / `TASK-1701 Add multi-year roadmap slider and event-day subtask entry` は完了
 - EPIC-18 `Structured demo data` / `TASK-1801 Replace messy dummy projects with structured yearly demo data` は完了
+- EPIC-19 `Roadmap year and fiscal quarter headers` / `TASK-1901 Add calendar year header and fiscal quarter labels to roadmap` は完了
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- Roadmap の header を `西暦 / Q / 月` の3段にし、月表示とQ表示の上に calendar year header を追加した
+- Year / FY Roadmap の Q header を FY 開始月基準へ統一し、FY開始月=4 のとき `Q1=4-6月`, `Q4=1-3月` になるようにした
+- Year view でも 1-3月は `Q4`、4-6月は `Q1` として表示されるよう、quarter header 生成を月bucketの実月から算出する実装へ変更した
+- `ACC-071` / `DEC-095` と `EPIC-19` / `TASK-1901` を追加し、Roadmap year / fiscal quarter header の仕様を記録した
+- `typecheck / lint / test / build` と targeted desktop E2E を通過した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `154,577,605 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - `spec/demo-workspace-data.json` を追加し、2026年内の8 project、各7 item、各 project 2〜3名担当＋メイン担当のデモデータを source of truth 化した
 - `npm run reset:demo` を追加し、実行前に `sgc-demo-reset-backup-*.sqlite` を作ってから既存テスト project / item を structured demo set へ入れ替えられるようにした
 - 実DB `C:\Users\oreno\AppData\Roaming\sgc\data\sgc.sqlite` に reset を適用し、8 project / 56 item / 各 project 7 item を直接検査して確認した

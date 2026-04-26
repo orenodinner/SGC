@@ -4,6 +4,7 @@ import {
   buildRoadmapBuckets,
   buildRoadmapLayout,
   buildRoadmapQuarterHeaders,
+  buildRoadmapYearHeaders,
 } from "./roadmap";
 
 function makeItem(overrides: Partial<ItemRecord>): ItemRecord {
@@ -98,19 +99,19 @@ describe("buildRoadmapBuckets", () => {
 });
 
 describe("buildRoadmapQuarterHeaders", () => {
-  it("builds four calendar quarter headers for year view buckets", () => {
+  it("builds fiscal quarter headers for year view buckets using April as Q1", () => {
     const buckets = buildRoadmapBuckets({
       scale: "year",
       anchorYear: 2026,
     });
 
-    const headers = buildRoadmapQuarterHeaders(buckets);
+    const headers = buildRoadmapQuarterHeaders(buckets, 4);
 
     expect(headers).toEqual([
-      { key: "quarter-year-2026-01", label: "Q1", startColumn: 0, endColumn: 2 },
-      { key: "quarter-year-2026-04", label: "Q2", startColumn: 3, endColumn: 5 },
-      { key: "quarter-year-2026-07", label: "Q3", startColumn: 6, endColumn: 8 },
-      { key: "quarter-year-2026-10", label: "Q4", startColumn: 9, endColumn: 11 },
+      { key: "quarter-year-2026-01", label: "Q4", startColumn: 0, endColumn: 2 },
+      { key: "quarter-year-2026-04", label: "Q1", startColumn: 3, endColumn: 5 },
+      { key: "quarter-year-2026-07", label: "Q2", startColumn: 6, endColumn: 8 },
+      { key: "quarter-year-2026-10", label: "Q3", startColumn: 9, endColumn: 11 },
     ]);
   });
 
@@ -121,13 +122,30 @@ describe("buildRoadmapQuarterHeaders", () => {
       fiscalYearStartMonth: 4,
     });
 
-    const headers = buildRoadmapQuarterHeaders(buckets);
+    const headers = buildRoadmapQuarterHeaders(buckets, 4);
 
     expect(headers).toEqual([
       { key: "quarter-fy-2026-04", label: "Q1", startColumn: 0, endColumn: 2 },
       { key: "quarter-fy-2026-07", label: "Q2", startColumn: 3, endColumn: 5 },
       { key: "quarter-fy-2026-10", label: "Q3", startColumn: 6, endColumn: 8 },
       { key: "quarter-fy-2027-01", label: "Q4", startColumn: 9, endColumn: 11 },
+    ]);
+  });
+});
+
+describe("buildRoadmapYearHeaders", () => {
+  it("groups contiguous month buckets under calendar year labels", () => {
+    const buckets = buildRoadmapBuckets({
+      scale: "fy",
+      anchorYear: 2026,
+      fiscalYearStartMonth: 4,
+    });
+
+    const headers = buildRoadmapYearHeaders(buckets);
+
+    expect(headers).toEqual([
+      { key: "year-header-fy-2026-04", label: "2026", startColumn: 0, endColumn: 8 },
+      { key: "year-header-fy-2027-01", label: "2027", startColumn: 9, endColumn: 11 },
     ]);
   });
 });

@@ -18,6 +18,7 @@ import {
   buildRoadmapBuckets,
   buildRoadmapLayout,
   buildRoadmapQuarterHeaders,
+  buildRoadmapYearHeaders,
   type RoadmapBucket,
   type RoadmapScale,
 } from "../domain/roadmap";
@@ -3535,7 +3536,11 @@ function RoadmapView(props: {
     () => roadmapRows.slice(roadmapVirtualWindow.startIndex, roadmapVirtualWindow.endIndexExclusive),
     [roadmapRows, roadmapVirtualWindow.endIndexExclusive, roadmapVirtualWindow.startIndex]
   );
-  const quarterHeaders = useMemo(() => buildRoadmapQuarterHeaders(buckets), [buckets]);
+  const yearHeaders = useMemo(() => buildRoadmapYearHeaders(buckets), [buckets]);
+  const quarterHeaders = useMemo(
+    () => buildRoadmapQuarterHeaders(buckets, props.fyStartMonth),
+    [buckets, props.fyStartMonth]
+  );
   const rangeLabel =
     scale === "year"
       ? yearSpan === 1
@@ -3662,6 +3667,21 @@ function RoadmapView(props: {
 
       <section className="roadmap-panel">
         {error ? <div className="error-banner">{error}</div> : null}
+        <div
+          className="roadmap-year-header roadmap-grid"
+          style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
+        >
+          <span className="roadmap-header-title" />
+          {yearHeaders.map((header) => (
+            <div
+              key={header.key}
+              className="roadmap-year-cell"
+              style={{ gridColumn: `${header.startColumn + 2} / ${header.endColumn + 3}` }}
+            >
+              <span>{header.label}</span>
+            </div>
+          ))}
+        </div>
         <div
           className="roadmap-quarter-header roadmap-grid"
           style={{ gridTemplateColumns: roadmapGridTemplateColumns }}

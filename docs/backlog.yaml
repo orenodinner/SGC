@@ -371,3 +371,17 @@ epics:
           - Each project has 7 items including a final milestone event day
           - Reset script backs up the current SQLite database before replacing demo projects
           - Test coverage verifies the demo data shape
+
+  - id: EPIC-19
+    name: Roadmap year and fiscal quarter headers
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-1901
+        title: Add calendar year header and fiscal quarter labels to roadmap
+        status: done
+        done_when:
+          - Roadmap renders a calendar year header above Q and month headers
+          - Year and FY roadmap quarter labels use FY start month, with April as Q1 by default
+          - Year view shows Jan-Mar as Q4 and Apr-Jun as Q1 when FY start is April
+          - Unit tests cover fiscal quarter labels and calendar year grouping

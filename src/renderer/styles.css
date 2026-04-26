@@ -1329,9 +1329,15 @@ textarea {
 }
 
 .roadmap-header,
+.roadmap-year-header,
 .roadmap-quarter-header,
 .roadmap-row {
   align-items: center;
+}
+
+.roadmap-year-header {
+  border-bottom: 1px solid var(--chart-grid-border);
+  background: color-mix(in srgb, var(--row-header-bg) 86%, var(--panel-bg));
 }
 
 .roadmap-quarter-header {
@@ -1351,6 +1357,7 @@ textarea {
   color: var(--row-header-text);
 }
 
+.roadmap-year-cell,
 .roadmap-quarter-cell {
   display: grid;
   place-items: center;
@@ -1360,6 +1367,11 @@ textarea {
   color: var(--row-header-text);
   font-weight: 600;
   letter-spacing: 0.04em;
+}
+
+.roadmap-year-cell {
+  padding: 8px 6px;
+  font-weight: 800;
 }
 
 .roadmap-header-title {
