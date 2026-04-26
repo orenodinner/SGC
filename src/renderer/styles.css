@@ -1289,29 +1289,64 @@ textarea {
 .roadmap-year-span-slider {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
 }
 
 .roadmap-toolbar {
-  justify-content: space-between;
+  justify-content: flex-start;
+  min-width: 0;
+  max-height: 34px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  scrollbar-width: thin;
 }
 
 .roadmap-year-nav {
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
 .roadmap-filter-chips {
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   justify-content: center;
 }
 
+.roadmap-toolbar .timeline-scale-buttons {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.roadmap-toolbar .nav-chip {
+  min-height: 28px;
+  padding: 5px 9px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.roadmap-year-nav strong {
+  min-width: 118px;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
 .roadmap-year-span-slider {
-  min-width: 260px;
-  padding: 8px 10px;
+  flex: 0 0 220px;
+  min-width: 220px;
+  min-height: 28px;
+  padding: 3px 8px;
   border: 1px solid var(--row-border);
-  border-radius: 14px;
+  border-radius: 10px;
   background: var(--row-soft-bg);
+  font-size: 12px;
 }
 
 .roadmap-year-span-slider span,
@@ -1321,7 +1356,8 @@ textarea {
 
 .roadmap-year-span-slider input {
   flex: 1;
-  min-width: 96px;
+  min-width: 72px;
+  padding: 0;
 }
 
 .roadmap-grid {
