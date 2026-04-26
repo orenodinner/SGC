@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-27 00:18 JST
+最終更新日時: 2026-04-27 00:43 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 108
-- 今回完了したサイクル: Auto-size roadmap body height
+- 完了サイクル数: 109
+- 今回完了したサイクル: Export multi-year roadmap visual Excel workbook
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,16 @@
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- Year / FY Roadmap に `Roadmap Excel出力` を追加し、現在の scale / 表示年数 / filter / 展開済み row を反映した複数年ガント風 workbook を保存できるようにした
+- Roadmap Excel は round-trip 用 `Tasks` workbook と分離し、`Roadmap_Gantt` / `Roadmap_Data` の visual-only workbook として出力する方針にした
+- `.xlsx` writer に styled cell と column width を追加し、project row は青、task row は緑、done row はグレー、milestone は `◆` のオレンジセルで見えるようにした
+- desktop IPC / preload / browser fallback の両方に roadmap workbook export API を追加した
+- `ACC-074` / `DEC-098` と `EPIC-22` / `TASK-2201` を追加し、複数年Roadmap Excel出力の仕様と受け入れ条件を記録した
+- unit test で `Roadmap_Gantt` / `Roadmap_Data`、24か月列、styled cells、milestone marker を検証した
+- desktop E2E で2年表示のRoadmapから `.xlsx` が実ファイルとして保存されることを検証した
+- `typecheck / lint / test / build` と targeted desktop E2E を通過した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `154,582,197 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - Year / FY Roadmap の `roadmap-body` から固定 `max-height: 620px` を外し、panel 内の残り高さを自動で使うようにした
 - `roadmap-page-stack` / `roadmap-stack` / `roadmap-panel` を `minmax(0, 1fr)` ベースに変更し、Search toolbar / overview / headers を除いた残り領域を body が使う構造へ整理した
 - Roadmap の year / quarter / month / optional workload header を `.roadmap-header-stack` にまとめ、workload 表示の有無に関係なく body が 1fr row に乗るようにした

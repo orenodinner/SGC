@@ -1,4 +1,9 @@
-import type { ExcelSheetContract, ExcelWorkbookContract } from "../../domain/excel-contract";
+import type {
+  ExcelCellStyle,
+  ExcelSheetContract,
+  ExcelStyledCell,
+  ExcelWorkbookContract,
+} from "../../domain/excel-contract";
 
 export function exportWorkbookXlsx(workbook: ExcelWorkbookContract): Uint8Array {
   const worksheetEntries = workbook.sheets.map((sheet, index) => {
@@ -110,9 +115,14 @@ function buildStylesXml(): string {
     <font><sz val="11"/><name val="Calibri"/></font>
     <font><b/><sz val="11"/><name val="Calibri"/></font>
   </fonts>
-  <fills count="2">
+  <fills count="7">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF4F81BD"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF9BBB59"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF79646"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFBFBFBF"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
   <borders count="1">
     <border><left/><right/><top/><bottom/><diagonal/></border>
@@ -120,9 +130,14 @@ function buildStylesXml(): string {
   <cellStyleXfs count="1">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
   </cellStyleXfs>
-  <cellXfs count="2">
+  <cellXfs count="7">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
     <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="0" fontId="0" fillId="2" borderId="0" xfId="0" applyFill="1"/>
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="0" xfId="0" applyFill="1"/>
+    <xf numFmtId="0" fontId="1" fillId="4" borderId="0" xfId="0" applyFill="1" applyFont="1"/>
+    <xf numFmtId="0" fontId="0" fillId="5" borderId="0" xfId="0" applyFill="1"/>
+    <xf numFmtId="0" fontId="0" fillId="6" borderId="0" xfId="0" applyFill="1"/>
   </cellXfs>
   <cellStyles count="1">
     <cellStyle name="Normal" xfId="0" builtinId="0"/>
@@ -137,14 +152,36 @@ function buildWorksheetXml<Row extends object>(sheet: ExcelSheetContract<Row>): 
   ].join("");
   const lastColumn = columnNumberToName(Math.max(sheet.columns.length, 1));
   const lastRow = Math.max(sheet.rows.length + 1, 1);
+  const columnsXml = buildColumnsXml(sheet);
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <dimension ref="A1:${lastColumn}${lastRow}"/>
   <sheetViews><sheetView workbookViewId="0"/></sheetViews>
   <sheetFormatPr defaultRowHeight="15"/>
+  ${columnsXml}
   <sheetData>${rowsXml}</sheetData>
 </worksheet>`;
+}
+
+function buildColumnsXml<Row extends object>(sheet: ExcelSheetContract<Row>): string {
+  if (!sheet.columnWidths) {
+    return "";
+  }
+
+  const columnsXml = sheet.columns
+    .map((column, index) => {
+      const width = sheet.columnWidths?.[column];
+      if (!width) {
+        return "";
+      }
+      const columnNumber = index + 1;
+      return `<col min="${columnNumber}" max="${columnNumber}" width="${width}" customWidth="1"/>`;
+    })
+    .filter(Boolean)
+    .join("");
+
+  return columnsXml ? `<cols>${columnsXml}</cols>` : "";
 }
 
 function buildWorksheetRow(
@@ -172,20 +209,65 @@ function buildWorksheetCell(
   isHeader: boolean
 ): string {
   const cellRef = `${columnNumberToName(columnIndex)}${rowIndex}`;
-  const styleAttr = isHeader ? ' s="1"' : "";
+  const cell = normalizeCellValue(value);
+  const styleIndex = isHeader ? 1 : getCellStyleIndex(cell.style);
+  const styleAttr = styleIndex > 0 ? ` s="${styleIndex}"` : "";
 
-  if (value === null || value === undefined || value === "") {
+  if (cell.value === null || cell.value === undefined || cell.value === "") {
     if (isHeader) {
       return `<c r="${cellRef}" t="inlineStr"${styleAttr}><is><t xml:space="preserve">${escapeXml(columnName)}</t></is></c>`;
+    }
+    if (styleIndex > 0) {
+      return `<c r="${cellRef}"${styleAttr}/>`;
     }
     return "";
   }
 
-  if (typeof value === "number") {
-    return `<c r="${cellRef}"${styleAttr}><v>${value}</v></c>`;
+  if (typeof cell.value === "number") {
+    return `<c r="${cellRef}"${styleAttr}><v>${cell.value}</v></c>`;
   }
 
-  return `<c r="${cellRef}" t="inlineStr"${styleAttr}><is><t xml:space="preserve">${escapeXml(String(value))}</t></is></c>`;
+  return `<c r="${cellRef}" t="inlineStr"${styleAttr}><is><t xml:space="preserve">${escapeXml(String(cell.value))}</t></is></c>`;
+}
+
+function normalizeCellValue(value: unknown): { value: unknown; style?: ExcelCellStyle } {
+  if (isStyledCell(value)) {
+    return {
+      value: value.value,
+      style: value.style,
+    };
+  }
+
+  return { value };
+}
+
+function isStyledCell(value: unknown): value is ExcelStyledCell {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "value" in value &&
+    !Array.isArray(value)
+  );
+}
+
+function getCellStyleIndex(style: ExcelCellStyle | undefined): number {
+  switch (style) {
+    case "header":
+      return 1;
+    case "projectBar":
+      return 2;
+    case "taskBar":
+      return 3;
+    case "milestone":
+      return 4;
+    case "doneBar":
+      return 5;
+    case "context":
+      return 6;
+    case "normal":
+    default:
+      return 0;
+  }
 }
 
 function toHeaderRow(columns: readonly string[]): Record<string, string> {

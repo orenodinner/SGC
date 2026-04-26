@@ -15,6 +15,7 @@ import {
 } from "../../infra/excel/project-workbook-import";
 import { itemStatusSchema, itemTypeSchema, prioritySchema } from "../../shared/contracts";
 import { exportProjectWorkbookXlsx } from "../../infra/excel/project-workbook-export";
+import { exportRoadmapWorkbookXlsx } from "../../infra/excel/roadmap-workbook-export";
 import { normalizeProjectItems, resolveSiblingReorder } from "../../domain/project-tree";
 import { parseQuickCapture } from "../../domain/quick-capture";
 import {
@@ -49,6 +50,7 @@ import type {
   PortfolioSummary,
   ProjectSummary,
   QuickCaptureInput,
+  RoadmapExportInput,
   RecurrenceRule,
   SaveProjectTemplateInput,
   SaveWbsTemplateInput,
@@ -688,6 +690,20 @@ export const browserApi: RendererApi = {
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = `${sanitizeFileName(project.code || project.name || "project")}.xlsx`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      return { filePath: null };
+    },
+    async exportRoadmapWorkbook(input: RoadmapExportInput): Promise<ProjectExportResult> {
+      const bytes = exportRoadmapWorkbookXlsx(input);
+      const browserBytes = new Uint8Array(Array.from(bytes));
+      const blob = new Blob([browserBytes], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `roadmap-${input.scale}-${input.anchorYear}-${input.yearSpan}y.xlsx`;
       anchor.click();
       URL.revokeObjectURL(url);
       return { filePath: null };

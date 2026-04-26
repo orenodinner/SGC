@@ -1,5 +1,5 @@
 version: 1
-last_updated: 2026-04-25
+last_updated: 2026-04-27
 epics:
   - id: EPIC-00
     name: Repository bootstrap
@@ -414,3 +414,18 @@ epics:
           - Active filter chips stay in one horizontal row
           - Roadmap toolbar height does not grow when filters are applied
           - Desktop E2E verifies the compact roadmap filter state
+
+  - id: EPIC-22
+    name: Roadmap Excel visual export
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-2201
+        title: Export multi-year roadmap as a visual Excel Gantt
+        status: done
+        done_when:
+          - Year / FY Roadmap exposes a Roadmap Excel export action
+          - Export reflects current scale, year span, filter, and expanded rows
+          - Workbook contains Roadmap_Gantt and Roadmap_Data sheets
+          - Month cells are styled so project, task, done, and milestone rows read as a Gantt chart
+          - Unit and desktop E2E coverage verify the exported workbook

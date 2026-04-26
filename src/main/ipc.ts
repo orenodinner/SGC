@@ -6,8 +6,10 @@ import { DatabaseManager } from "../infra/db/database";
 import {
   backupEntrySchema,
   backupRestoreResultSchema,
+  roadmapExportInputSchema,
   type StartupContext,
 } from "../shared/contracts";
+import { exportRoadmapWorkbookXlsx } from "../infra/excel/roadmap-workbook-export";
 import { createNormalStartupContext } from "./startup-context";
 import { WorkspaceService } from "./services/workspace-service";
 
@@ -167,6 +169,32 @@ export function registerIpcHandlers(
         ? result.filePath
         : `${result.filePath}.xlsx`;
     await writeFile(outputPath, requireService().exportProjectWorkbook(projectId));
+    return { filePath: outputPath };
+  });
+  ipcMain.handle("project:exportRoadmapWorkbook", async (event, input) => {
+    const parsedInput = roadmapExportInputSchema.parse(input);
+    const fileNameBase = sanitizeFileName(
+      `roadmap-${parsedInput.scale}-${parsedInput.anchorYear}-${parsedInput.yearSpan}y`
+    );
+    const browserWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+    const saveDialogOptions = {
+      title: "Roadmap Excel Export",
+      defaultPath: path.join(app.getPath("documents"), `${fileNameBase}.xlsx`),
+      filters: [{ name: "Excel Workbook", extensions: ["xlsx"] }],
+    };
+    const result = browserWindow
+      ? await dialog.showSaveDialog(browserWindow, saveDialogOptions)
+      : await dialog.showSaveDialog(saveDialogOptions);
+
+    if (result.canceled || !result.filePath) {
+      return { filePath: null };
+    }
+
+    const outputPath =
+      path.extname(result.filePath).toLowerCase() === ".xlsx"
+        ? result.filePath
+        : `${result.filePath}.xlsx`;
+    await writeFile(outputPath, exportRoadmapWorkbookXlsx(parsedInput));
     return { filePath: outputPath };
   });
   ipcMain.handle("item:create", (_event, input) => requireService().createItem(input));

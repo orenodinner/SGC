@@ -1,5 +1,5 @@
 version: 1
-last_updated: 2026-04-25
+last_updated: 2026-04-27
 decisions:
   - id: DEC-001
     topic: Desktop stack
@@ -588,3 +588,9 @@ decisions:
     status: accepted
     decision: Search / Filter toolbar は未適用時の helper copy を表示せず、active filter chip は1行横スクロールに固定する。Year / FY Roadmap では filter 適用後も toolbar の縦幅を増やさない
     rationale: Roadmap は縦方向の表示領域が業務負荷や複数年俯瞰の見やすさに直結する。filter 状態の説明や chip wrapping で表本体を押し下げるより、compact な1行 toolbar に固定する方が操作性と視認性を維持できる。
+
+  - id: DEC-098
+    topic: Roadmap Excel export is visual-only
+    status: accepted
+    decision: Year / FY Roadmap の複数年 Excel 出力は round-trip workbook とは分離し、`Roadmap_Gantt` / `Roadmap_Data` の visual-only workbook として実装する。表示中の scale、year span、filter、expand 状態を反映し、月列の塗りつぶしと milestone 記号でガントチャートとして読めることを優先する
+    rationale: Roadmap の目的は複数年の俯瞰と共有であり、既存の canonical `Tasks` sheet に混ぜると import 契約と視認性の責務が衝突する。共有 / 印刷用 workbook を分けることで、round-trip の安全性を保ちつつユーザーが求める「ガントチャートに見えるExcel」を最短で提供できる。

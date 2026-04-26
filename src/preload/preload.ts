@@ -50,6 +50,7 @@ const api: RendererApi = {
     commitImport: (projectId, sourcePath) =>
       ipcRenderer.invoke("project:commitImport", { projectId, sourcePath }),
     exportWorkbook: (projectId) => ipcRenderer.invoke("project:exportWorkbook", projectId),
+    exportRoadmapWorkbook: (input) => ipcRenderer.invoke("project:exportRoadmapWorkbook", input),
   },
   items: {
     create: (input) => ipcRenderer.invoke("item:create", input),

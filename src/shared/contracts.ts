@@ -349,6 +349,41 @@ export const projectExportResultSchema = z.object({
   filePath: z.string().nullable(),
 });
 
+export const roadmapExportBucketSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  yearLabel: z.string(),
+  quarterLabel: z.string(),
+});
+
+export const roadmapExportRowSchema = z.object({
+  kind: z.enum(["project", "item"]),
+  title: z.string(),
+  subtitle: z.string(),
+  projectCode: z.string(),
+  projectName: z.string(),
+  depth: z.number().int().nonnegative(),
+  itemType: itemTypeSchema,
+  status: itemStatusSchema,
+  assigneeName: z.string(),
+  startDate: z.string(),
+  endDate: z.string(),
+  percentComplete: z.number(),
+  startColumn: z.number().int().nonnegative().nullable(),
+  endColumn: z.number().int().nonnegative().nullable(),
+  isMilestone: z.boolean(),
+});
+
+export const roadmapExportInputSchema = z.object({
+  scale: z.enum(["year", "fy"]),
+  anchorYear: z.number().int(),
+  yearSpan: z.number().int().min(1).max(5),
+  rangeLabel: z.string(),
+  generatedAt: z.string(),
+  buckets: z.array(roadmapExportBucketSchema).min(1).max(60),
+  rows: z.array(roadmapExportRowSchema),
+});
+
 export const projectImportCommitResultSchema = z.object({
   sourcePath: z.string().nullable(),
   createdCount: z.number().int().nonnegative(),
@@ -488,6 +523,9 @@ export type BulkPostponeInput = z.infer<typeof bulkPostponeInputSchema>;
 export type HierarchyMoveInput = z.infer<typeof hierarchyMoveInputSchema>;
 export type RowReorderInput = z.infer<typeof rowReorderInputSchema>;
 export type ProjectExportResult = z.infer<typeof projectExportResultSchema>;
+export type RoadmapExportBucket = z.infer<typeof roadmapExportBucketSchema>;
+export type RoadmapExportRow = z.infer<typeof roadmapExportRowSchema>;
+export type RoadmapExportInput = z.infer<typeof roadmapExportInputSchema>;
 export type ProjectImportCommitResult = z.infer<typeof projectImportCommitResultSchema>;
 export type ImportPreviewAction = z.infer<typeof importPreviewActionSchema>;
 export type ProjectImportPreviewIssue = z.infer<typeof projectImportPreviewIssueSchema>;
@@ -548,6 +586,7 @@ export interface RendererApi {
     update: (input: UpdateProjectInput) => Promise<ProjectSummary>;
     get: (projectId: string) => Promise<ProjectDetail>;
     exportWorkbook: (projectId: string) => Promise<ProjectExportResult>;
+    exportRoadmapWorkbook: (input: RoadmapExportInput) => Promise<ProjectExportResult>;
     previewImport: (projectId: string) => Promise<ProjectImportPreview | null>;
     commitImport: (
       projectId: string,

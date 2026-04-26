@@ -21,6 +21,8 @@ import {
   buildRoadmapQuarterHeaders,
   buildRoadmapYearHeaders,
   type RoadmapBucket,
+  type RoadmapLayout,
+  type RoadmapQuarterHeader,
   type RoadmapScale,
 } from "../domain/roadmap";
 import {
@@ -61,6 +63,8 @@ import type {
   ProjectDetail,
   ProjectSummary,
   RecurrenceRule,
+  RoadmapExportInput,
+  RoadmapExportRow,
   RowReorderPlacement,
   RescheduleScope,
   TemplateRecord,
@@ -3066,6 +3070,67 @@ function itemOverlapsBucket(item: ItemRecord, bucket: RoadmapBucket): boolean {
   return startDate <= bucket.end && endDate >= bucket.start;
 }
 
+function buildRoadmapExportInput(input: {
+  scale: RoadmapScale;
+  anchorYear: number;
+  yearSpan: number;
+  rangeLabel: string;
+  buckets: RoadmapBucket[];
+  quarterHeaders: RoadmapQuarterHeader[];
+  rows: RoadmapRow[];
+  layout: Map<string, RoadmapLayout>;
+  projects: ProjectSummary[];
+}): RoadmapExportInput {
+  const projectById = new Map(input.projects.map((project) => [project.id, project]));
+  const quarterLabelByColumn = new Map<number, string>();
+
+  for (const header of input.quarterHeaders) {
+    for (let column = header.startColumn; column <= header.endColumn; column += 1) {
+      quarterLabelByColumn.set(column, header.label);
+    }
+  }
+
+  return {
+    scale: input.scale,
+    anchorYear: input.anchorYear,
+    yearSpan: input.yearSpan,
+    rangeLabel: input.rangeLabel,
+    generatedAt: new Date().toISOString(),
+    buckets: input.buckets.map((bucket, index) => ({
+      key: bucket.key,
+      label: bucket.label,
+      yearLabel: String(bucket.start.getFullYear()),
+      quarterLabel: quarterLabelByColumn.get(index) ?? "",
+    })),
+    rows: input.rows.map((row) => buildRoadmapExportRow(row, input.layout.get(row.item.id), projectById)),
+  };
+}
+
+function buildRoadmapExportRow(
+  row: RoadmapRow,
+  layout: RoadmapLayout | undefined,
+  projectById: Map<string, ProjectSummary>
+): RoadmapExportRow {
+  const project = projectById.get(row.projectId);
+  return {
+    kind: row.kind,
+    title: row.title,
+    subtitle: row.subtitle,
+    projectCode: project?.code ?? row.subtitle,
+    projectName: project?.name ?? row.title,
+    depth: row.depth,
+    itemType: row.item.type,
+    status: row.item.status,
+    assigneeName: row.item.assigneeName,
+    startDate: row.item.startDate ?? row.item.dueDate ?? row.item.endDate ?? "",
+    endDate: row.item.endDate ?? row.item.startDate ?? row.item.dueDate ?? "",
+    percentComplete: row.item.percentComplete,
+    startColumn: layout?.startColumn ?? null,
+    endColumn: layout?.endColumn ?? null,
+    isMilestone: layout?.isMilestone ?? row.item.type === "milestone",
+  };
+}
+
 function PortfolioView(props: {
   language: AppLanguage;
   projects: ProjectSummary[];
@@ -3413,6 +3478,7 @@ function RoadmapView(props: {
   const [projectDetails, setProjectDetails] = useState<Record<string, ProjectDetail>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
   const [roadmapScrollTop, setRoadmapScrollTop] = useState(0);
   const [roadmapViewportHeight, setRoadmapViewportHeight] = useState(ROADMAP_DEFAULT_VIEWPORT_HEIGHT);
   const roadmapBodyRef = useRef<HTMLDivElement | null>(null);
@@ -3593,6 +3659,34 @@ function RoadmapView(props: {
           })`;
   const roadmapGridTemplateColumns = `280px repeat(${buckets.length}, minmax(56px, 1fr))`;
 
+  const handleExportRoadmapWorkbook = async () => {
+    setError(null);
+    setExportNotice(null);
+
+    try {
+      const result = await roadmapApi.exportRoadmapWorkbook(
+        buildRoadmapExportInput({
+          scale,
+          anchorYear,
+          yearSpan,
+          rangeLabel,
+          buckets,
+          quarterHeaders,
+          rows: roadmapRows,
+          layout: roadmapLayout,
+          projects: props.projects,
+        })
+      );
+      setExportNotice(
+        result.filePath
+          ? `${copy.roadmap.exportWorkbookComplete}: ${result.filePath}`
+          : copy.roadmap.exportWorkbookComplete
+      );
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Failed to export roadmap workbook");
+    }
+  };
+
   useEffect(() => {
     const viewportHeight = roadmapBodyRef.current?.clientHeight ?? ROADMAP_DEFAULT_VIEWPORT_HEIGHT;
     setRoadmapViewportHeight(viewportHeight);
@@ -3671,11 +3765,20 @@ function RoadmapView(props: {
             />
             <strong>{copy.roadmap.yearSpanValue(yearSpan)}</strong>
           </label>
+          <button
+            type="button"
+            className="nav-chip"
+            onClick={() => void handleExportRoadmapWorkbook()}
+            disabled={loading || roadmapRows.length === 0}
+          >
+            {copy.roadmap.exportWorkbook}
+          </button>
         </div>
       </section>
 
       <section className="roadmap-panel">
         {error ? <div className="error-banner">{error}</div> : null}
+        {exportNotice ? <div className="notice-banner">{exportNotice}</div> : null}
         <div className="roadmap-header-stack">
           {props.showRoadmapWorkload ? (
             <div

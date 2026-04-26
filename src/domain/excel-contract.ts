@@ -38,6 +38,20 @@ export const EXCEL_TASKS_SHEET_COLUMNS = [
 
 export type ExcelWorkbookSheetName = (typeof EXCEL_WORKBOOK_SHEETS)[number];
 export type ExcelTasksSheetColumn = (typeof EXCEL_TASKS_SHEET_COLUMNS)[number];
+export type ExcelCellStyle =
+  | "normal"
+  | "header"
+  | "projectBar"
+  | "taskBar"
+  | "milestone"
+  | "doneBar"
+  | "context";
+export type ExcelCellValue = string | number;
+
+export interface ExcelStyledCell {
+  value: ExcelCellValue;
+  style?: ExcelCellStyle;
+}
 
 export interface ExcelTasksSheetRow {
   RecordId: string;
@@ -69,18 +83,14 @@ export interface ExcelTasksSheetRow {
 }
 
 export interface ExcelSheetContract<Row = Record<string, unknown>> {
-  name: ExcelWorkbookSheetName;
+  name: string;
   columns: readonly string[];
   rows: Row[];
+  columnWidths?: Partial<Record<string, number>>;
 }
 
 export interface ExcelWorkbookContract {
-  sheets: [
-    ExcelSheetContract<Record<string, string | number>>,
-    ExcelSheetContract<ExcelTasksSheetRow>,
-    ExcelSheetContract<Record<string, string | number>>,
-    ExcelSheetContract<Record<string, string | number>>,
-  ];
+  sheets: Array<ExcelSheetContract<object>>;
 }
 
 interface BuildExcelWorkbookContractInput {

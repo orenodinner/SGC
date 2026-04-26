@@ -696,3 +696,13 @@
 - 未適用時の `current view に適用される条件はまだありません。` copy は表示されない
 - active filter chip が表示されても Search / Filter toolbar の縦幅は増えない
 - active filter chip は1行内で横スクロールでき、Roadmap 本体を下へ押し下げない
+
+### ACC-074 Multi-year roadmap Excel visual export
+**Given** Year / FY Roadmap に複数年表示の scheduled project / task / milestone がある
+**When** 表示年数 slider を2年以上にして `Roadmap Excel出力` を実行する
+**Then**
+- `.xlsx` workbook が作成される
+- workbook には `Roadmap_Gantt` と `Roadmap_Data` が含まれる
+- `Roadmap_Gantt` は表示範囲分の月列を持ち、複数年の年月ラベルが並ぶ
+- project / task / done / milestone は色付きセルまたは `◆` で表現され、Excel 上でガントチャートとして読める
+- 出力対象は current Roadmap view の scale / year span / filter / expand 状態を反映する

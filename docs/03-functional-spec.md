@@ -453,6 +453,9 @@
 - Year scale は anchor year の1月から、FY scale は設定済み FY 開始月から表示年数分を連続表示する
 - 複数年表示でも existing filter / expand / workload 集計は同じ表示範囲に対して適用する。ただし workload strip は Settings で有効な場合だけ表示する
 - 複数年表示の header は上から `西暦 / Q / 月` の3段とし、Q は設定済み FY 開始月を基準にする
+- 複数年表示の current view は `Roadmap Excel出力` から `.xlsx` として出力できる
+- Roadmap Excel は再取込用ではなく共有 / 印刷用の visual workbook とし、表示中の年/FY、表示年数、フィルター、展開済み row を反映する
+- Roadmap Excel は月列に bar 色と milestone 記号を置き、Excel 上でガントチャートとして読める見た目を優先する
 - Project Detail では selected row の下にイベント日を追加できる
 - イベント日は既存 item type `milestone` として保存し、startDate / endDate は同じ日付にそろえる
 - selected row が無い場合は project 直下の milestone として登録する

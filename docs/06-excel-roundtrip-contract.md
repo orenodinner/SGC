@@ -126,3 +126,12 @@ import 実行前に下記件数を表示する。
 - 色・条件付き書式
 - 祝日カレンダーシート
 - マクロ不要運用
+
+## 6.11 Roadmap visual export
+- Year / FY Roadmap から出力する複数年 workbook は、round-trip import の対象ではなく共有 / 印刷用の visual export とする
+- sheet は `Roadmap_Gantt` と `Roadmap_Data` を持つ
+- `Roadmap_Gantt` は project / WBS / kind / type / title / assignee / status / start / end / progress の後ろに表示範囲分の月列を並べる
+- 月列は表示中の month bucket と同じ順序にし、複数年では `2026/4` から `2028/3` のように年月ラベルを保持する
+- project row は青、task row は緑、done row はグレー、milestone は対象月に `◆` を置く
+- `Roadmap_Data` は scale、anchor year、year span、range label、generatedAt、row count、month count を記録する
+- この workbook は current Roadmap view の filter / expand 状態を反映してよいが、`Tasks` canonical sheet を持たないため import / round-trip には使わない

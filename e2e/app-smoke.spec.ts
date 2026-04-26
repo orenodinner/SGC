@@ -12,6 +12,7 @@ const electronExecutable = electronPackage as unknown as string;
 
 test("desktop shell renders portfolio expand and roadmap month bar", async () => {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-roadmap-workload-e2e-"));
+  const roadmapExportPath = path.join(os.tmpdir(), `sgc-roadmap-export-${Date.now()}.xlsx`);
   const app = await electron.launch({
     executablePath: electronExecutable,
     args: [path.join(process.cwd(), "."), `--user-data-dir=${userDataDir}`],
@@ -211,6 +212,19 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await page.locator(".roadmap-year-span-slider input").press("ArrowRight");
     await expect(page.locator(".roadmap-header-cell")).toHaveCount(24);
     await expect(page.getByText(`${today.getFullYear()}年 - ${today.getFullYear() + 1}年`)).toBeVisible();
+    await app.evaluate(
+      async ({ dialog }, filePath) => {
+        dialog.showSaveDialog = async () => ({
+          canceled: false,
+          filePath,
+        });
+      },
+      roadmapExportPath
+    );
+    await page.getByRole("button", { name: "Roadmap Excel出力" }).click();
+    await expect(page.locator(".notice-banner").filter({ hasText: "Roadmap Excel を出力しました" })).toBeVisible();
+    await expect.poll(() => fs.existsSync(roadmapExportPath)).toBe(true);
+    expect(fs.readFileSync(roadmapExportPath).subarray(0, 2)).toEqual(Buffer.from([0x50, 0x4b]));
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.getByRole("checkbox", { name: "年次FY画面に月別負荷を表示" }).check();
     await page.getByRole("button", { name: "設定を保存" }).click();
@@ -227,6 +241,7 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
   } finally {
     await app.close();
     fs.rmSync(userDataDir, { recursive: true, force: true });
+    fs.rmSync(roadmapExportPath, { force: true });
   }
 });
 

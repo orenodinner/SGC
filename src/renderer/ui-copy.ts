@@ -153,6 +153,8 @@ export interface UiCopy {
     nextYear: string;
     yearSpanLabel: string;
     yearSpanValue: (yearSpan: number) => string;
+    exportWorkbook: string;
+    exportWorkbookComplete: string;
     itemHeader: string;
     workloadLabel: string;
     workloadTitle: string;
@@ -435,6 +437,8 @@ const JA_COPY: UiCopy = {
     nextYear: "次年",
     yearSpanLabel: "表示年数",
     yearSpanValue: (yearSpan) => `${yearSpan}年`,
+    exportWorkbook: "Roadmap Excel出力",
+    exportWorkbookComplete: "Roadmap Excel を出力しました",
     itemHeader: "項目",
     workloadLabel: "Workload",
     workloadTitle: "年間の月別負荷",
@@ -717,6 +721,8 @@ const EN_COPY: UiCopy = {
     nextYear: "Next",
     yearSpanLabel: "Years shown",
     yearSpanValue: (yearSpan) => `${yearSpan} years`,
+    exportWorkbook: "Export Roadmap Excel",
+    exportWorkbookComplete: "Roadmap Excel exported",
     itemHeader: "Item",
     workloadLabel: "Workload",
     workloadTitle: "Monthly workload across the year",
