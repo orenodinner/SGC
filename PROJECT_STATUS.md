@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 23:38 JST
+最終更新日時: 2026-04-26 23:48 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 105
-- 今回完了したサイクル: Compact roadmap overview spacing
+- 完了サイクル数: 106
+- 今回完了したサイクル: Remove roadmap overview to panel gap
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,15 @@
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- `roadmap-overview` と `roadmap-panel` の間に残っていた空きは解像度指定ではなく、親 `.main-panel` の `gap: 20px` と CSS Grid の auto row 計算が原因だったことを確認した
+- Roadmap view を `.roadmap-stack` で包み、stack の `gap: 0` と `grid-template-rows: 44px minmax(0, auto)` で overview row と panel row を密着させた
+- `roadmap-overview` に `height: 44px` を追加し、`max-height` だけでは grid row に余白が残るケースを防いだ
+- desktop E2E に `roadmap-stack` の gap / 44px row と `roadmap-overview.bottom === roadmap-panel.top` の実測検証を追加した
+- screenshot `artifacts/roadmap-panel-adjacent.png` で `roadmap-overview` height `44px`、`spacing: 0`、stack `gap: 0px` を確認した
+- `typecheck / lint / test / build` と targeted desktop E2E を通過した
+- `scripts/build.ps1` 初回は artifact runtime の Electron process が `default_app.asar` を掴んで失敗したため、該当 artifact runtime process を終了して再実行した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `159,045,184 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - Year / FY Roadmap の `roadmap-overview` を最大 44px に制限し、上下 padding を `4px` へ縮小した
 - `.portfolio-overview`, `.portfolio-panel`, `.roadmap-overview`, `.workload-strip`, `.roadmap-panel` の shared vertical gap を `18px` から `0` へ変更した
 - screenshot `artifacts/roadmap-overview-compact.png` で `roadmap-overview` height `44px`、`roadmap-toolbar` height `34px`、`gap: 0px` を確認した

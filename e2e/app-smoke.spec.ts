@@ -159,6 +159,17 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await expect(page.locator(".roadmap-overview")).toHaveCSS("padding-bottom", "4px");
     await expect(page.locator(".roadmap-overview")).toHaveCSS("max-height", "44px");
     await expect(page.locator(".roadmap-overview")).toHaveCSS("gap", "0px");
+    await expect(page.locator(".roadmap-stack")).toHaveCSS("gap", "0px");
+    await expect(page.locator(".roadmap-stack")).toHaveCSS("grid-template-rows", /44px/);
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const overview = document.querySelector(".roadmap-overview")?.getBoundingClientRect();
+          const panel = document.querySelector(".roadmap-panel")?.getBoundingClientRect();
+          return overview && panel ? panel.top - overview.bottom : null;
+        })
+      )
+      .toBe(0);
     await expect(page.locator(".roadmap-panel")).toHaveCSS("padding-top", "8px");
     await expect(page.locator(".roadmap-panel")).toHaveCSS("padding-bottom", "12px");
     await expect(page.locator(".roadmap-year-cell").filter({ hasText: String(today.getFullYear()) }).first()).toBeVisible();

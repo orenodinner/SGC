@@ -601,7 +601,14 @@ textarea {
   padding: 8px 14px 12px;
 }
 
+.roadmap-stack {
+  display: grid;
+  gap: 0;
+  grid-template-rows: 44px minmax(0, auto);
+}
+
 .roadmap-overview {
+  height: 44px;
   max-height: 44px;
   min-height: 0;
   overflow: hidden;

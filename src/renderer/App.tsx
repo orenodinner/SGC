@@ -3585,7 +3585,7 @@ function RoadmapView(props: {
   }
 
   return (
-    <>
+    <div className="roadmap-stack">
       <section className="roadmap-overview">
         <div className="roadmap-toolbar">
           <div className="timeline-scale-buttons">
@@ -3822,7 +3822,7 @@ function RoadmapView(props: {
           )}
         </div>
       </section>
-    </>
+    </div>
   );
 }
 
