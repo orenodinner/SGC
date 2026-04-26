@@ -3676,65 +3676,67 @@ function RoadmapView(props: {
 
       <section className="roadmap-panel">
         {error ? <div className="error-banner">{error}</div> : null}
-        {props.showRoadmapWorkload ? (
+        <div className="roadmap-header-stack">
+          {props.showRoadmapWorkload ? (
+            <div
+              className="roadmap-workload-row roadmap-grid"
+              aria-label={copy.roadmap.workloadTitle}
+              style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
+            >
+              <span className="roadmap-workload-title" aria-hidden="true" />
+              {workloadBuckets.map((bucket) => (
+                <div
+                  key={bucket.key}
+                  className="roadmap-workload-cell"
+                  title={`${bucket.label}: ${bucket.count} / ${copy.roadmap.workloadPeople(bucket.assigneeCount)}`}
+                  style={{ "--workload-intensity": bucket.count / maxWorkloadCount } as CSSProperties}
+                >
+                  {bucket.count}
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div
-            className="roadmap-workload-row roadmap-grid"
-            aria-label={copy.roadmap.workloadTitle}
+            className="roadmap-year-header roadmap-grid"
             style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
           >
-            <span className="roadmap-workload-title" aria-hidden="true" />
-            {workloadBuckets.map((bucket) => (
+            <span className="roadmap-header-title" />
+            {yearHeaders.map((header) => (
               <div
-                key={bucket.key}
-                className="roadmap-workload-cell"
-                title={`${bucket.label}: ${bucket.count} / ${copy.roadmap.workloadPeople(bucket.assigneeCount)}`}
-                style={{ "--workload-intensity": bucket.count / maxWorkloadCount } as CSSProperties}
+                key={header.key}
+                className="roadmap-year-cell"
+                style={{ gridColumn: `${header.startColumn + 2} / ${header.endColumn + 3}` }}
               >
-                {bucket.count}
+                <span>{header.label}</span>
               </div>
             ))}
           </div>
-        ) : null}
-        <div
-          className="roadmap-year-header roadmap-grid"
-          style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
-        >
-          <span className="roadmap-header-title" />
-          {yearHeaders.map((header) => (
-            <div
-              key={header.key}
-              className="roadmap-year-cell"
-              style={{ gridColumn: `${header.startColumn + 2} / ${header.endColumn + 3}` }}
-            >
-              <span>{header.label}</span>
-            </div>
-          ))}
-        </div>
-        <div
-          className="roadmap-quarter-header roadmap-grid"
-          style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
-        >
-          <span className="roadmap-header-title" />
-          {quarterHeaders.map((header) => (
-            <div
-              key={header.key}
-              className="roadmap-quarter-cell"
-              style={{ gridColumn: `${header.startColumn + 2} / ${header.endColumn + 3}` }}
-            >
-              <span>{header.label}</span>
-            </div>
-          ))}
-        </div>
-        <div
-          className="roadmap-header roadmap-grid"
-          style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
-        >
-          <span className="roadmap-header-title">{copy.roadmap.itemHeader}</span>
-          {buckets.map((bucket) => (
-            <div key={bucket.key} className="roadmap-header-cell" title={bucket.label}>
-              <span>{bucket.shortLabel}</span>
-            </div>
-          ))}
+          <div
+            className="roadmap-quarter-header roadmap-grid"
+            style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
+          >
+            <span className="roadmap-header-title" />
+            {quarterHeaders.map((header) => (
+              <div
+                key={header.key}
+                className="roadmap-quarter-cell"
+                style={{ gridColumn: `${header.startColumn + 2} / ${header.endColumn + 3}` }}
+              >
+                <span>{header.label}</span>
+              </div>
+            ))}
+          </div>
+          <div
+            className="roadmap-header roadmap-grid"
+            style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
+          >
+            <span className="roadmap-header-title">{copy.roadmap.itemHeader}</span>
+            {buckets.map((bucket) => (
+              <div key={bucket.key} className="roadmap-header-cell" title={bucket.label}>
+                <span>{bucket.shortLabel}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div

@@ -558,6 +558,7 @@ textarea {
 
 .main-panel:has(.roadmap-stack) {
   gap: 0;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .project-header,
@@ -602,19 +603,33 @@ textarea {
 }
 
 .roadmap-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
   padding: 8px 14px 12px;
+}
+
+.roadmap-panel:has(.error-banner) {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.roadmap-header-stack {
+  display: grid;
+  min-height: 0;
 }
 
 .roadmap-page-stack {
   display: grid;
   gap: 0;
-  grid-template-rows: 40px minmax(0, auto);
+  grid-template-rows: 40px minmax(0, 1fr);
+  min-height: calc(100vh - 56px);
 }
 
 .roadmap-stack {
   display: grid;
   gap: 0;
-  grid-template-rows: 44px minmax(0, auto);
+  grid-template-rows: 44px minmax(0, 1fr);
+  min-height: 0;
 }
 
 .roadmap-overview {
@@ -1476,7 +1491,7 @@ textarea {
 }
 
 .roadmap-body {
-  max-height: 620px;
+  min-height: 0;
   overflow: auto;
 }
 

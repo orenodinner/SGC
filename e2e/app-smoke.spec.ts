@@ -185,6 +185,15 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
       .toBe(0);
     await expect(page.locator(".roadmap-panel")).toHaveCSS("padding-top", "8px");
     await expect(page.locator(".roadmap-panel")).toHaveCSS("padding-bottom", "12px");
+    await expect(page.locator(".roadmap-body")).toHaveCSS("max-height", "none");
+    const roadmapBodyBottomInset = await page.evaluate(() => {
+      const body = document.querySelector(".roadmap-body")?.getBoundingClientRect();
+      const panel = document.querySelector(".roadmap-panel")?.getBoundingClientRect();
+      return body && panel ? panel.bottom - body.bottom : null;
+    });
+    expect(roadmapBodyBottomInset).not.toBeNull();
+    expect(roadmapBodyBottomInset as number).toBeGreaterThanOrEqual(12);
+    expect(roadmapBodyBottomInset as number).toBeLessThanOrEqual(14);
     await expect(page.locator(".roadmap-year-cell").filter({ hasText: String(today.getFullYear()) }).first()).toBeVisible();
     await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q4" }).first()).toBeVisible();
     await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q1" }).first()).toBeVisible();
@@ -2061,7 +2070,10 @@ function addDays(date: Date, amount: number): Date {
 }
 
 function formatDateInput(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 async function expectCssVariable(page: Page, name: string, expected: string): Promise<void> {

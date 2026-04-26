@@ -161,6 +161,7 @@
 - Year / FY Roadmap の roadmap toolbar は1行の compact control strip とし、縦幅を増やさず横スクロールで逃がしてよい
 - Year / FY Roadmap の roadmap overview は toolbar だけを収める薄い card とし、親 grid の auto row 計算で panel との空きが再発しないよう overview row を固定してよい
 - Year / FY Roadmap の roadmap panel は表本体を優先し、card の上下 padding を通常 panel より狭くしてよい
+- Year / FY Roadmap の roadmap body は固定 max-height を持たず、表示可能な残り高さを自動で使って縦方向の表示行数を最大化する
 - 月別 workload strip は既定では非表示にし、Settings の `年次FY画面に月別負荷を表示` が有効な場合だけ、西暦 year header の上に数字と色だけの低い1行として表示する
 - roadmap の初期 filter chip は `全件 / 期限超過 / マイルストーン`
 - roadmap の root-level group row には expand/collapse ボタンを置く

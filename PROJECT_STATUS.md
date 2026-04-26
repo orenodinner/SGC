@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 23:56 JST
+最終更新日時: 2026-04-27 00:18 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 107
-- 今回完了したサイクル: Compact roadmap search-to-overview stack
+- 完了サイクル数: 108
+- 今回完了したサイクル: Auto-size roadmap body height
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,15 @@
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- Year / FY Roadmap の `roadmap-body` から固定 `max-height: 620px` を外し、panel 内の残り高さを自動で使うようにした
+- `roadmap-page-stack` / `roadmap-stack` / `roadmap-panel` を `minmax(0, 1fr)` ベースに変更し、Search toolbar / overview / headers を除いた残り領域を body が使う構造へ整理した
+- Roadmap の year / quarter / month / optional workload header を `.roadmap-header-stack` にまとめ、workload 表示の有無に関係なく body が 1fr row に乗るようにした
+- desktop E2E に `roadmap-body` の `max-height: none` と panel 下端まで伸びることの検証を追加した
+- E2E helper の `formatDateInput()` を local date 基準へ修正し、JST 深夜に `toISOString()` で前日扱いになって「今週マイルストーン」から外れる不安定性を直した
+- screenshot `artifacts/roadmap-body-auto-height.png` で `roadmap-body` height `530.609375px`、`bodyMaxHeight: none`、`bodyOverflow: auto` を確認した
+- `typecheck / lint / test / build` と targeted desktop E2E を通過した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `159,045,322 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - Year / FY Roadmap で Search / Filter toolbar と `roadmap-overview` が離れて見える原因は、toolbar と Roadmap view が `.main-panel` 直下の別 row になり、notice 残存時にも CSS Grid auto row の余白が再発することだった
 - Roadmap 表示時だけ `SearchFilterToolbar + RoadmapView` を `.roadmap-page-stack` にまとめ、`gap: 0` と `grid-template-rows: 40px minmax(0, auto)` で toolbar と overview を密着させた
 - `.search-filter-toolbar-roadmap` を高さ `40px` / padding `4px 8px` に圧縮し、Roadmap panel の縦表示領域を広げた
