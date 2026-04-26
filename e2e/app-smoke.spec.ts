@@ -154,6 +154,19 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await expect(page.getByText("project と主要 row を month bucket")).toHaveCount(0);
     await expect(page.getByText("年間の月別負荷")).toHaveCount(0);
     await expect(page.locator(".roadmap-workload-row")).toHaveCount(0);
+    await expect(page.locator(".main-panel")).toHaveCSS("gap", "0px");
+    await expect(page.locator(".roadmap-page-stack")).toHaveCSS("gap", "0px");
+    await expect(page.locator(".roadmap-page-stack")).toHaveCSS("grid-template-rows", /40px/);
+    await expect(page.locator(".search-filter-toolbar-roadmap")).toHaveCSS("height", "40px");
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const toolbar = document.querySelector(".search-filter-toolbar-roadmap")?.getBoundingClientRect();
+          const overview = document.querySelector(".roadmap-overview")?.getBoundingClientRect();
+          return toolbar && overview ? overview.top - toolbar.bottom : null;
+        })
+      )
+      .toBe(0);
     await expect(page.locator(".roadmap-toolbar")).toHaveCSS("max-height", "34px");
     await expect(page.locator(".roadmap-overview")).toHaveCSS("padding-top", "4px");
     await expect(page.locator(".roadmap-overview")).toHaveCSS("padding-bottom", "4px");

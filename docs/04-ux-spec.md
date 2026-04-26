@@ -157,6 +157,7 @@
 - month header の上に quarter header、その上に西暦 year header を置く
 - Year / FY view の quarter は FY 開始月基準で並べ、FY開始月=4 の場合は 4月が Q1、3月が Q4 の終わりになる
 - Year / FY Roadmap の先頭には長い説明文を置かず、scale / filter / range / 表示年数の操作をすぐ使える状態にする
+- Year / FY Roadmap では Search / Filter toolbar と roadmap overview を密着させ、roadmap panel の縦表示領域を優先する
 - Year / FY Roadmap の roadmap toolbar は1行の compact control strip とし、縦幅を増やさず横スクロールで逃がしてよい
 - Year / FY Roadmap の roadmap overview は toolbar だけを収める薄い card とし、親 grid の auto row 計算で panel との空きが再発しないよう overview row を固定してよい
 - Year / FY Roadmap の roadmap panel は表本体を優先し、card の上下 padding を通常 panel より狭くしてよい

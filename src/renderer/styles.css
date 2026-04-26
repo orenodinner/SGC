@@ -556,6 +556,10 @@ textarea {
   overflow: auto;
 }
 
+.main-panel:has(.roadmap-stack) {
+  gap: 0;
+}
+
 .project-header,
 .toolbar,
 .quick-task-add,
@@ -599,6 +603,12 @@ textarea {
 
 .roadmap-panel {
   padding: 8px 14px 12px;
+}
+
+.roadmap-page-stack {
+  display: grid;
+  gap: 0;
+  grid-template-rows: 40px minmax(0, auto);
 }
 
 .roadmap-stack {
@@ -2023,6 +2033,16 @@ textarea {
   border-radius: 18px;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
+}
+
+.search-filter-toolbar-roadmap {
+  height: 40px;
+  min-height: 40px;
+  padding: 4px 8px;
+}
+
+.search-filter-toolbar-roadmap .sidebar-label {
+  display: none;
 }
 
 .search-filter-toolbar > div:first-child {

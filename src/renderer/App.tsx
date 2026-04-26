@@ -972,7 +972,7 @@ export default function App() {
       <main className="main-panel">
         {error ? <div className="error-banner">{error}</div> : null}
         {notice ? <div className="notice-banner">{notice}</div> : null}
-        {searchableViewMode ? (
+        {searchableViewMode && viewMode !== "roadmap" ? (
           <SearchFilterToolbar
             language={language}
             viewMode={searchableViewMode}
@@ -983,7 +983,7 @@ export default function App() {
             onClear={clearCurrentSearchFilter}
           />
         ) : null}
-        {searchableViewMode && searchDrawerOpen ? (
+        {searchableViewMode && viewMode !== "roadmap" && searchDrawerOpen ? (
           <SearchFilterDrawer
             language={language}
             projects={projects}
@@ -1046,17 +1046,40 @@ export default function App() {
             }}
           />
         ) : viewMode === "roadmap" ? (
-          <RoadmapView
-            language={language}
-            projects={projects}
-            searchFilter={searchFiltersByView.roadmap}
-            fyStartMonth={settings?.fyStartMonth ?? 4}
-            showRoadmapWorkload={settings?.showRoadmapWorkload ?? false}
-            onOpenProject={(projectId) => {
-              switchView("project");
-              void selectProject(projectId);
-            }}
-          />
+          <div className="roadmap-page-stack">
+            {searchableViewMode ? (
+              <SearchFilterToolbar
+                language={language}
+                viewMode={searchableViewMode}
+                filter={activeSearchFilter}
+                chips={activeSearchFilterChips}
+                isOpen={searchDrawerOpen}
+                onToggle={() => setSearchDrawerOpen((current) => !current)}
+                onClear={clearCurrentSearchFilter}
+              />
+            ) : null}
+            {searchableViewMode && searchDrawerOpen ? (
+              <SearchFilterDrawer
+                language={language}
+                projects={projects}
+                filter={activeSearchFilter}
+                onChange={updateCurrentSearchFilter}
+                onClear={clearCurrentSearchFilter}
+                onClose={() => setSearchDrawerOpen(false)}
+              />
+            ) : null}
+            <RoadmapView
+              language={language}
+              projects={projects}
+              searchFilter={searchFiltersByView.roadmap}
+              fyStartMonth={settings?.fyStartMonth ?? 4}
+              showRoadmapWorkload={settings?.showRoadmapWorkload ?? false}
+              onOpenProject={(projectId) => {
+                switchView("project");
+                void selectProject(projectId);
+              }}
+            />
+          </div>
         ) : viewMode === "settings" ? (
           <SettingsView
             key={settings?.updatedAt ?? "settings-empty"}

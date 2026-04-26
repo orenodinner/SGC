@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 23:48 JST
+最終更新日時: 2026-04-26 23:56 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 106
-- 今回完了したサイクル: Remove roadmap overview to panel gap
+- 完了サイクル数: 107
+- 今回完了したサイクル: Compact roadmap search-to-overview stack
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,15 @@
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- Year / FY Roadmap で Search / Filter toolbar と `roadmap-overview` が離れて見える原因は、toolbar と Roadmap view が `.main-panel` 直下の別 row になり、notice 残存時にも CSS Grid auto row の余白が再発することだった
+- Roadmap 表示時だけ `SearchFilterToolbar + RoadmapView` を `.roadmap-page-stack` にまとめ、`gap: 0` と `grid-template-rows: 40px minmax(0, auto)` で toolbar と overview を密着させた
+- `.search-filter-toolbar-roadmap` を高さ `40px` / padding `4px 8px` に圧縮し、Roadmap panel の縦表示領域を広げた
+- desktop E2E に `.main-panel` / `.roadmap-page-stack` の gap、Search toolbar 高さ、Search toolbar と `roadmap-overview` の実測 spacing `0` を追加した
+- screenshot `artifacts/roadmap-search-overview-compact.png` で Search toolbar height `40px`、toolbar-to-overview spacing `0`、overview-to-panel spacing `0` を確認した
+- `typecheck / lint / test / build` と targeted desktop E2E を通過した
+- `scripts/build.ps1` 初回は artifact runtime の Electron process が `default_app.asar` を掴んで失敗したため、該当 artifact runtime process を終了して再実行した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `159,045,262 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - `roadmap-overview` と `roadmap-panel` の間に残っていた空きは解像度指定ではなく、親 `.main-panel` の `gap: 20px` と CSS Grid の auto row 計算が原因だったことを確認した
 - Roadmap view を `.roadmap-stack` で包み、stack の `gap: 0` と `grid-template-rows: 44px minmax(0, auto)` で overview row と panel row を密着させた
 - `roadmap-overview` に `height: 44px` を追加し、`max-height` だけでは grid row に余白が残るケースを防いだ
