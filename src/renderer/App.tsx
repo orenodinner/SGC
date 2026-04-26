@@ -1,4 +1,5 @@
 import {
+  type CSSProperties,
   type DragEvent as ReactDragEvent,
   type FormEvent as ReactFormEvent,
   useCallback,
@@ -3652,36 +3653,27 @@ function RoadmapView(props: {
         </div>
       </section>
 
-      {props.showRoadmapWorkload ? (
-        <section className="workload-strip" aria-label={copy.roadmap.workloadTitle}>
-          <div>
-            <p className="sidebar-label">{copy.roadmap.workloadLabel}</p>
-            <strong>{copy.roadmap.workloadTitle}</strong>
-            <p>{copy.roadmap.workloadCopy}</p>
-          </div>
+      <section className="roadmap-panel">
+        {error ? <div className="error-banner">{error}</div> : null}
+        {props.showRoadmapWorkload ? (
           <div
-            className="workload-month-grid"
-            style={{ gridTemplateColumns: `repeat(${workloadBuckets.length}, minmax(54px, 1fr))` }}
+            className="roadmap-workload-row roadmap-grid"
+            aria-label={copy.roadmap.workloadTitle}
+            style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
           >
+            <span className="roadmap-workload-title" aria-hidden="true" />
             {workloadBuckets.map((bucket) => (
-              <div key={bucket.key} className="workload-month-card" title={bucket.label}>
-                <span>{bucket.shortLabel}</span>
-                <div className="workload-bar-track" aria-hidden="true">
-                  <div
-                    className="workload-bar-fill"
-                    style={{ height: `${Math.max(8, Math.round((bucket.count / maxWorkloadCount) * 100))}%` }}
-                  />
-                </div>
-                <strong>{bucket.count}</strong>
-                <small>{copy.roadmap.workloadPeople(bucket.assigneeCount)}</small>
+              <div
+                key={bucket.key}
+                className="roadmap-workload-cell"
+                title={`${bucket.label}: ${bucket.count} / ${copy.roadmap.workloadPeople(bucket.assigneeCount)}`}
+                style={{ "--workload-intensity": bucket.count / maxWorkloadCount } as CSSProperties}
+              >
+                {bucket.count}
               </div>
             ))}
           </div>
-        </section>
-      ) : null}
-
-      <section className="roadmap-panel">
-        {error ? <div className="error-banner">{error}</div> : null}
+        ) : null}
         <div
           className="roadmap-year-header roadmap-grid"
           style={{ gridTemplateColumns: roadmapGridTemplateColumns }}

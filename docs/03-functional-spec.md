@@ -273,7 +273,7 @@
 - 初期の Excel defaults slice は import 振る舞いを変えず、project 単位 export の `MasterData` sheet に `Default` category のヒントとして反映する
 - `自動バックアップ` を無効にした場合、app bootstrap 時の auto backup create と auto backup retention は実行しない
 - `自動バックアップ` 設定は sidebar の Data Protection helper copy にも反映してよい
-- `年次FY画面の月別負荷表示` は既定 false とし、Year / FY Roadmap の上部 workload strip は設定で有効化した場合だけ表示する
+- `年次FY画面の月別負荷表示` は既定 false とし、Year / FY Roadmap の workload は設定で有効化した場合だけ西暦 year header の上へ数字と色だけの低い1行として表示する
 - 初期 recovery prompt slice では DB 初期化や bootstrap 失敗を検知した場合でも app window 自体は開き、通常 workspace の代わりに recovery screen を表示する
 - recovery screen では startup error message と recent backups を表示し、backup preview を経由した restore を許可する
 - recovery screen から restore を実行する場合も desktop では apply 前に current DB file の safety backup を自動作成する
@@ -445,7 +445,7 @@
 - `assigneeName` は `,` / `、` / `/` / 改行区切りで複数名を扱ってよい
 - Project Detail の担当者別集計は、未完了 / 完了 / 遅延 task 件数を表示し、担当者フィルタへ接続する
 - Portfolio の担当者別集計は、担当 project 数 / 未完了 task 数 / 遅延 task 数を表示し、project 一覧を担当者で絞り込める
-- Roadmap の workload は、設定で有効化した場合に限り、表示中の scheduled task を month bucket ごとに数え、担当者数と task 件数を表示する
+- Roadmap の workload は、設定で有効化した場合に限り、表示中の scheduled task を month bucket ごとに数え、月ごとの task 件数を数字と背景色で表示する
 - project membership 専用 table はこの slice では追加しない。Excel round-trip / backup contract への影響を避けるため、正式な member registry は後続拡張とする
 
 ## 3.9 複数年ロードマップとイベント日

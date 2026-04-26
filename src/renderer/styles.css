@@ -1329,10 +1329,37 @@ textarea {
 }
 
 .roadmap-header,
+.roadmap-workload-row,
 .roadmap-year-header,
 .roadmap-quarter-header,
 .roadmap-row {
   align-items: center;
+}
+
+.roadmap-workload-row {
+  min-height: 28px;
+  border-bottom: 1px solid var(--chart-grid-border);
+  background: color-mix(in srgb, var(--row-header-bg) 92%, var(--panel-bg));
+}
+
+.roadmap-workload-title {
+  min-height: 28px;
+}
+
+.roadmap-workload-cell {
+  display: grid;
+  min-height: 28px;
+  place-items: center;
+  border-left: 1px solid var(--chart-grid-border);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  background: color-mix(
+    in srgb,
+    var(--selection-border) calc(8% + (var(--workload-intensity) * 44%)),
+    var(--panel-bg)
+  );
 }
 
 .roadmap-year-header {

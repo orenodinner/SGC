@@ -11,9 +11,10 @@ import { buildRoundTripWorkbookFixture } from "../src/test/excel-roundtrip-fixtu
 const electronExecutable = electronPackage as unknown as string;
 
 test("desktop shell renders portfolio expand and roadmap month bar", async () => {
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "sgc-roadmap-workload-e2e-"));
   const app = await electron.launch({
     executablePath: electronExecutable,
-    args: [path.join(process.cwd(), ".")],
+    args: [path.join(process.cwd(), "."), `--user-data-dir=${userDataDir}`],
   });
 
   try {
@@ -152,7 +153,7 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toHaveCount(0);
     await expect(page.getByText("project と主要 row を month bucket")).toHaveCount(0);
     await expect(page.getByText("年間の月別負荷")).toHaveCount(0);
-    await expect(page.locator(".workload-month-card")).toHaveCount(0);
+    await expect(page.locator(".roadmap-workload-row")).toHaveCount(0);
     await expect(page.locator(".roadmap-year-cell").filter({ hasText: String(today.getFullYear()) }).first()).toBeVisible();
     await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q4" }).first()).toBeVisible();
     await expect(page.locator(".roadmap-quarter-cell").filter({ hasText: "Q1" }).first()).toBeVisible();
@@ -175,10 +176,17 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await page.getByRole("button", { name: "設定を保存" }).click();
     await expect(page.locator(".notice-banner")).toContainText("Settings saved");
     await page.getByRole("button", { name: "Year / FY" }).click();
-    await expect(page.getByText("年間の月別負荷")).toBeVisible();
-    await expect(page.locator(".workload-month-card").first()).toBeVisible();
+    await expect(page.getByText("年間の月別負荷")).toHaveCount(0);
+    await expect(page.locator(".roadmap-workload-cell").first()).toBeVisible();
+    expect(
+      await page.evaluate(() => {
+        const workloadRow = document.querySelector(".roadmap-workload-row");
+        return workloadRow?.nextElementSibling?.classList.contains("roadmap-year-header") ?? false;
+      })
+    ).toBe(true);
   } finally {
     await app.close();
+    fs.rmSync(userDataDir, { recursive: true, force: true });
   }
 });
 
@@ -670,7 +678,7 @@ test("settings shell persists week start, FY start month, and default view", asy
     await expect(page.getByRole("heading", { name: "長期計画を月単位で俯瞰" })).toHaveCount(0);
     await page.getByRole("button", { name: "FY", exact: true }).click();
     await expect(page.locator(".roadmap-header-cell").first()).toContainText("7");
-    await expect(page.getByText("年間の月別負荷")).toBeVisible();
+    await expect(page.locator(".roadmap-workload-cell").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Home / Today" }).click();
     await expect(page.getByText(milestoneTitle).first()).toBeVisible();

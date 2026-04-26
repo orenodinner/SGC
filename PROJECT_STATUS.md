@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 19:28 JST
+最終更新日時: 2026-04-26 20:40 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 100
-- 今回完了したサイクル: Roadmap density and workload setting
+- 完了サイクル数: 101
+- 今回完了したサイクル: Compact roadmap workload row
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,12 @@
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- Year / FY Roadmap の workload 表示を独立 strip から、西暦 year header の上に置く低い grid row へ変更した
+- workload row は月ごとの数字と背景色だけを表示し、月名 / 棒グラフ / 担当者数の表示を省いて縦幅を短くした
+- desktop E2E を更新し、workload row が既定では出ず、Settings 有効時に year header の直上へ出ることを確認するようにした
+- `typecheck / lint / test / build` と targeted desktop E2E 2件を通過した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `154,577,966 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - Year / FY Roadmap の `年間の月別負荷` strip を既定非表示にし、Settings の `年次FY画面に月別負荷を表示` で再表示できるようにした
 - Year / FY Roadmap 先頭の `長期計画を月単位で俯瞰` 見出しと説明文をレンダリング対象から外し、scale / filter / range / 表示年数操作を先頭に寄せた
 - `showRoadmapWorkload` を app settings contract / SQLite migration / desktop service / browser fallback に追加し、既存DBでは default false で移行するようにした

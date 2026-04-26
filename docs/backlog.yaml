@@ -397,5 +397,6 @@ epics:
         done_when:
           - Year / FY Roadmap does not show the monthly workload strip by default
           - Settings can enable the monthly workload strip when it is needed
+          - Enabled workload uses a compact number-and-color row above the calendar year header
           - Redundant roadmap intro heading and description are not rendered
           - Unit and desktop E2E coverage verify the default hidden state and setting-enabled state

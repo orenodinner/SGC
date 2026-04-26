@@ -687,4 +687,4 @@
 **Then**
 - `年間の月別負荷` strip は表示されない
 - Roadmap 先頭の説明見出し `長期計画を月単位で俯瞰` と説明文は表示されない
-- Settings で同項目を有効化すると、Year / FY Roadmap に月別 workload strip が表示される
+- Settings で同項目を有効化すると、西暦 year header の上に数字と色だけの低い workload row が表示される
