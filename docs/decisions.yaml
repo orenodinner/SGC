@@ -546,3 +546,9 @@ decisions:
     status: accepted
     decision: Sidebar project list は full card の全件縦積みをやめ、compact row / internal scroll / search / collapse を既定 UI とする。Project Detail には title だけで current project 直下の root-level task を作れる quick-add form を置き、既存の `ルート行を追加` は group 既定の詳細編集導線として残す
     rationale: project 数が増えると sidebar が縦に伸び、Gantt / Project Detail へ意識を戻しにくくなるため。project navigation は検索と省スペース表示に寄せ、task 作成は Project Detail 内の1行入力に分離すると、日常入力と既存WBS編集を衝突させずに操作量を減らせる。
+
+  - id: DEC-091
+    topic: Project Detail Gantt date unit
+    status: accepted
+    decision: Project Detail のガントタイムラインは日付単位に固定し、週 / 月粒度への切替 UI は出さない。既存の timeline interaction は `day` scale を常に使い、keyboard move / resize は1日単位で実行する
+    rationale: ユーザー要望は時間ではなく日付単位のガントであること。週 / 月切替は長期俯瞰には有用だが、Project Detail の編集画面では粒度が変わることで操作結果の単位が曖昧になるため、日付単位に固定して日々の編集と受け入れ試験を一致させる。

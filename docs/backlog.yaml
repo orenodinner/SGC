@@ -312,3 +312,17 @@ epics:
           - Project list supports search and collapse / expand
           - Project Detail can add a root-level task from a single title input
           - Desktop E2E verifies compact list behavior and quick task creation
+
+  - id: EPIC-15
+    name: Date-based Gantt timeline
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-1501
+        title: Lock Project Detail Gantt to date units
+        status: done
+        done_when:
+          - Project Detail Gantt shows date-based copy and a one-day unit badge
+          - Week / month Gantt scale buttons are not shown in Project Detail
+          - Timeline keyboard move / resize remains one-day based
+          - Desktop E2E verifies the date-based Gantt header and absence of week / month scale buttons

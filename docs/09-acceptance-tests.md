@@ -633,3 +633,12 @@
 - project search で絞り込んだ project row をクリックできる
 - project list は折りたたみ / 再表示できる
 - quick-add form から current project 直下に root-level task が作成される
+
+### ACC-067 Date-based Project Detail Gantt
+**Given** Project Detail に scheduled task がある
+**When** ガントタイムラインを表示し、keyboard で move / resize する
+**Then**
+- ガント header は日付単位であることを表示する
+- `週` / `月` の粒度切替ボタンは表示されない
+- `Alt+→` は開始日と終了日を1日進める
+- `Alt+Shift+→` は右端を1日だけ延ばす

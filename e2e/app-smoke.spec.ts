@@ -925,6 +925,10 @@ test("timeline bar supports keyboard move and resize", async () => {
     await page.locator(".project-card").filter({ hasText: projectName }).click();
     await expect(page.locator(`input[value="${firstTaskTitle}"]`).first()).toBeVisible();
     await expect(page.locator(`input[value="${secondTaskTitle}"]`).first()).toBeVisible();
+    await expect(page.locator(".timeline-scale-switch")).toContainText("日付単位ガント");
+    await expect(page.locator(".timeline-scale-switch")).toContainText("1日単位");
+    await expect(page.locator(".timeline-scale-switch").getByRole("button", { name: "週" })).toHaveCount(0);
+    await expect(page.locator(".timeline-scale-switch").getByRole("button", { name: "月" })).toHaveCount(0);
     const firstRow = page.locator(".table-body .table-row").nth(0);
 
     const firstTimelineBar = page.locator(".timeline-bar").nth(0);

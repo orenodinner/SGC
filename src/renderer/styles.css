@@ -775,9 +775,18 @@ textarea {
   color: var(--helper-text);
 }
 
-.timeline-scale-buttons {
-  display: flex;
-  gap: 8px;
+.timeline-scale-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid var(--selection-border);
+  border-radius: 999px;
+  background: var(--selection-bg);
+  color: var(--surface-accent-text);
+  font-size: 13px;
 }
 
 .stats-grid {

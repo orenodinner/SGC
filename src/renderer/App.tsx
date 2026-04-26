@@ -82,6 +82,7 @@ type SearchableViewMode = Exclude<ViewMode, "settings">;
 const PROJECT_DETAIL_ROW_HEIGHT = 58;
 const PROJECT_DETAIL_VIRTUAL_OVERSCAN = 6;
 const PROJECT_DETAIL_DEFAULT_VIEWPORT_HEIGHT = 560;
+const PROJECT_TIMELINE_SCALE: TimelineScale = "day";
 const ROADMAP_ROW_HEIGHT = 62;
 const ROADMAP_VIRTUAL_OVERSCAN = 6;
 const ROADMAP_DEFAULT_VIEWPORT_HEIGHT = 620;
@@ -154,7 +155,6 @@ export default function App() {
   const [projectListQuery, setProjectListQuery] = useState("");
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [quickCaptureText, setQuickCaptureText] = useState("");
-  const [timelineScale, setTimelineScale] = useState<TimelineScale>("day");
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
   const [searchFiltersByView, setSearchFiltersByView] = useState<Record<SearchableViewMode, SearchFilterState>>({
@@ -295,8 +295,8 @@ export default function App() {
     [rows]
   );
   const timelineColumns = useMemo(
-    () => buildTimelineColumns(projectDetail?.items ?? [], timelineScale),
-    [projectDetail?.items, timelineScale]
+    () => buildTimelineColumns(projectDetail?.items ?? [], PROJECT_TIMELINE_SCALE),
+    [projectDetail?.items]
   );
   const timelineLayout = useMemo(
     () => buildTimelineLayout(projectDetail?.items ?? [], timelineColumns),
@@ -557,7 +557,7 @@ export default function App() {
       item,
       itemId: item.id,
       mode,
-      scale: timelineScale,
+      scale: PROJECT_TIMELINE_SCALE,
       pointerId: event.pointerId,
       startClientX: event.clientX,
       columnWidth: Math.max(row.getBoundingClientRect().width / timelineColumns.length, 1),
@@ -633,7 +633,7 @@ export default function App() {
     event.preventDefault();
     event.stopPropagation();
     setSelectedItemId(item.id);
-    applyTimelineAdjustment(item, timelineScale, mode, deltaUnits);
+    applyTimelineAdjustment(item, PROJECT_TIMELINE_SCALE, mode, deltaUnits);
   };
 
   useEffect(() => {
@@ -1075,22 +1075,7 @@ export default function App() {
 
               <div className="timeline-scale-switch">
                 <span>{copy.project.timeline}</span>
-                <div className="timeline-scale-buttons">
-                  {(["day", "week", "month"] as TimelineScale[]).map((scale) => (
-                    <button
-                      key={scale}
-                      type="button"
-                      className={timelineScale === scale ? "nav-chip active" : "nav-chip"}
-                      onClick={() => setTimelineScale(scale)}
-                    >
-                      {scale === "day"
-                        ? copy.project.timelineDay
-                        : scale === "week"
-                          ? copy.project.timelineWeek
-                          : copy.project.timelineMonth}
-                    </button>
-                  ))}
-                </div>
+                <strong className="timeline-scale-badge">{copy.project.timelineDay}</strong>
                 <p className="timeline-keyboard-hint">{copy.project.timelineKeyboardHint}</p>
               </div>
             </header>
