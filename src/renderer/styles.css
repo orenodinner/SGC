@@ -601,6 +601,13 @@ textarea {
   padding: 8px 14px 12px;
 }
 
+.roadmap-overview {
+  max-height: 44px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 4px 8px;
+}
+
 .capture-panel h2 {
   margin: 6px 0;
 }
@@ -1284,7 +1291,7 @@ textarea {
 .roadmap-overview,
 .workload-strip,
 .roadmap-panel {
-  gap: 18px;
+  gap: 0;
 }
 
 .roadmap-toolbar,
@@ -1299,6 +1306,7 @@ textarea {
 .roadmap-toolbar {
   justify-content: flex-start;
   min-width: 0;
+  height: 34px;
   max-height: 34px;
   overflow-x: auto;
   overflow-y: hidden;

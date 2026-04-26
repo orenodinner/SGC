@@ -155,6 +155,10 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await expect(page.getByText("年間の月別負荷")).toHaveCount(0);
     await expect(page.locator(".roadmap-workload-row")).toHaveCount(0);
     await expect(page.locator(".roadmap-toolbar")).toHaveCSS("max-height", "34px");
+    await expect(page.locator(".roadmap-overview")).toHaveCSS("padding-top", "4px");
+    await expect(page.locator(".roadmap-overview")).toHaveCSS("padding-bottom", "4px");
+    await expect(page.locator(".roadmap-overview")).toHaveCSS("max-height", "44px");
+    await expect(page.locator(".roadmap-overview")).toHaveCSS("gap", "0px");
     await expect(page.locator(".roadmap-panel")).toHaveCSS("padding-top", "8px");
     await expect(page.locator(".roadmap-panel")).toHaveCSS("padding-bottom", "12px");
     await expect(page.locator(".roadmap-year-cell").filter({ hasText: String(today.getFullYear()) }).first()).toBeVisible();
