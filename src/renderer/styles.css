@@ -1958,44 +1958,65 @@ textarea {
 }
 
 .search-filter-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 8px 14px;
-  padding: 14px 18px;
+  gap: 8px 12px;
+  height: 54px;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 10px 14px;
   border-radius: 18px;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
 }
 
+.search-filter-toolbar > div:first-child {
+  flex: 0 1 320px;
+  min-width: 0;
+}
+
+.search-filter-toolbar > div:first-child strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .search-filter-toolbar-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
   gap: 8px;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .search-filter-active-chips {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  grid-column: 1 / -1;
-}
-
-.search-filter-toolbar > p {
-  grid-column: 1 / -1;
-  margin: 0;
-  color: var(--helper-text);
-  font-size: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 30px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+  gap: 6px;
+  scrollbar-width: thin;
 }
 
 .search-filter-chip {
   display: inline-flex;
   align-items: center;
-  padding: 6px 10px;
+  min-width: 0;
+  max-width: 220px;
+  padding: 5px 9px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--button-bg) 16%, transparent);
   color: var(--surface-accent-text);
   font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .search-filter-drawer-backdrop {

@@ -400,3 +400,17 @@ epics:
           - Enabled workload uses a compact number-and-color row above the calendar year header
           - Redundant roadmap intro heading and description are not rendered
           - Unit and desktop E2E coverage verify the default hidden state and setting-enabled state
+
+  - id: EPIC-21
+    name: Roadmap search toolbar density
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-2101
+        title: Keep roadmap search filter toolbar compact
+        status: done
+        done_when:
+          - Inactive Search / Filter helper copy is not rendered
+          - Active filter chips stay in one horizontal row
+          - Roadmap toolbar height does not grow when filters are applied
+          - Desktop E2E verifies the compact roadmap filter state

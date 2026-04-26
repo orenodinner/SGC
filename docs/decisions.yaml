@@ -582,3 +582,9 @@ decisions:
     status: accepted
     decision: Year / FY Roadmap の月別 workload strip は既定で非表示にし、Settings の `年次FY画面に月別負荷を表示` が有効な場合だけ、西暦 year header の上へ数字と色だけの低い1行として表示する。Roadmap 先頭の長い説明見出しと説明文は表示しない
     rationale: Roadmap は複数年・多数projectを俯瞰する画面であり、常時 workload strip と説明文を置くと縦方向の視認性を落とす。必要な時だけ workload を低い header row として表示すれば、通常操作では表本体を優先しつつ、年間負荷確認の用途も残せる。
+
+  - id: DEC-097
+    topic: Roadmap search toolbar compactness
+    status: accepted
+    decision: Search / Filter toolbar は未適用時の helper copy を表示せず、active filter chip は1行横スクロールに固定する。Year / FY Roadmap では filter 適用後も toolbar の縦幅を増やさない
+    rationale: Roadmap は縦方向の表示領域が業務負荷や複数年俯瞰の見やすさに直結する。filter 状態の説明や chip wrapping で表本体を押し下げるより、compact な1行 toolbar に固定する方が操作性と視認性を維持できる。

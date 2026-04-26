@@ -688,3 +688,11 @@
 - `年間の月別負荷` strip は表示されない
 - Roadmap 先頭の説明見出し `長期計画を月単位で俯瞰` と説明文は表示されない
 - Settings で同項目を有効化すると、西暦 year header の上に数字と色だけの低い workload row が表示される
+
+### ACC-073 Roadmap search toolbar density
+**Given** Year / FY Roadmap を表示している
+**When** Search / Filter Drawer の条件が未適用または適用済み
+**Then**
+- 未適用時の `current view に適用される条件はまだありません。` copy は表示されない
+- active filter chip が表示されても Search / Filter toolbar の縦幅は増えない
+- active filter chip は1行内で横スクロールでき、Roadmap 本体を下へ押し下げない

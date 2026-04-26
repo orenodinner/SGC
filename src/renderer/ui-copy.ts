@@ -196,6 +196,7 @@ export interface UiCopy {
     toolbarLabel: string;
     openButton: string;
     clearButton: string;
+    activeFiltersLabel: string;
     noActiveFilters: string;
     titleHome: string;
     titlePortfolio: string;
@@ -477,6 +478,7 @@ const JA_COPY: UiCopy = {
     toolbarLabel: "Search / Filter",
     openButton: "Search / Filter",
     clearButton: "Clear",
+    activeFiltersLabel: "適用中の条件",
     noActiveFilters: "current view に適用される条件はまだありません。",
     titleHome: "Home / Today の current view を絞り込み",
     titlePortfolio: "Portfolio の current view を絞り込み",
@@ -758,6 +760,7 @@ const EN_COPY: UiCopy = {
     toolbarLabel: "Search / Filter",
     openButton: "Search / Filter",
     clearButton: "Clear",
+    activeFiltersLabel: "Active filters",
     noActiveFilters: "No filters are currently applied to this view.",
     titleHome: "Filter the current Home / Today view",
     titlePortfolio: "Filter the current Portfolio view",

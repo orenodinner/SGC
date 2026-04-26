@@ -2514,11 +2514,20 @@ function SearchFilterToolbar(props: {
   const copy = getUiCopy(props.language).searchFilter;
 
   return (
-    <section className="search-filter-toolbar">
+    <section className={`search-filter-toolbar search-filter-toolbar-${props.viewMode}`}>
       <div>
         <p className="sidebar-label">{copy.toolbarLabel}</p>
         <strong>{getSearchFilterToolbarTitle(props.language, props.viewMode)}</strong>
       </div>
+      {props.chips.length > 0 ? (
+        <div className="search-filter-active-chips" aria-label={copy.activeFiltersLabel}>
+          {props.chips.map((chip) => (
+            <span key={chip.key} className="search-filter-chip">
+              {chip.label}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="search-filter-toolbar-actions">
         <button
           type="button"
@@ -2531,17 +2540,6 @@ function SearchFilterToolbar(props: {
           {copy.clearButton}
         </button>
       </div>
-      {props.chips.length > 0 ? (
-        <div className="search-filter-active-chips">
-          {props.chips.map((chip) => (
-            <span key={chip.key} className="search-filter-chip">
-              {chip.label}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="detail-field-hint">{copy.noActiveFilters}</p>
-      )}
     </section>
   );
 }

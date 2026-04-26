@@ -174,6 +174,7 @@
 - initial slice の `Portfolio` は `portfolio_id` を free-text で受ける
 - initial slice の `Clear` は current view 用の drawer 条件を既定値へ戻す
 - active filter は drawer 外にも chip で見せ、current view にだけ効いていることが分かるようにする
+- Search / Filter toolbar は inactive helper copy を表示せず、active filter chip は1行横スクロールにして Year / FY Roadmap の縦幅を増やさない
 - Portfolio と Roadmap の既存 quick filter chip は drawer 条件と AND で併用してよい
 - Project Detail では child row だけが一致した場合でも ancestor row を同時表示し、孤立した child だけを見せない
 - Project Detail では WBS と timeline の filtered row window を同じ集合に保つ

@@ -1678,12 +1678,21 @@ test("search and filter drawer narrows home, portfolio, and roadmap views", asyn
 
     await page.getByRole("button", { name: /^(Year \/ FY|年次 \/ FY)$/ }).click();
     await expect(page.getByRole("button", { name: "FY", exact: true })).toBeVisible();
+    await expect(page.getByText("current view に適用される条件はまだありません。")).toHaveCount(0);
+    const roadmapToolbarHeightBeforeFilter = await page.locator(".search-filter-toolbar-roadmap").evaluate(
+      (element) => element.getBoundingClientRect().height
+    );
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: alphaTaskTitle }).first()).toBeVisible();
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: betaTaskTitle }).first()).toBeVisible();
     await page.getByRole("button", { name: "Search / Filter" }).click();
     const roadmapDrawer = page.getByRole("dialog", { name: "current view を絞り込みます" });
     await roadmapDrawer.getByLabel("全文").fill("Alpha Filter");
     await roadmapDrawer.getByRole("button", { name: "閉じる" }).click();
+    const roadmapToolbarHeightAfterFilter = await page.locator(".search-filter-toolbar-roadmap").evaluate(
+      (element) => element.getBoundingClientRect().height
+    );
+    expect(roadmapToolbarHeightAfterFilter).toBeLessThanOrEqual(roadmapToolbarHeightBeforeFilter + 4);
+    await expect(page.locator(".search-filter-chip").filter({ hasText: "全文: Alpha Filter" })).toBeVisible();
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: alphaTaskTitle }).first()).toBeVisible();
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: betaTaskTitle })).toHaveCount(0);
     await page.getByRole("button", { name: "Clear" }).click();
