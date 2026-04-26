@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 21:57 JST
+最終更新日時: 2026-04-26 22:01 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 103
-- 今回完了したサイクル: Compact roadmap toolbar height
+- 完了サイクル数: 104
+- 今回完了したサイクル: Compact roadmap panel padding
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,11 @@
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- Year / FY Roadmap の `roadmap-panel` の上下 padding を通常 panel の `22px` から `8px 14px 12px` へ縮小した
+- desktop E2E に `roadmap-panel` の padding-top / padding-bottom 検証を追加した
+- `typecheck / lint / test / build` と targeted desktop E2E を通過した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `154,578,160 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - Year / FY Roadmap の `roadmap-toolbar` を compact 1行 control strip にし、最大高さを 34px に制限した
 - roadmap toolbar 内の scale / filter / year nav button と表示年数 slider を小型化し、折り返しではなく横スクロールへ逃がすようにした
 - desktop E2E に `roadmap-toolbar` の compact height 検証を追加した

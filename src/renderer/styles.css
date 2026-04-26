@@ -597,6 +597,10 @@ textarea {
   gap: 16px;
 }
 
+.roadmap-panel {
+  padding: 8px 14px 12px;
+}
+
 .capture-panel h2 {
   margin: 6px 0;
 }
