@@ -84,6 +84,8 @@ const PROJECT_DETAIL_ROW_HEIGHT = 58;
 const PROJECT_DETAIL_VIRTUAL_OVERSCAN = 6;
 const PROJECT_DETAIL_DEFAULT_VIEWPORT_HEIGHT = 560;
 const PROJECT_TIMELINE_SCALE: TimelineScale = "day";
+const ROADMAP_MIN_YEAR_SPAN = 1;
+const ROADMAP_MAX_YEAR_SPAN = 5;
 const ROADMAP_ROW_HEIGHT = 62;
 const ROADMAP_VIRTUAL_OVERSCAN = 6;
 const ROADMAP_DEFAULT_VIEWPORT_HEIGHT = 620;
@@ -174,6 +176,8 @@ export default function App() {
   const [projectListQuery, setProjectListQuery] = useState("");
   const [quickTaskTitle, setQuickTaskTitle] = useState("");
   const [bulkTaskTitles, setBulkTaskTitles] = useState("");
+  const [eventDayTitle, setEventDayTitle] = useState("");
+  const [eventDayDate, setEventDayDate] = useState("");
   const [quickCaptureText, setQuickCaptureText] = useState("");
   const [searchDrawerOpen, setSearchDrawerOpen] = useState(false);
   const [templatePanelOpen, setTemplatePanelOpen] = useState(false);
@@ -1305,6 +1309,61 @@ export default function App() {
               />
               <button type="submit" disabled={parseBulkTaskTitles(bulkTaskTitles).length === 0}>
                 {copy.project.bulkAddButton}
+              </button>
+            </form>
+
+            <form
+              className="event-day-add"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const title = eventDayTitle.trim();
+                if (!title || !eventDayDate) {
+                  return;
+                }
+
+                const createdItem = await createItem(
+                  projectDetail.project.id,
+                  bulkTaskParent?.id ?? null,
+                  title,
+                  "milestone"
+                );
+                if (!createdItem) {
+                  return;
+                }
+
+                await updateItem({
+                  id: createdItem.id,
+                  startDate: eventDayDate,
+                  endDate: eventDayDate,
+                  percentComplete: 0,
+                });
+                if (bulkTaskParent) {
+                  setExpandedIds((current) => new Set(current).add(bulkTaskParent.id));
+                }
+                setSelectedItemId(createdItem.id);
+                setEventDayTitle("");
+                setEventDayDate("");
+              }}
+            >
+              <div>
+                <p className="sidebar-label">{copy.project.eventDayLabel}</p>
+                <strong>{bulkTaskParent ? copy.project.eventDayChildTitle : copy.project.eventDayRootTitle}</strong>
+                <span>{bulkTaskParent ? bulkTaskParent.title : copy.project.eventDayRootHelp}</span>
+              </div>
+              <input
+                aria-label={copy.project.eventDayTitleLabel}
+                value={eventDayTitle}
+                onChange={(event) => setEventDayTitle(event.target.value)}
+                placeholder={copy.project.eventDayTitlePlaceholder}
+              />
+              <input
+                aria-label={copy.project.eventDayDateLabel}
+                type="date"
+                value={eventDayDate}
+                onChange={(event) => setEventDayDate(event.target.value)}
+              />
+              <button type="submit" disabled={!eventDayTitle.trim() || !eventDayDate}>
+                {copy.project.eventDayButton}
               </button>
             </form>
 
@@ -3308,6 +3367,7 @@ function RoadmapView(props: {
   const [scale, setScale] = useState<RoadmapScale>("year");
   const [filterMode, setFilterMode] = useState<RoadmapFilter>("all");
   const [anchorYear, setAnchorYear] = useState(new Date().getFullYear());
+  const [yearSpan, setYearSpan] = useState(1);
   const [expandedRoadmapItemIds, setExpandedRoadmapItemIds] = useState<Set<string>>(new Set());
   const [projectDetails, setProjectDetails] = useState<Record<string, ProjectDetail>>({});
   const [loading, setLoading] = useState(false);
@@ -3363,8 +3423,9 @@ function RoadmapView(props: {
         scale,
         anchorYear,
         fiscalYearStartMonth: props.fyStartMonth,
+        yearSpan,
       }),
-    [anchorYear, props.fyStartMonth, scale]
+    [anchorYear, props.fyStartMonth, scale, yearSpan]
   );
   const roadmapRows = useMemo(() => {
     return props.projects.flatMap((project) => {
@@ -3477,8 +3538,15 @@ function RoadmapView(props: {
   const quarterHeaders = useMemo(() => buildRoadmapQuarterHeaders(buckets), [buckets]);
   const rangeLabel =
     scale === "year"
-      ? `${anchorYear}年`
-      : `FY${anchorYear} (${buckets[0]?.label ?? "-"} - ${buckets[buckets.length - 1]?.label ?? "-"})`;
+      ? yearSpan === 1
+        ? `${anchorYear}年`
+        : `${anchorYear}年 - ${anchorYear + yearSpan - 1}年`
+      : yearSpan === 1
+        ? `FY${anchorYear} (${buckets[0]?.label ?? "-"} - ${buckets[buckets.length - 1]?.label ?? "-"})`
+        : `FY${anchorYear} - FY${anchorYear + yearSpan - 1} (${buckets[0]?.label ?? "-"} - ${
+            buckets[buckets.length - 1]?.label ?? "-"
+          })`;
+  const roadmapGridTemplateColumns = `280px repeat(${buckets.length}, minmax(56px, 1fr))`;
 
   useEffect(() => {
     const viewportHeight = roadmapBodyRef.current?.clientHeight ?? ROADMAP_DEFAULT_VIEWPORT_HEIGHT;
@@ -3551,6 +3619,18 @@ function RoadmapView(props: {
               {copy.roadmap.nextYear}
             </button>
           </div>
+          <label className="roadmap-year-span-slider">
+            <span>{copy.roadmap.yearSpanLabel}</span>
+            <input
+              type="range"
+              min={ROADMAP_MIN_YEAR_SPAN}
+              max={ROADMAP_MAX_YEAR_SPAN}
+              step={1}
+              value={yearSpan}
+              onChange={(event) => setYearSpan(Number(event.target.value))}
+            />
+            <strong>{copy.roadmap.yearSpanValue(yearSpan)}</strong>
+          </label>
         </div>
       </section>
 
@@ -3560,7 +3640,10 @@ function RoadmapView(props: {
           <strong>{copy.roadmap.workloadTitle}</strong>
           <p>{copy.roadmap.workloadCopy}</p>
         </div>
-        <div className="workload-month-grid">
+        <div
+          className="workload-month-grid"
+          style={{ gridTemplateColumns: `repeat(${workloadBuckets.length}, minmax(54px, 1fr))` }}
+        >
           {workloadBuckets.map((bucket) => (
             <div key={bucket.key} className="workload-month-card" title={bucket.label}>
               <span>{bucket.shortLabel}</span>
@@ -3581,7 +3664,7 @@ function RoadmapView(props: {
         {error ? <div className="error-banner">{error}</div> : null}
         <div
           className="roadmap-quarter-header roadmap-grid"
-          style={{ gridTemplateColumns: `280px repeat(${buckets.length}, minmax(56px, 1fr))` }}
+          style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
         >
           <span className="roadmap-header-title" />
           {quarterHeaders.map((header) => (
@@ -3596,7 +3679,7 @@ function RoadmapView(props: {
         </div>
         <div
           className="roadmap-header roadmap-grid"
-          style={{ gridTemplateColumns: `280px repeat(${buckets.length}, minmax(56px, 1fr))` }}
+          style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
         >
           <span className="roadmap-header-title">{copy.roadmap.itemHeader}</span>
           {buckets.map((bucket) => (
@@ -3639,7 +3722,7 @@ function RoadmapView(props: {
                         ? "roadmap-row roadmap-grid roadmap-sub-row roadmap-deep-row"
                         : "roadmap-row roadmap-grid roadmap-sub-row"
                   }
-                  style={{ gridTemplateColumns: `280px repeat(${buckets.length}, minmax(56px, 1fr))` }}
+                  style={{ gridTemplateColumns: roadmapGridTemplateColumns }}
                 >
                   <div className="roadmap-title-cell">
                     <div

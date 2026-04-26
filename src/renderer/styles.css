@@ -560,6 +560,7 @@ textarea {
 .toolbar,
 .quick-task-add,
 .bulk-task-add,
+.event-day-add,
 .table-shell,
 .empty-panel,
 .capture-panel,
@@ -876,8 +877,8 @@ textarea {
 
 .workload-month-grid {
   display: grid;
-  grid-template-columns: repeat(12, minmax(54px, 1fr));
   gap: 8px;
+  min-width: max-content;
 }
 
 .workload-month-card {
@@ -933,7 +934,8 @@ textarea {
 }
 
 .quick-task-add,
-.bulk-task-add {
+.bulk-task-add,
+.event-day-add {
   display: grid;
   grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1fr) auto;
   align-items: end;
@@ -944,17 +946,21 @@ textarea {
 .quick-task-add input,
 .quick-task-add button,
 .bulk-task-add textarea,
-.bulk-task-add button {
+.bulk-task-add button,
+.event-day-add input,
+.event-day-add button {
   min-height: 40px;
 }
 
 .quick-task-add button,
-.bulk-task-add button {
+.bulk-task-add button,
+.event-day-add button {
   white-space: nowrap;
 }
 
 .quick-task-add strong,
-.bulk-task-add strong {
+.bulk-task-add strong,
+.event-day-add strong {
   display: block;
 }
 
@@ -962,7 +968,8 @@ textarea {
   resize: vertical;
 }
 
-.bulk-task-add span {
+.bulk-task-add span,
+.event-day-add span {
   color: var(--helper-text);
   font-size: 12px;
 }
@@ -1265,16 +1272,28 @@ textarea {
 .roadmap-overview,
 .workload-strip,
 .roadmap-panel {
+  overflow-x: auto;
+}
+
+.portfolio-overview,
+.portfolio-panel,
+.roadmap-overview,
+.workload-strip,
+.roadmap-panel {
   gap: 18px;
 }
 
 .roadmap-toolbar,
 .roadmap-year-nav,
-.roadmap-filter-chips {
+.roadmap-filter-chips,
+.roadmap-year-span-slider {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
+}
+
+.roadmap-toolbar {
+  justify-content: space-between;
 }
 
 .roadmap-year-nav {
@@ -1285,6 +1304,24 @@ textarea {
 .roadmap-filter-chips {
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.roadmap-year-span-slider {
+  min-width: 260px;
+  padding: 8px 10px;
+  border: 1px solid var(--row-border);
+  border-radius: 14px;
+  background: var(--row-soft-bg);
+}
+
+.roadmap-year-span-slider span,
+.roadmap-year-span-slider strong {
+  white-space: nowrap;
+}
+
+.roadmap-year-span-slider input {
+  flex: 1;
+  min-width: 96px;
 }
 
 .roadmap-grid {
@@ -1356,6 +1393,8 @@ textarea {
 }
 
 .roadmap-title-cell {
+  position: relative;
+  z-index: 3;
   align-self: stretch;
   padding: 12px 16px;
 }
@@ -1396,6 +1435,8 @@ textarea {
 }
 
 .roadmap-expand-button {
+  position: relative;
+  z-index: 4;
   padding: 0;
   border-radius: 6px;
   border: 1px solid var(--panel-border);
@@ -2191,7 +2232,8 @@ textarea {
   }
 
   .quick-task-add,
-  .bulk-task-add {
+  .bulk-task-add,
+  .event-day-add {
     grid-template-columns: 1fr;
     align-items: stretch;
   }

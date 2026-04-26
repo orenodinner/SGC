@@ -29,15 +29,17 @@ export interface BuildRoadmapBucketsInput {
   scale: RoadmapScale;
   anchorYear: number;
   fiscalYearStartMonth?: number;
+  yearSpan?: number;
 }
 
 export function buildRoadmapBuckets(input: BuildRoadmapBucketsInput): RoadmapBucket[] {
   const fiscalYearStartMonth = clampMonth(input.fiscalYearStartMonth ?? 4);
+  const monthCount = clampYearSpan(input.yearSpan ?? 1) * 12;
   const startMonthIndex = input.scale === "year" ? 0 : fiscalYearStartMonth - 1;
   const startYear = input.scale === "year" ? input.anchorYear : input.anchorYear;
   const start = new Date(Date.UTC(startYear, startMonthIndex, 1));
 
-  return Array.from({ length: 12 }, (_, index) => {
+  return Array.from({ length: monthCount }, (_, index) => {
     const date = addMonths(start, index);
     return {
       key: `${input.scale}-${format(date, "yyyy-MM")}`,
@@ -121,4 +123,8 @@ function rangesOverlap(
 
 function clampMonth(month: number): number {
   return Math.min(Math.max(month, 1), 12);
+}
+
+function clampYearSpan(yearSpan: number): number {
+  return Math.min(Math.max(Math.trunc(yearSpan), 1), 5);
 }

@@ -163,6 +163,10 @@ test("desktop shell renders portfolio expand and roadmap month bar", async () =>
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: overdueTitle }).first()).toBeVisible();
     await expect(page.locator(".roadmap-title-cell").filter({ hasText: overdueTaskTitle }).first()).toBeVisible();
     await expect(page.locator(".roadmap-bar").first()).toBeVisible();
+    await page.getByRole("button", { name: "全件" }).click();
+    await page.locator(".roadmap-year-span-slider input").press("ArrowRight");
+    await expect(page.locator(".roadmap-header-cell")).toHaveCount(24);
+    await expect(page.getByText(`${today.getFullYear()}年 - ${today.getFullYear() + 1}年`)).toBeVisible();
   } finally {
     await app.close();
   }
@@ -1342,6 +1346,17 @@ test("sidebar project list stays compact and quick-add creates a task under the 
     await page.getByRole("button", { name: "まとめて追加" }).click();
     await expect(page.locator(`.table-body input[value="${bulkChildTitle}"]`).first()).toBeVisible();
     await expect(page.locator(".table-body .table-row")).toHaveCount(4);
+
+    const eventTitle = `Customer Event ${timestamp}`;
+    const eventDate = "2026-09-15";
+    await page.locator(".event-day-add input").nth(0).fill(eventTitle);
+    await page.locator(".event-day-add input").nth(1).fill(eventDate);
+    await page.getByRole("button", { name: "イベント日追加" }).click();
+    const eventTitleInput = page.locator(`.table-body input[value="${eventTitle}"]`).first();
+    await expect(eventTitleInput).toBeVisible();
+    const eventRow = eventTitleInput.locator('xpath=ancestor::div[contains(@class, "table-row")]');
+    await expect(eventRow.locator("select").first()).toHaveValue("milestone");
+    await expect(eventRow.locator('input[type="date"]').first()).toHaveValue(eventDate);
 
     await page.getByRole("button", { name: "折りたたむ" }).click();
     await expect(page.locator(".project-list")).toHaveCount(0);

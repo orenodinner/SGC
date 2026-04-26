@@ -558,3 +558,9 @@ decisions:
     status: accepted
     decision: `TASK-1601` では project-level membership table を追加せず、既存の `project.ownerName` をメイン担当として編集可能にし、複数担当は task `assigneeName` から集計する。Project Detail / Portfolio / Roadmap はこの派生集計を使って担当者別状況と月別負荷を表示する
     rationale: ユーザー要望は担当者登録と担当者別閲覧、頻繁なサブタスク日程変更、年間負荷把握である。新しい membership schema を入れると migration / Excel round-trip / backup contract の調整が大きくなるため、まず既存データだけで日常操作の視認性と入力速度を上げるのが安全である。
+
+  - id: DEC-093
+    topic: Multi-year roadmap and event-day representation
+    status: accepted
+    decision: `TASK-1701` では Roadmap の表示範囲を 1-5 年 slider で切り替え、bucket は `yearSpan * 12` か月として生成する。Project Detail のイベント日は新しい item type を追加せず、既存 `milestone` に startDate / endDate を同日設定して表現する
+    rationale: 複数年俯瞰は Roadmap bucket の表示範囲拡張で閉じられる。イベント日も実質は単日 milestone であり、新しい item type を追加すると DB / Excel round-trip / backup / rollup の影響が大きいため、既存 milestone contract を利用する方が安全である。

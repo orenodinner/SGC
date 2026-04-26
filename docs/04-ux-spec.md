@@ -267,3 +267,10 @@
 - サブタスクが7件前後になる前提で、選択行の下へ1行1タスクの multiline 入力からまとめて追加できる導線を置く
 - Portfolio は担当者別の project / 未完了 / 遅延件数を表示し、担当者クリックで該当 project へ絞り込めるようにする
 - Year / FY Roadmap は表示中 task を月別に集計した workload strip を出し、年間の山谷を表より先に視認できるようにする
+
+## 4.9 Multi-year roadmap / event day entry
+- Year / FY Roadmap の toolbar に `表示年数` slider を置き、1-5年を即時切替できるようにする
+- 複数年表示時の range label は `2026年 - 2027年` または `FY2026 - FY2027` のように開始と終了を明示する
+- bucket が増えて横幅が広がるため、roadmap panel と workload strip は横スクロール可能にする
+- Project Detail の入力導線には、複数サブタスク追加とは別に `イベント日追加` を置く
+- イベント日は title と date だけで登録でき、selected row がある場合はその配下、無い場合は project 直下に入る

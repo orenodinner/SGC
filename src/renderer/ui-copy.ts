@@ -82,6 +82,14 @@ export interface UiCopy {
     bulkAddRootHelp: string;
     bulkAddPlaceholder: string;
     bulkAddButton: string;
+    eventDayLabel: string;
+    eventDayChildTitle: string;
+    eventDayRootTitle: string;
+    eventDayRootHelp: string;
+    eventDayTitleLabel: string;
+    eventDayTitlePlaceholder: string;
+    eventDayDateLabel: string;
+    eventDayButton: string;
     emptyFilteredRows: string;
     emptyTreeRows: string;
     emptyTimelineRows: string;
@@ -143,6 +151,8 @@ export interface UiCopy {
     filterMilestone: string;
     previousYear: string;
     nextYear: string;
+    yearSpanLabel: string;
+    yearSpanValue: (yearSpan: number) => string;
     itemHeader: string;
     workloadLabel: string;
     workloadTitle: string;
@@ -351,6 +361,14 @@ const JA_COPY: UiCopy = {
     bulkAddRootHelp: "行を選択すると、その下にサブタスクとして追加できます。",
     bulkAddPlaceholder: "例:\n要件整理\nデザイン確認\n見積作成\nレビュー\n修正\n承認\nリリース準備",
     bulkAddButton: "まとめて追加",
+    eventDayLabel: "イベント日追加",
+    eventDayChildTitle: "選択行の下にイベント日を追加",
+    eventDayRootTitle: "プロジェクト直下にイベント日を追加",
+    eventDayRootHelp: "行を選択すると、その下にイベント日を登録できます。",
+    eventDayTitleLabel: "イベント名",
+    eventDayTitlePlaceholder: "例: 顧客レビュー日",
+    eventDayDateLabel: "イベント日",
+    eventDayButton: "イベント日追加",
     emptyFilteredRows: "条件に合う row はありません。",
     emptyTreeRows: "親・子・孫を作れる最小 CRUD から開始して下さい。",
     emptyTimelineRows: "日付が入った項目を表示します",
@@ -412,6 +430,8 @@ const JA_COPY: UiCopy = {
     filterMilestone: "マイルストーン",
     previousYear: "前年",
     nextYear: "次年",
+    yearSpanLabel: "表示年数",
+    yearSpanValue: (yearSpan) => `${yearSpan}年`,
     itemHeader: "項目",
     workloadLabel: "Workload",
     workloadTitle: "年間の月別負荷",
@@ -620,6 +640,14 @@ const EN_COPY: UiCopy = {
     bulkAddRootHelp: "Select a row to add these as subtasks under it.",
     bulkAddPlaceholder: "Example:\nRequirements\nDesign review\nEstimate\nReview\nFixes\nApproval\nRelease prep",
     bulkAddButton: "Add Rows",
+    eventDayLabel: "Add event day",
+    eventDayChildTitle: "Add an event day under the selected row",
+    eventDayRootTitle: "Add an event day under this project",
+    eventDayRootHelp: "Select a row to register the event under it.",
+    eventDayTitleLabel: "Event name",
+    eventDayTitlePlaceholder: "Example: Customer review day",
+    eventDayDateLabel: "Event date",
+    eventDayButton: "Add Event",
     emptyFilteredRows: "No rows match the current filter.",
     emptyTreeRows: "Start from the minimum CRUD flow that creates parent, child, and grandchild rows.",
     emptyTimelineRows: "Rows with dates appear here.",
@@ -681,6 +709,8 @@ const EN_COPY: UiCopy = {
     filterMilestone: "Milestones",
     previousYear: "Previous",
     nextYear: "Next",
+    yearSpanLabel: "Years shown",
+    yearSpanValue: (yearSpan) => `${yearSpan} years`,
     itemHeader: "Item",
     workloadLabel: "Workload",
     workloadTitle: "Monthly workload across the year",

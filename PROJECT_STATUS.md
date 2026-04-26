@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-26 12:51 JST
+最終更新日時: 2026-04-26 17:43 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 96
-- 今回完了したサイクル: Team workload usability
+- 完了サイクル数: 97
+- 今回完了したサイクル: Multi-year roadmap and event-day entry
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -18,9 +18,17 @@
 - EPIC-14 `Sidebar usability and quick task entry` / `TASK-1401 Compact project list and add quick task entry` は完了
 - EPIC-15 `Date-based Gantt timeline` / `TASK-1501 Lock Project Detail Gantt to date units` は完了
 - EPIC-16 `Team workload usability` / `TASK-1601 Improve team assignment, subtask entry, and workload overview` は完了
+- EPIC-17 `Multi-year roadmap and event days` / `TASK-1701 Add multi-year roadmap slider and event-day subtask entry` は完了
 - 残作業は GitHub release asset upload の blocker 解消のみ
 
 ## 直近で完了したもの
+- Year / FY Roadmap に `表示年数` slider を追加し、1-5年の複数年を同じ俯瞰画面で確認できるようにした
+- Roadmap の月 bucket、range label、workload strip を選択年数に連動させ、単年 / FY 表示の既存既定値は維持した
+- Project Detail の `複数サブタスク追加` の下に `イベント日追加` form を追加し、選択 row 配下へ同日 start/end の milestone を素早く登録できるようにした
+- `ACC-069` / `DEC-093` と `EPIC-17` / `TASK-1701` を追加し、multi-year roadmap と event-day entry の仕様を記録した
+- `typecheck / lint / test / build` と targeted desktop E2E を通過した
+- `scripts/build.ps1` で Windows portable artifact を再生成し、`artifacts/sgc-portable-win-x64-v0.1.0.zip` のサイズが `154,577,201 bytes` であることを確認した
+- `gh` CLI は PATH 上に無く、GitHub release asset upload blocker が継続していることを確認した
 - Project Detail header に `メイン担当` input を追加し、既存 `project.ownerName` を desktop / browser fallback の更新 contract から保存できるようにした
 - Project Detail に `担当者別の状況` panel を追加し、メイン担当と item `assigneeName` を集計して `未完了 / 完了 / 遅延` を表示し、クリックで担当者 filter へ接続した
 - Project Detail に `複数サブタスク追加` form を追加し、1行1タスクの multiline 入力から selected row 配下へ複数 task をまとめて作成できるようにした

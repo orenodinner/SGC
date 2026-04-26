@@ -652,3 +652,13 @@
 - Project Detail の担当者 chip から、その担当者の task へ絞り込める
 - Portfolio で担当者別の project / 未完了 / 遅延件数を見られる
 - Year-FY Roadmap で表示範囲の月別 workload を把握できる
+
+### ACC-069 Multi-year roadmap and event day entry
+**Given** Year / FY Roadmap に scheduled task があり、Project Detail で row を選択している
+**When** 表示年数 slider を 2 年以上へ変更し、Project Detail からイベント日を追加する
+**Then**
+- Roadmap の month header は選択年数 x 12 か月分表示される
+- Roadmap range label は開始年と終了年を表示する
+- workload strip も同じ表示範囲の month bucket 数へ広がる
+- イベント日は selected row の subtask として `milestone` で作成される
+- イベント日の開始日と終了日は同じ日付で保存される

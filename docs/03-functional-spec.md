@@ -445,3 +445,11 @@
 - Portfolio の担当者別集計は、担当 project 数 / 未完了 task 数 / 遅延 task 数を表示し、project 一覧を担当者で絞り込める
 - Roadmap の workload は、表示中の scheduled task を month bucket ごとに数え、担当者数と task 件数を表示する
 - project membership 専用 table はこの slice では追加しない。Excel round-trip / backup contract への影響を避けるため、正式な member registry は後続拡張とする
+
+## 3.9 複数年ロードマップとイベント日
+- Year / FY Roadmap は 1-5 年の表示年数 slider を持ち、選択年数 x 12 か月の month bucket を表示できる
+- Year scale は anchor year の1月から、FY scale は設定済み FY 開始月から表示年数分を連続表示する
+- 複数年表示でも existing filter / expand / workload 集計は同じ表示範囲に対して適用する
+- Project Detail では selected row の下にイベント日を追加できる
+- イベント日は既存 item type `milestone` として保存し、startDate / endDate は同じ日付にそろえる
+- selected row が無い場合は project 直下の milestone として登録する

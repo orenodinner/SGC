@@ -77,6 +77,24 @@ describe("buildRoadmapBuckets", () => {
       shortLabel: "3",
     });
   });
+
+  it("builds multiple years of month buckets when yearSpan is provided", () => {
+    const buckets = buildRoadmapBuckets({
+      scale: "year",
+      anchorYear: 2026,
+      yearSpan: 3,
+    });
+
+    expect(buckets).toHaveLength(36);
+    expect(buckets[0]).toMatchObject({
+      key: "year-2026-01",
+      label: "2026/1",
+    });
+    expect(buckets[35]).toMatchObject({
+      key: "year-2028-12",
+      label: "2028/12",
+    });
+  });
 });
 
 describe("buildRoadmapQuarterHeaders", () => {

@@ -341,3 +341,18 @@ epics:
           - Project Detail can add multiple subtasks from one multiline input
           - Portfolio shows assignee status chips and can filter projects by assignee
           - Roadmap shows a month-by-month workload strip for the visible year / FY range
+
+  - id: EPIC-17
+    name: Multi-year roadmap and event-day entry
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-1701
+        title: Add multi-year roadmap slider and event day subtask entry
+        status: done
+        done_when:
+          - Roadmap can show 1-5 years using a slider
+          - Roadmap month buckets, range label, grid, and workload strip follow the selected year span
+          - Project Detail can add an event day under the selected row
+          - Event day entries are stored as same-day milestones
+          - Unit and desktop E2E coverage verify the multi-year and event-day paths
