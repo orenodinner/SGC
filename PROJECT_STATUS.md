@@ -22,7 +22,7 @@
 - EPIC-18 `Structured demo data` / `TASK-1801 Replace messy dummy projects with structured yearly demo data` は完了
 - EPIC-19 `Roadmap year and fiscal quarter headers` / `TASK-1901 Add calendar year header and fiscal quarter labels to roadmap` は完了
 - EPIC-20 `Roadmap density and workload setting` / `TASK-2001 Hide roadmap workload by default and remove redundant intro copy` は完了
-- 残作業は GitHub release asset upload の認証 blocker 解消のみ
+- GitHub release asset upload blocker は解消済み
 
 ## 直近で完了したもの
 - Windows 標準 IExpress を使う `scripts/build-installer.ps1` と `npm run build:installer` を追加し、portable artifact を payload にした self-extracting installer を生成できるようにした
@@ -31,7 +31,8 @@
 - `ACC-075` / `DEC-099` と `EPIC-23` / `TASK-2301` を追加し、Windows installer artifact の仕様と受け入れ条件を記録した
 - `npm run build:installer` を通過し、`artifacts/SGC-Setup-v0.1.0.exe` を生成した。サイズは `151,826,432 bytes`
 - 同時に portable artifact `artifacts/sgc-portable-win-x64-v0.1.0.zip` も再生成した。サイズは `154,582,197 bytes`
-- `gh` CLI は `winget` で導入できたが、`gh auth status --hostname github.com` は未ログインだった。`GH_TOKEN` / `GITHUB_TOKEN` も無いため、`gh release upload v0.1.0 artifacts\SGC-Setup-v0.1.0.exe artifacts\sgc-portable-win-x64-v0.1.0.zip --repo orenodinner/SGC --clobber` は認証要求で失敗した
+- Git credential helper の既存 GitHub 資格情報を使って GitHub REST API から `v0.1.0` release へ `SGC-Setup-v0.1.0.exe` と `sgc-portable-win-x64-v0.1.0.zip` を upload した
+- release URL: `https://github.com/orenodinner/SGC/releases/tag/v0.1.0`
 - `typecheck / lint / test / build:installer` と installer / portable artifact contract tests を通過した
 - Year / FY Roadmap に `Roadmap Excel出力` を追加し、現在の scale / 表示年数 / filter / 展開済み row を反映した複数年ガント風 workbook を保存できるようにした
 - Roadmap Excel は round-trip 用 `Tasks` workbook と分離し、`Roadmap_Gantt` / `Roadmap_Data` の visual-only workbook として出力する方針にした
@@ -486,12 +487,11 @@
 - ACC-043 相当の service / browser fallback test を追加した
 
 ## 今いちばん重要な次アクション
-1. `gh` CLI の導入 / PATH 登録、または release asset upload 可能な GitHub tool を有効化する
-2. `artifacts/sgc-portable-win-x64-v0.1.0.zip` を GitHub release artifact として upload する
-3. upload 完了後に `PROJECT_STATUS.md` の blocker を解消済みに更新する
+1. GitHub release `v0.1.0` の asset 2件をダウンロード確認する
+2. 必要なら release note を整理する
 
 ## 現在の blocker
-- GitHub release upload は未完了。`artifacts/sgc-portable-win-x64-v0.1.0.zip` は生成済みだが、この環境では `gh` CLI が PATH 上に無く、GitHub connector 側にも release asset upload 用 tool が露出していないためアップロードできない
+- 現時点の blocker はありません
 
 ## 既知のリスク
 - 現在の DB は SQL.js を同期 API として使っており、大量件数では書込コスト評価が未実施
@@ -533,7 +533,7 @@
 - recurrence editor は cadence builder まで入ったが、background scheduler と supported generation rule 拡張は未実装
 
 ## 次の最小スライス
-- GitHub release asset upload blocker の解消後、`artifacts/sgc-portable-win-x64-v0.1.0.zip` を release に添付する
+- GitHub release `v0.1.0` の release note / README 上の配布リンクを必要に応じて整える
 
 ## 次に見るべきドキュメント
 - `PROJECT_STATUS.md`
