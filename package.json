@@ -12,6 +12,7 @@
     "build": "npm run build:main && npm run build:renderer",
     "build:main": "tsc -p tsconfig.node.json",
     "build:renderer": "vite build",
+    "build:installer": "powershell -ExecutionPolicy Bypass -File scripts/build-installer.ps1",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",

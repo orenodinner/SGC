@@ -466,3 +466,10 @@
 - 各 project は 7 item を持ち、担当者は project ごとに 2〜3 名へ分散する
 - 最終 item は単日 milestone とし、Roadmap / Project Detail / Portfolio の確認に使えるようにする
 - 既存の実DBをデモデータへ作り直す場合は `npm run reset:demo` を使い、実行前の SQLite は `backups/sgc-demo-reset-backup-*.sqlite` に退避する
+
+## 3.11 Windows installer artifact
+- Windows 配布物は portable zip に加えて self-extracting installer `.exe` を生成できる
+- installer は Windows 標準 IExpress を使い、既存 portable artifact を payload として含める
+- installer は current user scope で `%LOCALAPPDATA%\Programs\SGC` へ展開する
+- installer は Desktop と Start Menu に `SGC` shortcut を作成する
+- MSI、auto updater、code signing、store distribution は外部契約 / 証明書 / 公開ポリシーが必要なため対象外とする

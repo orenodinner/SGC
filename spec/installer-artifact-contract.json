@@ -1,0 +1,34 @@
+{
+  "artifactPrefix": "SGC-Setup",
+  "channel": "self_extracting_exe",
+  "builder": "iexpress",
+  "installScope": "current_user",
+  "defaultInstallDirectory": "%LOCALAPPDATA%\\Programs\\SGC",
+  "shortcutTargets": [
+    "Desktop",
+    "StartMenu"
+  ],
+  "payloadSource": "portable_artifact",
+  "requiredInstallerStagingFiles": [
+    "payload.zip",
+    "install.ps1",
+    "setup.cmd",
+    "installer.sed"
+  ],
+  "requiredInstalledPaths": [
+    "dist",
+    "dist-electron",
+    "node_modules/sql.js/dist/sql-wasm.wasm",
+    "runtime/electron.exe",
+    "Launch SGC.cmd",
+    "package.json",
+    "build-manifest.json",
+    "DISTRIBUTION.txt"
+  ],
+  "unsupportedDistribution": [
+    "msi",
+    "auto_updater",
+    "code_signing",
+    "store_distribution"
+  ]
+}

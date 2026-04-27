@@ -706,3 +706,13 @@
 - `Roadmap_Gantt` は表示範囲分の月列を持ち、複数年の年月ラベルが並ぶ
 - project / task / done / milestone は色付きセルまたは `◆` で表現され、Excel 上でガントチャートとして読める
 - 出力対象は current Roadmap view の scale / year span / filter / expand 状態を反映する
+
+### ACC-075 Windows self-extracting installer artifact
+**Given** Windows build 環境で portable artifact と IExpress が利用可能
+**When** `npm run build:installer` を実行する
+**Then**
+- `artifacts/SGC-Setup-v<version>.exe` が生成される
+- installer staging には `payload.zip`, `install.ps1`, `setup.cmd`, `installer.sed` が含まれる
+- installer payload は portable artifact を元にし、installed folder に `dist`, `dist-electron`, Electron runtime, `Launch SGC.cmd` が展開される
+- installer は current user scope で `%LOCALAPPDATA%\Programs\SGC` にインストールし、Desktop と Start Menu に shortcut を作成する
+- MSI、auto updater、code signing、store distribution は引き続き対象外として記録される

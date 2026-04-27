@@ -34,14 +34,17 @@
 - Dev: `powershell -ExecutionPolicy Bypass -File scripts/dev.ps1`
 - Test: `powershell -ExecutionPolicy Bypass -File scripts/test.ps1`
 - Build: `powershell -ExecutionPolicy Bypass -File scripts/build.ps1`
+- Installer build: `npm run build:installer`
 
 `build.ps1` の初期 installer slice は Windows 向け portable artifact を生成する。  
 出力先は `artifacts/` 配下で、version 付き staging folder と `.zip` を残す。  
 生成物には bundled Electron runtime、`dist/`、`dist-electron/`、必要最小限の runtime `node_modules/`、`Launch SGC.cmd` を含める。
 `TASK-1204` 以降は `spec/portable-artifact-contract.json` を portable artifact の契約として扱い、build script は required path を検証してから `.zip` を生成する。
+`build-installer.ps1` は portable artifact を payload とし、Windows 標準の IExpress で `artifacts/SGC-Setup-v<version>.exe` を生成する。
 
 ### Windows 配布 / 更新方針
 - 現時点の配布 channel は `portable_zip` とする
+- ユーザー向け installer は `self_extracting_exe` とし、current user scope で `%LOCALAPPDATA%\Programs\SGC` へ展開して Desktop / Start Menu shortcut を作成する
 - 更新は新しい zip を別フォルダへ展開し、`Launch SGC.cmd` から起動する `manual_replace` とする
 - rollback は前回展開済みフォルダを残しておき、そこから再起動する方式とする
 - MSI、auto updater、code signing、store distribution は証明書 / 公開ポリシー / 外部契約が必要なため、この implementation pack の完了条件からは外す

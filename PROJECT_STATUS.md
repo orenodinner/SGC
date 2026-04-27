@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-27 00:43 JST
+最終更新日時: 2026-04-27 22:08 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 109
-- 今回完了したサイクル: Export multi-year roadmap visual Excel workbook
+- 完了サイクル数: 110
+- 今回完了したサイクル: Build Windows self-extracting installer artifact
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -22,9 +22,17 @@
 - EPIC-18 `Structured demo data` / `TASK-1801 Replace messy dummy projects with structured yearly demo data` は完了
 - EPIC-19 `Roadmap year and fiscal quarter headers` / `TASK-1901 Add calendar year header and fiscal quarter labels to roadmap` は完了
 - EPIC-20 `Roadmap density and workload setting` / `TASK-2001 Hide roadmap workload by default and remove redundant intro copy` は完了
-- 残作業は GitHub release asset upload の blocker 解消のみ
+- 残作業は GitHub release asset upload の認証 blocker 解消のみ
 
 ## 直近で完了したもの
+- Windows 標準 IExpress を使う `scripts/build-installer.ps1` と `npm run build:installer` を追加し、portable artifact を payload にした self-extracting installer を生成できるようにした
+- installer は current user scope で `%LOCALAPPDATA%\Programs\SGC` へ展開し、Desktop / Start Menu shortcut を作成する
+- `spec/installer-artifact-contract.json` と installer contract unit test を追加し、staging files / installed paths / unsupported distribution scope を固定した
+- `ACC-075` / `DEC-099` と `EPIC-23` / `TASK-2301` を追加し、Windows installer artifact の仕様と受け入れ条件を記録した
+- `npm run build:installer` を通過し、`artifacts/SGC-Setup-v0.1.0.exe` を生成した。サイズは `151,826,432 bytes`
+- 同時に portable artifact `artifacts/sgc-portable-win-x64-v0.1.0.zip` も再生成した。サイズは `154,582,197 bytes`
+- `gh` CLI は `winget` で導入できたが、`gh auth status --hostname github.com` は未ログインだった。`GH_TOKEN` / `GITHUB_TOKEN` も無いため、`gh release upload v0.1.0 artifacts\SGC-Setup-v0.1.0.exe artifacts\sgc-portable-win-x64-v0.1.0.zip --repo orenodinner/SGC --clobber` は認証要求で失敗した
+- `typecheck / lint / test / build:installer` と installer / portable artifact contract tests を通過した
 - Year / FY Roadmap に `Roadmap Excel出力` を追加し、現在の scale / 表示年数 / filter / 展開済み row を反映した複数年ガント風 workbook を保存できるようにした
 - Roadmap Excel は round-trip 用 `Tasks` workbook と分離し、`Roadmap_Gantt` / `Roadmap_Data` の visual-only workbook として出力する方針にした
 - `.xlsx` writer に styled cell と column width を追加し、project row は青、task row は緑、done row はグレー、milestone は `◆` のオレンジセルで見えるようにした

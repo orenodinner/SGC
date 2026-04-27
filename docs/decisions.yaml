@@ -594,3 +594,9 @@ decisions:
     status: accepted
     decision: Year / FY Roadmap の複数年 Excel 出力は round-trip workbook とは分離し、`Roadmap_Gantt` / `Roadmap_Data` の visual-only workbook として実装する。表示中の scale、year span、filter、expand 状態を反映し、月列の塗りつぶしと milestone 記号でガントチャートとして読めることを優先する
     rationale: Roadmap の目的は複数年の俯瞰と共有であり、既存の canonical `Tasks` sheet に混ぜると import 契約と視認性の責務が衝突する。共有 / 印刷用 workbook を分けることで、round-trip の安全性を保ちつつユーザーが求める「ガントチャートに見えるExcel」を最短で提供できる。
+
+  - id: DEC-099
+    topic: Windows installer artifact scope
+    status: accepted
+    decision: Windows installer は MSI ではなく IExpress ベースの self-extracting exe として生成する。payload は既存 portable artifact を再利用し、current user scope の `%LOCALAPPDATA%\Programs\SGC` へ展開して Desktop / Start Menu shortcut を作成する。code signing、auto updater、store distribution は引き続き対象外とする
+    rationale: 追加契約や署名証明書なしで、ユーザーがダブルクリックで導入できる配布物を作るには Windows 標準の IExpress が最小リスクである。portable artifact を payload にすれば既存の runtime 検証を再利用でき、MSI や updater の外部依存を持ち込まずに実用的な installer を提供できる。

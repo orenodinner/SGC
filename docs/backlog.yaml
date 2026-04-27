@@ -429,3 +429,18 @@ epics:
           - Workbook contains Roadmap_Gantt and Roadmap_Data sheets
           - Month cells are styled so project, task, done, and milestone rows read as a Gantt chart
           - Unit and desktop E2E coverage verify the exported workbook
+
+  - id: EPIC-23
+    name: Windows self-extracting installer
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-2301
+        title: Build and publish Windows self-extracting installer artifact
+        status: done
+        done_when:
+          - npm run build:installer creates artifacts/SGC-Setup-v<version>.exe
+          - Installer payload is derived from the validated portable artifact
+          - Installer installs to current-user LocalAppData Programs SGC
+          - Installer creates Desktop and Start Menu shortcuts
+          - GitHub upload is attempted or a concrete missing-tool blocker is recorded

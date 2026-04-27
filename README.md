@@ -41,10 +41,17 @@ Electron / React / TypeScript / SQL.js(SQLite) で実装されており、デー
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 ```
 
+Windows 標準の IExpress が利用できる環境では、自己展開型インストーラーも生成できます。
+
+```powershell
+npm run build:installer
+```
+
 生成物:
 
 - `artifacts/sgc-portable-win-x64-v0.1.0.zip`
 - `artifacts/sgc-portable-win-x64-v0.1.0/`
+- `artifacts/SGC-Setup-v0.1.0.exe`
 
 利用手順:
 
@@ -52,11 +59,17 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1
 2. 展開先の `Launch SGC.cmd` をダブルクリックします。
 3. SGC が起動し、ローカルのユーザーデータ領域にデータを保存します。
 
+インストーラー利用手順:
+
+1. `artifacts/SGC-Setup-v0.1.0.exe` を実行します。
+2. `%LOCALAPPDATA%\Programs\SGC` に current user scope でインストールされます。
+3. Desktop と Start Menu に作成された `SGC` shortcut から起動します。
+
 注意:
 
-- 現時点では MSI installer / auto updater / code signing は未実装です。
+- 現時点では MSI installer / auto updater / code signing は未実装です。生成済み installer は IExpress ベースの self-extracting exe です。
 - 更新する場合は、新しい portable folder に差し替える運用です。
-- GitHub release への artifact upload は `gh` CLI が無い環境では実行できません。
+- GitHub release への artifact upload は `gh` CLI の GitHub 認証または `GH_TOKEN` / `GITHUB_TOKEN` が必要です。
 
 ## 開発環境で起動する
 
@@ -305,12 +318,13 @@ portable artifact自体を差し替えても、通常はユーザーデータ領
 
 ## 現在の既知blocker
 
-GitHub release asset upload は未完了です。
-Windows portable zip自体は生成できますが、この環境では `gh` CLI がPATH上に無いため、releaseへのasset uploadができません。
+GitHub release asset upload は `gh` CLI の GitHub 認証または `GH_TOKEN` / `GITHUB_TOKEN` が無い環境では実行できません。
+Windows portable zip と self-extracting installer はローカル生成できます。
 
 現時点の生成済みartifact:
 
 - `artifacts/sgc-portable-win-x64-v0.1.0.zip`
+- `artifacts/SGC-Setup-v0.1.0.exe`
 
 ## ライセンス
 
