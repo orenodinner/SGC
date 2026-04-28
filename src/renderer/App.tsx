@@ -201,6 +201,7 @@ export default function App() {
   const [activeRowDragItemId, setActiveRowDragItemId] = useState<string | null>(null);
   const [pendingRowDrop, setPendingRowDrop] = useState<ItemRowDropTarget | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [detailDrawerItemId, setDetailDrawerItemId] = useState<string | null>(null);
   const [projectDetailScrollTop, setProjectDetailScrollTop] = useState(0);
   const [projectDetailViewportHeight, setProjectDetailViewportHeight] = useState(
     PROJECT_DETAIL_DEFAULT_VIEWPORT_HEIGHT
@@ -347,6 +348,10 @@ export default function App() {
     [hasProjectSearchFilter, projectDetail?.items, rows, selectedItemId, viewMode, visibleProjectRowIds]
   );
   const bulkTaskParent = selectedItemId && selectedItem?.id === selectedItemId ? selectedItem : null;
+  const detailDrawerItem = useMemo(
+    () => (projectDetail?.items ?? []).find((item) => item.id === detailDrawerItemId) ?? null,
+    [detailDrawerItemId, projectDetail?.items]
+  );
   const metricItems =
     viewMode === "project" && hasProjectSearchFilter
       ? (projectDetail?.items ?? []).filter((item) => visibleProjectRowIds.has(item.id))
@@ -1514,7 +1519,10 @@ export default function App() {
                             activeRowDragItemIdRef.current = null;
                             setActiveRowDragItemId(null);
                           }}
-                          onOpenDetail={() => setSelectedItemId(item.id)}
+                          onOpenDetail={() => {
+                            setSelectedItemId(item.id);
+                            setDetailDrawerItemId(item.id);
+                          }}
                           onOpenContextMenu={(position) => {
                             setSelectedItemId(item.id);
                             setItemContextMenu({
@@ -1684,16 +1692,19 @@ export default function App() {
               </div>
             </section>
 
-            <DetailDrawer
-              item={selectedItem}
-              projectItems={projectDetail.items}
-              onSelectItem={(itemId) => setSelectedItemId(itemId)}
-              onUpdateItem={(patch) =>
-                selectedItem ? requestProjectItemUpdate(selectedItem, patch) : undefined
-              }
-              onUpsertRecurrenceRule={upsertRecurrenceRule}
-              onDeleteRecurrenceRule={deleteRecurrenceRule}
-            />
+            {detailDrawerItem ? (
+              <DetailDrawer
+                item={detailDrawerItem}
+                projectItems={projectDetail.items}
+                onSelectItem={(itemId) => {
+                  setSelectedItemId(itemId);
+                  setDetailDrawerItemId(itemId);
+                }}
+                onUpdateItem={(patch) => requestProjectItemUpdate(detailDrawerItem, patch)}
+                onUpsertRecurrenceRule={upsertRecurrenceRule}
+                onDeleteRecurrenceRule={deleteRecurrenceRule}
+              />
+            ) : null}
           </>
         )}
 
@@ -1725,6 +1736,7 @@ export default function App() {
             onClose={() => setItemContextMenu(null)}
             onOpenDetail={() => {
               setSelectedItemId(itemContextMenu.item.id);
+              setDetailDrawerItemId(itemContextMenu.item.id);
               setItemContextMenu(null);
             }}
             onAddChild={() => {

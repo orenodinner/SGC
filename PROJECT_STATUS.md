@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-29 01:11 JST
+最終更新日時: 2026-04-29 01:27 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 113
-- 今回完了したサイクル: Five-pass empty-state UI audit and WBS split-layout scroll fix
+- 完了サイクル数: 114
+- 今回完了したサイクル: Twenty-pass empty-state UI audit and detail drawer density fix
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,15 @@
 - GitHub release asset upload blocker は解消済み
 
 ## 直近で完了したもの
+- 空の一時 user data directory を20回作り直し、事前投入済み dummy data なしで project 作成、メイン担当入力、quick task 追加、複数サブタスク追加、担当者 / 開始日 / 終了日入力、event day 追加、Portfolio 確認、Year/FY Roadmap 展開確認を反復した
+- 20回の条件は viewport `1180x720` から `1920x1080`、標準 / 長文 / 英数Mix / 短名 project、担当者2-3名、task 5-8件、event day 1-3件、Roadmap 1-5年相当で変化させた
+- screenshot set は `artifacts/manual-ui-audit-2026-04-29-twenty-runs/` に保存し、各回 `empty-home / project-detail-filled / wbs-horizontal-scroll / portfolio / roadmap-expanded` の5枚、合計100枚を取得した
+- 代表画像 `01-標準-viewport-0/03-wbs-horizontal-scroll.png`、`02-長文-viewport-1/02-project-detail-filled.png`、`08-短名-viewport-7/05-roadmap-expanded.png`、`11-英数Mix-viewport-2/04-portfolio.png` を目視確認した
+- 20回目視で、WBS sticky列、日付保存、Portfolio担当者集計、Roadmap複数年表示は概ね安定。小窓入力時に Detail Drawer が自動表示され、WBS / timeline の縦表示領域を圧迫する問題を確認した
+- selected row と detail drawer 表示対象を分離し、quick task / bulk task / event day 追加後は Detail Drawer を自動表示せず、行の `詳細` 操作時だけ表示するようにした
+- desktop E2E に task/event 追加後の `.detail-drawer` 非表示検証を追加した
+- screenshot `artifacts/manual-ui-audit-2026-04-29-twenty-runs-after-fix/01-project-detail-no-detail-drawer.png` で、Detail Drawer が消え、WBS / timeline body が `421px` 確保されることを確認した
+- `typecheck / lint / build / targeted desktop E2E` を通過した
 - 空の一時 user data directory を5回作り直し、事前投入済み dummy data なしで project 作成、メイン担当入力、quick task 追加、複数サブタスク追加、担当者 / 開始日 / 終了日入力、event day 追加、Portfolio 確認、Year/FY Roadmap 展開確認を反復した
 - 5回の条件は `standard-seven-tasks` / `compact-window` / `long-names` / `event-heavy` / `roadmap-wide` とし、画面幅、長い project / task 名、担当者数、event day 数、Roadmap 表示年数を変えて確認した
 - screenshot set は `artifacts/manual-ui-audit-2026-04-29-five-runs/` に保存し、代表画像 `01-standard-seven-tasks/03-wbs-horizontal-scroll.png`、`02-compact-window/05-roadmap-expanded.png`、`03-long-names/02-project-detail-filled.png`、`05-roadmap-wide/05-roadmap-expanded.png` を目視確認した

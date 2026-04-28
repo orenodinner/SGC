@@ -1439,6 +1439,7 @@ test("sidebar project list stays compact and quick-add creates a task under the 
     const eventRow = eventTitleInput.locator('xpath=ancestor::div[contains(@class, "table-row")]');
     await expect(eventRow.locator("select").first()).toHaveValue("milestone");
     await expect(eventRow.locator('input[type="date"]').first()).toHaveValue(eventDate);
+    await expect(page.locator(".detail-drawer")).toHaveCount(0);
 
     await page.setViewportSize({ width: 1600, height: 900 });
     await page.locator(".table-body").evaluate((element) => {
