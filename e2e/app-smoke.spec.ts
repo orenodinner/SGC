@@ -1434,6 +1434,17 @@ test("sidebar project list stays compact and quick-add creates a task under the 
     await expect(eventRow.locator("select").first()).toHaveValue("milestone");
     await expect(eventRow.locator('input[type="date"]').first()).toHaveValue(eventDate);
 
+    await page.locator(".table-body").evaluate((element) => {
+      element.scrollLeft = 520;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    const tableBodyBox = await page.locator(".table-body").boundingBox();
+    const stickyTitleBox = await page.locator(`.table-body input[value="${quickTaskTitle}"]`).first().boundingBox();
+    expect(tableBodyBox).not.toBeNull();
+    expect(stickyTitleBox).not.toBeNull();
+    expect(stickyTitleBox?.x ?? 0).toBeGreaterThanOrEqual((tableBodyBox?.x ?? 0) + 220);
+    expect(stickyTitleBox?.x ?? 0).toBeLessThan((tableBodyBox?.x ?? 0) + 560);
+
     await page.getByRole("button", { name: "折りたたむ" }).click();
     await expect(page.locator(".project-list")).toHaveCount(0);
     await page.getByRole("button", { name: "表示" }).click();

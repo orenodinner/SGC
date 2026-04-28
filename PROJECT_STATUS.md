@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-27 22:08 JST
+最終更新日時: 2026-04-29 00:44 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 110
-- 今回完了したサイクル: Build Windows self-extracting installer artifact
+- 完了サイクル数: 111
+- 今回完了したサイクル: Manual empty-state UI audit and WBS horizontal-scroll usability fix
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,13 @@
 - GitHub release asset upload blocker は解消済み
 
 ## 直近で完了したもの
+- 空の一時 user data directory で Electron app を起動し、事前投入済み dummy data なしで project 作成、メイン担当入力、7件相当の task / milestone 日程入力、event day 追加、Portfolio 確認、Year/FY 複数年 Roadmap 確認を実施した
+- screenshot `artifacts/manual-ui-audit-2026-04-29/01-empty-home.png` / `03-seven-tasks-entered.png` / `05-portfolio.png` / `07-year-fy-two-years.png` で初回入力とスケジュール確認の実画面を確認した
+- Project Detail の WBS grid で日付欄へ横スクロールした後に左側の WBS / 種別 / タイトルが欠け、入力済み task を見失いやすい問題を確認した
+- WBS grid の左3列を sticky にし、日付 / 進捗 / タグなど右側列を確認している間も行識別情報を表示し続けるようにした
+- desktop E2E `sidebar project list stays compact and quick-add creates a task under the project` に横スクロール後の title visibility assertion を追加した
+- screenshot `artifacts/manual-ui-audit-2026-04-29-after/01-project-detail-sticky-title.png` で横スクロール後も WBS / 種別 / タイトルが見えることを再確認した
+- `typecheck / lint / targeted desktop E2E` を通過した
 - Windows 標準 IExpress を使う `scripts/build-installer.ps1` と `npm run build:installer` を追加し、portable artifact を payload にした self-extracting installer を生成できるようにした
 - installer は current user scope で `%LOCALAPPDATA%\Programs\SGC` へ展開し、Desktop / Start Menu shortcut を作成する
 - `spec/installer-artifact-contract.json` と installer contract unit test を追加し、staging files / installed paths / unsupported distribution scope を固定した

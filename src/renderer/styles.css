@@ -1846,12 +1846,38 @@ textarea {
   border-bottom: 1px solid var(--chart-row-border);
 }
 
+.table-body .table-row > :nth-child(-n + 3) {
+  position: sticky;
+  z-index: 2;
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  background: var(--panel-bg);
+}
+
+.table-body .table-row > :nth-child(1) {
+  left: 18px;
+}
+
+.table-body .table-row > :nth-child(2) {
+  left: 120px;
+}
+
+.table-body .table-row > :nth-child(3) {
+  left: 242px;
+  box-shadow: 14px 0 18px -18px rgba(63, 91, 75, 0.55);
+}
+
 .table-row:last-child {
   border-bottom: 0;
 }
 
 .table-row.selected {
   background: color-mix(in srgb, var(--row-hover-bg) 84%, transparent);
+}
+
+.table-body .table-row.selected > :nth-child(-n + 3) {
+  background: color-mix(in srgb, var(--row-hover-bg) 84%, var(--panel-bg));
 }
 
 .table-row.drag-source {
