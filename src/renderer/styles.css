@@ -1842,6 +1842,7 @@ textarea {
   align-items: center;
   gap: 12px;
   padding: 12px 18px;
+  min-width: 1760px;
   min-height: 58px;
   height: 58px;
   box-sizing: border-box;
@@ -2392,10 +2393,6 @@ textarea {
 
   .project-workspace {
     grid-template-columns: 1fr;
-  }
-
-  .table-row {
-    min-width: 1760px;
   }
 
   .portfolio-table-row {

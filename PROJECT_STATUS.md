@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-29 01:02 JST
+最終更新日時: 2026-04-29 01:11 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 112
-- 今回完了したサイクル: Repeat empty-state UI audit and schedule-entry robustness fix
+- 完了サイクル数: 113
+- 今回完了したサイクル: Five-pass empty-state UI audit and WBS split-layout scroll fix
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,14 @@
 - GitHub release asset upload blocker は解消済み
 
 ## 直近で完了したもの
+- 空の一時 user data directory を5回作り直し、事前投入済み dummy data なしで project 作成、メイン担当入力、quick task 追加、複数サブタスク追加、担当者 / 開始日 / 終了日入力、event day 追加、Portfolio 確認、Year/FY Roadmap 展開確認を反復した
+- 5回の条件は `standard-seven-tasks` / `compact-window` / `long-names` / `event-heavy` / `roadmap-wide` とし、画面幅、長い project / task 名、担当者数、event day 数、Roadmap 表示年数を変えて確認した
+- screenshot set は `artifacts/manual-ui-audit-2026-04-29-five-runs/` に保存し、代表画像 `01-standard-seven-tasks/03-wbs-horizontal-scroll.png`、`02-compact-window/05-roadmap-expanded.png`、`03-long-names/02-project-detail-filled.png`、`05-roadmap-wide/05-roadmap-expanded.png` を目視確認した
+- 5回目視で、通常幅 / 小窓 / Roadmap 複数年は大きな崩れなし。長い名称の左右分割表示で、日付入力後に WBS grid が右へ残った時だけ識別列が安定して残らない問題を確認した
+- `.table-row` の `min-width: 1760px` を全 viewport で有効にし、左右分割時も WBS grid の横スクロールと sticky 識別列が同じ幅モデルで動くようにした
+- desktop E2E の横スクロール visibility 検証を `1600x900` viewport で行うようにし、split layout の再発防止を追加した
+- screenshot `artifacts/manual-ui-audit-2026-04-29-five-runs-after-fix/01-long-name-wbs-horizontal-scroll.png` で、長文 task でも WBS / 種別 / タイトルが横スクロール中に残ることを確認した
+- `typecheck / lint / build / targeted desktop E2E` を通過した
 - 空の一時 user data directory で Electron app を再起動し、事前投入済み dummy data なしで project 作成、メイン担当入力、quick task 追加、複数サブタスク追加、担当者 / 開始日 / 終了日入力、event day 追加、Portfolio 確認、Year/FY 2年 Roadmap 確認を再実施した
 - screenshot `artifacts/manual-ui-audit-2026-04-29-rerun2/01-empty-home.png` / `03-bulk-tasks-added.png` / `04-scheduled-tasks-and-event.png` / `08-roadmap-two-years.png` で、空状態からの入力とスケジュール確認を再確認した
 - 再検証で、Project Detail の開始日 / 終了日を連続入力した際に、一部行の終了日が未入力へ戻る保存タイミングの脆さを確認した

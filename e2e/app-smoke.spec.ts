@@ -1440,6 +1440,7 @@ test("sidebar project list stays compact and quick-add creates a task under the 
     await expect(eventRow.locator("select").first()).toHaveValue("milestone");
     await expect(eventRow.locator('input[type="date"]').first()).toHaveValue(eventDate);
 
+    await page.setViewportSize({ width: 1600, height: 900 });
     await page.locator(".table-body").evaluate((element) => {
       element.scrollLeft = 520;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
