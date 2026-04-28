@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-29 00:44 JST
+最終更新日時: 2026-04-29 01:02 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 111
-- 今回完了したサイクル: Manual empty-state UI audit and WBS horizontal-scroll usability fix
+- 完了サイクル数: 112
+- 今回完了したサイクル: Repeat empty-state UI audit and schedule-entry robustness fix
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -25,6 +25,14 @@
 - GitHub release asset upload blocker は解消済み
 
 ## 直近で完了したもの
+- 空の一時 user data directory で Electron app を再起動し、事前投入済み dummy data なしで project 作成、メイン担当入力、quick task 追加、複数サブタスク追加、担当者 / 開始日 / 終了日入力、event day 追加、Portfolio 確認、Year/FY 2年 Roadmap 確認を再実施した
+- screenshot `artifacts/manual-ui-audit-2026-04-29-rerun2/01-empty-home.png` / `03-bulk-tasks-added.png` / `04-scheduled-tasks-and-event.png` / `08-roadmap-two-years.png` で、空状態からの入力とスケジュール確認を再確認した
+- 再検証で、Project Detail の開始日 / 終了日を連続入力した際に、一部行の終了日が未入力へ戻る保存タイミングの脆さを確認した
+- item row の input remount key を row 全体の `updatedAt` から各 field value 単位へ変更し、別 field の保存更新で入力中の field が巻き戻らないようにした
+- WBS grid 横スクロール時に固定列の背景が透けて右側列の文字が重なる問題を確認し、固定列背景と列間 gap を不透明化した
+- screenshot `artifacts/manual-ui-audit-2026-04-29-rerun3-after-fix/02-scheduled-tasks-and-event.png` / `03-wbs-horizontal-scroll.png` / `05-roadmap-two-years.png` と `artifacts/manual-ui-audit-2026-04-29-final-check-2/01-wbs-horizontal-scroll-final-2.png` で修正後の表示を確認した
+- desktop E2E `sidebar project list stays compact and quick-add creates a task under the project` に開始日 / 終了日の連続入力保持検証を追加した
+- `typecheck / lint / build / targeted desktop E2E` を通過した
 - 空の一時 user data directory で Electron app を起動し、事前投入済み dummy data なしで project 作成、メイン担当入力、7件相当の task / milestone 日程入力、event day 追加、Portfolio 確認、Year/FY 複数年 Roadmap 確認を実施した
 - screenshot `artifacts/manual-ui-audit-2026-04-29/01-empty-home.png` / `03-seven-tasks-entered.png` / `05-portfolio.png` / `07-year-fy-two-years.png` で初回入力とスケジュール確認の実画面を確認した
 - Project Detail の WBS grid で日付欄へ横スクロールした後に左側の WBS / 種別 / タイトルが欠け、入力済み task を見失いやすい問題を確認した

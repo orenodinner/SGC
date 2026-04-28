@@ -4213,7 +4213,6 @@ function ItemRow(props: {
     onOpenDetail,
     onOpenContextMenu,
   } = props;
-
   return (
     <div
       className={[
@@ -4280,7 +4279,7 @@ function ItemRow(props: {
           <span className="tree-toggle-spacer" />
         )}
         <input
-          key={`${item.id}-title-${item.updatedAt}`}
+          key={`${item.id}-title-${item.title}`}
           defaultValue={item.title}
           onBlur={(event) => onUpdate({ title: event.target.value.trim() || item.title })}
           onKeyDown={(event) => {
@@ -4319,7 +4318,7 @@ function ItemRow(props: {
       </span>
       <span>
         <input
-          key={`${item.id}-assignee-${item.updatedAt}`}
+          key={`${item.id}-assignee-${item.assigneeName}`}
           defaultValue={item.assigneeName}
           placeholder="担当"
           onBlur={(event) => onUpdate({ assigneeName: event.target.value })}
@@ -4328,7 +4327,7 @@ function ItemRow(props: {
       <span>
         <input
           type="date"
-          key={`${item.id}-start-${item.updatedAt}`}
+          key={`${item.id}-start-${item.startDate ?? ""}`}
           defaultValue={normalizeDateInput(item.startDate)}
           onBlur={(event) => onUpdate({ startDate: event.target.value || null })}
         />
@@ -4336,7 +4335,7 @@ function ItemRow(props: {
       <span>
         <input
           type="date"
-          key={`${item.id}-end-${item.updatedAt}`}
+          key={`${item.id}-end-${item.endDate ?? ""}`}
           defaultValue={normalizeDateInput(item.endDate)}
           onBlur={(event) => onUpdate({ endDate: event.target.value || null })}
         />
@@ -4346,7 +4345,7 @@ function ItemRow(props: {
           type="number"
           min={0}
           max={100}
-          key={`${item.id}-percent-${item.updatedAt}`}
+          key={`${item.id}-percent-${item.percentComplete}`}
           defaultValue={item.percentComplete}
           onBlur={(event) => onUpdate({ percentComplete: Number(event.target.value) })}
         />

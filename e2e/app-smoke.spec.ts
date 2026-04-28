@@ -1415,7 +1415,13 @@ test("sidebar project list stays compact and quick-add creates a task under the 
     await page.getByLabel("プロジェクト直下にタスクを追加").fill(quickTaskTitle);
     await page.getByRole("button", { name: "タスク追加" }).click();
     await expect(page.locator(`.table-body input[value="${quickTaskTitle}"]`).first()).toBeVisible();
-    await expect(page.locator(".table-body .table-row").first().locator("select").first()).toHaveValue("task");
+    const quickTaskRow = page.locator(".table-body .table-row").first();
+    await expect(quickTaskRow.locator("select").first()).toHaveValue("task");
+    await quickTaskRow.locator('input[type="date"]').nth(0).fill("2026-05-01");
+    await quickTaskRow.locator('input[type="date"]').nth(1).fill("2026-05-03");
+    await quickTaskRow.locator('input[type="date"]').nth(1).press("Tab");
+    await expect(quickTaskRow.locator('input[type="date"]').nth(0)).toHaveValue("2026-05-01");
+    await expect(quickTaskRow.locator('input[type="date"]').nth(1)).toHaveValue("2026-05-03");
 
     const bulkChildTitle = `Bulk Child 01 ${timestamp}`;
     await page.getByLabel("複数サブタスク追加").fill(`${bulkChildTitle}\nBulk Child 02 ${timestamp}\nBulk Child 03 ${timestamp}`);

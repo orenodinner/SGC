@@ -8,6 +8,7 @@
   --shell-sidebar-border: rgba(92, 70, 45, 0.14);
   --panel-bg: rgba(255, 251, 245, 0.82);
   --panel-strong-bg: rgba(255, 251, 245, 0.9);
+  --table-sticky-bg: #fffbf5;
   --panel-soft-bg: rgba(255, 248, 236, 0.84);
   --panel-soft-strong-bg: rgba(255, 248, 236, 0.92);
   --panel-border: rgba(107, 84, 58, 0.12);
@@ -78,6 +79,7 @@
   --shell-sidebar-border: rgba(232, 213, 190, 0.08);
   --panel-bg: rgba(36, 29, 25, 0.88);
   --panel-strong-bg: rgba(42, 34, 30, 0.92);
+  --table-sticky-bg: #241d19;
   --panel-soft-bg: rgba(31, 25, 22, 0.9);
   --panel-soft-strong-bg: rgba(46, 38, 34, 0.94);
   --panel-border: rgba(232, 213, 190, 0.1);
@@ -1848,24 +1850,33 @@ textarea {
 
 .table-body .table-row > :nth-child(-n + 3) {
   position: sticky;
-  z-index: 2;
+  z-index: 3;
   display: flex;
   align-self: stretch;
   align-items: center;
-  background: var(--panel-bg);
+  background: var(--table-sticky-bg);
+}
+
+.table-body .table-row > :nth-child(-n + 3) input,
+.table-body .table-row > :nth-child(-n + 3) select {
+  background: var(--table-sticky-bg);
 }
 
 .table-body .table-row > :nth-child(1) {
-  left: 18px;
+  left: 0;
+  box-shadow: 12px 0 0 var(--table-sticky-bg);
 }
 
 .table-body .table-row > :nth-child(2) {
-  left: 120px;
+  left: 102px;
+  box-shadow: 12px 0 0 var(--table-sticky-bg);
 }
 
 .table-body .table-row > :nth-child(3) {
-  left: 242px;
-  box-shadow: 14px 0 18px -18px rgba(63, 91, 75, 0.55);
+  left: 224px;
+  box-shadow:
+    12px 0 0 var(--table-sticky-bg),
+    14px 0 18px -18px rgba(63, 91, 75, 0.55);
 }
 
 .table-row:last-child {
@@ -1877,7 +1888,7 @@ textarea {
 }
 
 .table-body .table-row.selected > :nth-child(-n + 3) {
-  background: color-mix(in srgb, var(--row-hover-bg) 84%, var(--panel-bg));
+  background: color-mix(in srgb, var(--row-hover-bg) 84%, var(--table-sticky-bg));
 }
 
 .table-row.drag-source {
