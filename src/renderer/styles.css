@@ -979,10 +979,17 @@ textarea {
 }
 
 .quick-task-add,
-.bulk-task-add,
-.event-day-add {
+.bulk-task-add {
   display: grid;
   grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px 18px;
+}
+
+.event-day-add {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(220px, 1fr) minmax(150px, 0.6fr) auto;
   align-items: end;
   gap: 12px;
   padding: 14px 18px;
@@ -2065,6 +2072,20 @@ textarea {
   grid-column: 1 / -1;
 }
 
+.detail-subtask-add {
+  grid-template-columns: minmax(180px, 0.85fr) minmax(240px, 1fr) auto;
+  align-items: end;
+}
+
+.detail-subtask-add .detail-static {
+  align-self: stretch;
+}
+
+.detail-subtask-add .detail-static span {
+  display: block;
+  margin-top: 4px;
+}
+
 .detail-field textarea {
   min-height: 120px;
   resize: vertical;
@@ -2420,6 +2441,10 @@ textarea {
   .event-day-add {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .detail-subtask-add {
+    grid-template-columns: 1fr;
   }
 
   .workload-month-grid {

@@ -1424,10 +1424,28 @@ test("sidebar project list stays compact and quick-add creates a task under the 
     await expect(quickTaskRow.locator('input[type="date"]').nth(1)).toHaveValue("2026-05-03");
 
     const bulkChildTitle = `Bulk Child 01 ${timestamp}`;
-    await page.getByLabel("複数サブタスク追加").fill(`${bulkChildTitle}\nBulk Child 02 ${timestamp}\nBulk Child 03 ${timestamp}`);
+    await page.getByLabel("複数タスク追加").fill(`${bulkChildTitle}\nBulk Child 02 ${timestamp}\nBulk Child 03 ${timestamp}`);
     await page.getByRole("button", { name: "まとめて追加" }).click();
     await expect(page.locator(`.table-body input[value="${bulkChildTitle}"]`).first()).toBeVisible();
     await expect(page.locator(".table-body .table-row")).toHaveCount(4);
+    const bulkRootRow = page.locator(".table-body .table-row").filter({
+      has: page.locator(`input[value="${bulkChildTitle}"]`),
+    }).first();
+    await expect(bulkRootRow.locator(".wbs-cell")).toContainText(/2$/u);
+
+    await quickTaskRow.click({ button: "right" });
+    const contextMenu = page.getByRole("menu", { name: "Project Detail Context Menu" });
+    await expect(contextMenu).toBeVisible();
+    await contextMenu.getByRole("menuitem", { name: "詳細" }).click();
+    await expect(page.locator(".detail-drawer")).toContainText(quickTaskTitle);
+    const explicitSubtaskTitle = `Explicit Subtask ${timestamp}`;
+    await page.getByLabel("サブタスク追加").fill(explicitSubtaskTitle);
+    await page.getByRole("button", { name: "サブタスク追加" }).click();
+    await expect(page.locator(`.table-body input[value="${explicitSubtaskTitle}"]`).first()).toBeVisible();
+    const explicitSubtaskRow = page.locator(".table-body .table-row").filter({
+      has: page.locator(`input[value="${explicitSubtaskTitle}"]`),
+    }).first();
+    await expect(explicitSubtaskRow.locator(".wbs-cell")).toContainText(/1\.1$/u);
 
     const eventTitle = `Customer Event ${timestamp}`;
     const eventDate = "2026-09-15";
@@ -1439,7 +1457,6 @@ test("sidebar project list stays compact and quick-add creates a task under the 
     const eventRow = eventTitleInput.locator('xpath=ancestor::div[contains(@class, "table-row")]');
     await expect(eventRow.locator("select").first()).toHaveValue("milestone");
     await expect(eventRow.locator('input[type="date"]').first()).toHaveValue(eventDate);
-    await expect(page.locator(".detail-drawer")).toHaveCount(0);
 
     await page.setViewportSize({ width: 1600, height: 900 });
     await page.locator(".table-body").evaluate((element) => {

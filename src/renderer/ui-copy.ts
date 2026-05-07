@@ -82,6 +82,11 @@ export interface UiCopy {
     bulkAddRootHelp: string;
     bulkAddPlaceholder: string;
     bulkAddButton: string;
+    subtaskAddLabel: string;
+    subtaskAddTitle: string;
+    subtaskAddHelp: string;
+    subtaskAddPlaceholder: string;
+    subtaskAddButton: string;
     eventDayLabel: string;
     eventDayChildTitle: string;
     eventDayRootTitle: string;
@@ -360,12 +365,17 @@ const JA_COPY: UiCopy = {
     mainOwnerBadge: "主担当",
     noAssignees: "担当者はまだ未設定です",
     assigneeSummary: (open, done, overdue) => `未完了 ${open} / 完了 ${done} / 遅延 ${overdue}`,
-    bulkAddLabel: "複数サブタスク追加",
-    bulkAddChildTitle: "選択行の下にまとめて追加",
+    bulkAddLabel: "複数タスク追加",
+    bulkAddChildTitle: "プロジェクト直下にまとめて追加",
     bulkAddRootTitle: "プロジェクト直下にまとめて追加",
-    bulkAddRootHelp: "行を選択すると、その下にサブタスクとして追加できます。",
+    bulkAddRootHelp: "選択行があっても、ここでは独立したタスクとして追加します。",
     bulkAddPlaceholder: "例:\n要件整理\nデザイン確認\n見積作成\nレビュー\n修正\n承認\nリリース準備",
     bulkAddButton: "まとめて追加",
+    subtaskAddLabel: "サブタスク追加",
+    subtaskAddTitle: "この行の下にサブタスクを追加",
+    subtaskAddHelp: "通常のタスク追加とは分けて、この選択行の配下にだけ追加します。",
+    subtaskAddPlaceholder: "例:\n調査\nレビュー\n修正",
+    subtaskAddButton: "サブタスク追加",
     eventDayLabel: "イベント日追加",
     eventDayChildTitle: "選択行の下にイベント日を追加",
     eventDayRootTitle: "プロジェクト直下にイベント日を追加",
@@ -644,12 +654,17 @@ const EN_COPY: UiCopy = {
     mainOwnerBadge: "main",
     noAssignees: "No assignees yet.",
     assigneeSummary: (open, done, overdue) => `Open ${open} / Done ${done} / Overdue ${overdue}`,
-    bulkAddLabel: "Bulk subtask add",
-    bulkAddChildTitle: "Add multiple rows under the selected row",
+    bulkAddLabel: "Bulk task add",
+    bulkAddChildTitle: "Add multiple rows under this project",
     bulkAddRootTitle: "Add multiple rows under this project",
-    bulkAddRootHelp: "Select a row to add these as subtasks under it.",
+    bulkAddRootHelp: "These are added as independent project tasks, even when a row is selected.",
     bulkAddPlaceholder: "Example:\nRequirements\nDesign review\nEstimate\nReview\nFixes\nApproval\nRelease prep",
     bulkAddButton: "Add Rows",
+    subtaskAddLabel: "Add subtasks",
+    subtaskAddTitle: "Add subtasks under this row",
+    subtaskAddHelp: "Use this explicit detail action when the new rows belong under the selected row.",
+    subtaskAddPlaceholder: "Example:\nResearch\nReview\nFixes",
+    subtaskAddButton: "Add Subtasks",
     eventDayLabel: "Add event day",
     eventDayChildTitle: "Add an event day under the selected row",
     eventDayRootTitle: "Add an event day under this project",

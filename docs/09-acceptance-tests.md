@@ -633,6 +633,8 @@
 - project search で絞り込んだ project row をクリックできる
 - project list は折りたたみ / 再表示できる
 - quick-add form から current project 直下に root-level task が作成される
+- Project Detail 上部の複数行追加も selected row の有無に関係なく root-level task を作成する
+- subtask は Detail Drawer の明示的なサブタスク追加欄から selected row 配下へ作成できる
 
 ### ACC-067 Date-based Project Detail Gantt
 **Given** Project Detail に scheduled task がある

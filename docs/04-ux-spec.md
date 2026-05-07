@@ -90,6 +90,8 @@
 - `Templates` の first slice は Project Detail toolbar の button から開く panel として置いてよい
 - Project Detail toolbar の下には、選択中 project 直下へ task を1件追加できる compact quick-add form を置いてよい
 - quick-add form は title だけで送信でき、作成される row は root-level `task` とする
+- Project Detail toolbar 下の複数行追加も既定では project 直下の root-level `task` を作成する
+- 選択行の下へ subtask を作成する導線は Detail drawer 内の明示的な `サブタスク追加` 欄に限定し、通常の task 追加と混同しないようにする
 - template panel では `WBS Templates` と `Project Templates` の2 section を分け、保存済み template の `name / updatedAt` と short helper copy を表示する
 - `WBS Templates` の row action は `Apply to current project` に限定し、current project root 直下へ subtree を追加する
 - `Project Templates` の row action は `Create project` に限定し、新しい project を作成したらその project を選択状態にして Project Detail を開く

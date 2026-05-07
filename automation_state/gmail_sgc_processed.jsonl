@@ -1,0 +1,3 @@
+{"message_id":"19dfbf2cf49f9816","processed_at":"2026-05-06T17:24:40.7945750+09:00","email_ts":"2026-05-06T06:21:27","subject":"【SGC】日次進捗レポート 2026-05-06","result_summary":"条件一致したが本文は日次進捗レポートで、実行対象を特定できる新規Codex指示なし。実装・修正・結果メール送信は未実施。"}
+{"message_id":"19e00a4e89a47ba4","processed_at":"2026-05-07T19:13:12.5908641+09:00","email_ts":"2026-05-07T04:14:21+00:00","subject":"sgc","result_summary":"本文指示を実行。通常の複数タスク追加をroot-level化し、明示的なサブタスク追加欄をDetail Drawerへ追加。typecheck/lint/build/targeted E2E通過。inline画像本体はGmailツールから取得不可。"}
+{"message_id":"19e0143e34770a31","processed_at":"2026-05-07T19:13:12.5967217+09:00","email_ts":"2026-05-07T16:08:06+09:00","subject":"sgc","result_summary":"同一本文の送信控え相当として重複実行せず処理済みに記録。実装結果はmessage_id 19e00a4e89a47ba4 と同じ。"}

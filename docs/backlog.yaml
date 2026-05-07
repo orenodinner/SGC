@@ -444,3 +444,17 @@ epics:
           - Installer installs to current-user LocalAppData Programs SGC
           - Installer creates Desktop and Start Menu shortcuts
           - GitHub upload is attempted or a concrete missing-tool blocker is recorded
+
+  - id: EPIC-24
+    name: Task add hierarchy usability
+    priority: P1
+    status: done
+    tasks:
+      - id: TASK-2401
+        title: Keep normal task add root-level and move subtask add into detail drawer
+        status: done
+        done_when:
+          - Project Detail quick task add creates a root-level task
+          - Project Detail bulk task add creates root-level tasks even when a row is selected
+          - Detail drawer exposes an explicit subtask add action for the selected row
+          - Desktop E2E verifies root-level task add and explicit subtask add

@@ -1,11 +1,11 @@
 # PROJECT STATUS
 
 最終更新者: Codex  
-最終更新日時: 2026-04-29 01:27 JST
+最終更新日時: 2026-05-07 19:12 JST
 
 ## Autonomy Progress
-- 完了サイクル数: 114
-- 今回完了したサイクル: Twenty-pass empty-state UI audit and detail drawer density fix
+- 完了サイクル数: 115
+- 今回完了したサイクル: Gmail command task-add hierarchy and layout fix
 
 ## 現在フェーズ
 - Phase 12 `Multilingual UI parity and deferred polish` は完了
@@ -22,9 +22,22 @@
 - EPIC-18 `Structured demo data` / `TASK-1801 Replace messy dummy projects with structured yearly demo data` は完了
 - EPIC-19 `Roadmap year and fiscal quarter headers` / `TASK-1901 Add calendar year header and fiscal quarter labels to roadmap` は完了
 - EPIC-20 `Roadmap density and workload setting` / `TASK-2001 Hide roadmap workload by default and remove redundant intro copy` は完了
+- EPIC-24 `Task add hierarchy usability` / `TASK-2401 Keep normal task add root-level and move subtask add into detail drawer` は完了
 - GitHub release asset upload blocker は解消済み
 
 ## 直近で完了したもの
+- Gmail command runner で件名 `sgc` の新規指示メールを処理し、Project Detail の task 追加階層 UX を修正した
+- Project Detail 上部の複数行追加は、行が選択されていても project 直下の root-level task として作成するようにした
+- 選択行配下の subtask 追加は Detail Drawer 内の明示的な `サブタスク追加` 欄へ移し、通常 task 追加と混同しない導線にした
+- event day 追加フォームの grid を4列構成へ分け、入力欄とボタンが同一行で崩れにくいレイアウトにした
+- `docs/04-ux-spec.md` / `docs/09-acceptance-tests.md` / `docs/backlog.yaml` を task-add hierarchy 方針に追随させた
+- `typecheck / lint / build / targeted desktop E2E` を通過した
+- Codex automation `hourly-gmail-sgc-command-runner` を追加し、1時間ごとに Gmail を確認して、宛先 `orenodinner@gmail.com` かつ件名 `sgc` のメール本文指示を Codex で実行する運用を有効化した
+- SGC 用 command runner は `C:\Users\oreno\SGC` を作業ルートにし、処理済み message id を `automation_state\gmail_sgc_processed.jsonl` に記録して重複実行を防ぐ
+- 対象メールを処理した場合は、実行内容・変更ファイル/生成物・検証結果・未完了/ブロッカーを日本語で `orenodinner@gmail.com` 宛に結果返信する
+- Codex automation `sgc-daily-progress-email` を追加し、毎日 07:00 Asia/Tokyo に `orenodinner@gmail.com` 宛の SGC 進捗メールを送る運用を有効化した
+- 進捗メールは `C:\Users\oreno\SGC` を対象に、前回 07:00 以降の `PROJECT_STATUS.md`、`docs/backlog.yaml`、関連ドキュメント、git 状態、検証痕跡を確認して日本語で要約する
+- 進捗なしでも未検出として正直に報告し、完了事項・検証・未完了/リスク・次アクションをメール本文へ含める
 - 空の一時 user data directory を20回作り直し、事前投入済み dummy data なしで project 作成、メイン担当入力、quick task 追加、複数サブタスク追加、担当者 / 開始日 / 終了日入力、event day 追加、Portfolio 確認、Year/FY Roadmap 展開確認を反復した
 - 20回の条件は viewport `1180x720` から `1920x1080`、標準 / 長文 / 英数Mix / 短名 project、担当者2-3名、task 5-8件、event day 1-3件、Roadmap 1-5年相当で変化させた
 - screenshot set は `artifacts/manual-ui-audit-2026-04-29-twenty-runs/` に保存し、各回 `empty-home / project-detail-filled / wbs-horizontal-scroll / portfolio / roadmap-expanded` の5枚、合計100枚を取得した

@@ -59,6 +59,8 @@
 - Nightly backlog continuation
 - Weekly spec drift review
 - Weekly release-note draft（後半フェーズ）
+- Daily SGC progress email: 毎日 07:00 Asia/Tokyo に `PROJECT_STATUS.md`、`docs/backlog.yaml`、ローカル git 状態を確認し、`orenodinner@gmail.com` へ日本語の進捗レポートを送る
+- Hourly Gmail SGC command runner: 1時間ごとに Gmail を確認し、宛先 `orenodinner@gmail.com` かつ件名 `sgc` の新規メール本文を Codex 指示として実行する
 
 推奨 prompt は `prompts/automation-*.md` を使う。
 

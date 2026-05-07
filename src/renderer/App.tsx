@@ -1313,17 +1313,13 @@ export default function App() {
                 }
 
                 let lastCreatedItem: ItemRecord | null = null;
-                const parentId = bulkTaskParent?.id ?? null;
                 for (const title of titles) {
-                  const createdItem = await createItem(projectDetail.project.id, parentId, title, "task");
+                  const createdItem = await createItem(projectDetail.project.id, null, title, "task");
                   if (createdItem) {
                     lastCreatedItem = createdItem;
                   }
                 }
 
-                if (parentId) {
-                  setExpandedIds((current) => new Set(current).add(parentId));
-                }
                 if (lastCreatedItem) {
                   setSelectedItemId(lastCreatedItem.id);
                   setBulkTaskTitles("");
@@ -1332,8 +1328,8 @@ export default function App() {
             >
               <div>
                 <p className="sidebar-label">{copy.project.bulkAddLabel}</p>
-                <strong>{bulkTaskParent ? copy.project.bulkAddChildTitle : copy.project.bulkAddRootTitle}</strong>
-                <span>{bulkTaskParent ? bulkTaskParent.title : copy.project.bulkAddRootHelp}</span>
+                <strong>{copy.project.bulkAddRootTitle}</strong>
+                <span>{copy.project.bulkAddRootHelp}</span>
               </div>
               <textarea
                 aria-label={copy.project.bulkAddLabel}
@@ -1696,11 +1692,26 @@ export default function App() {
               <DetailDrawer
                 item={detailDrawerItem}
                 projectItems={projectDetail.items}
+                projectCopy={copy.project}
                 onSelectItem={(itemId) => {
                   setSelectedItemId(itemId);
                   setDetailDrawerItemId(itemId);
                 }}
                 onUpdateItem={(patch) => requestProjectItemUpdate(detailDrawerItem, patch)}
+                onCreateSubtasks={async (parentId, titles) => {
+                  let lastCreatedItem: ItemRecord | null = null;
+                  for (const title of titles) {
+                    const createdItem = await createItem(projectDetail.project.id, parentId, title, "task");
+                    if (createdItem) {
+                      lastCreatedItem = createdItem;
+                    }
+                  }
+                  setExpandedIds((current) => new Set(current).add(parentId));
+                  if (lastCreatedItem) {
+                    setSelectedItemId(lastCreatedItem.id);
+                    setDetailDrawerItemId(lastCreatedItem.id);
+                  }
+                }}
                 onUpsertRecurrenceRule={upsertRecurrenceRule}
                 onDeleteRecurrenceRule={deleteRecurrenceRule}
               />
@@ -4459,8 +4470,10 @@ function ItemContextMenu(props: {
 function DetailDrawer(props: {
   item: ItemRecord | null;
   projectItems: ItemRecord[];
+  projectCopy: UiCopy["project"];
   onSelectItem: (itemId: string) => void;
   onUpdateItem: (patch: Partial<Pick<ItemRecord, "note" | "tags">>) => void;
+  onCreateSubtasks: (parentId: string, titles: string[]) => Promise<void>;
   onUpsertRecurrenceRule: (input: {
     itemId: string;
     rruleText: string;
@@ -4471,8 +4484,10 @@ function DetailDrawer(props: {
   const {
     item,
     projectItems,
+    projectCopy,
     onSelectItem,
     onUpdateItem,
+    onCreateSubtasks,
     onUpsertRecurrenceRule,
     onDeleteRecurrenceRule,
   } = props;
@@ -4496,6 +4511,8 @@ function DetailDrawer(props: {
   const [recurrenceMonthDayInput, setRecurrenceMonthDayInput] = useState("1");
   const [recurrenceByMonthInput, setRecurrenceByMonthInput] = useState("1");
   const [nextOccurrenceAtInput, setNextOccurrenceAtInput] = useState("");
+  const [subtaskTitlesInput, setSubtaskTitlesInput] = useState("");
+  const [subtaskCreateLoading, setSubtaskCreateLoading] = useState(false);
   const itemId = item?.id ?? null;
   const projectId = item?.projectId ?? null;
 
@@ -4743,6 +4760,25 @@ function DetailDrawer(props: {
     }
   };
 
+  const handleCreateSubtasks = async () => {
+    if (!item) {
+      return;
+    }
+
+    const titles = parseBulkTaskTitles(subtaskTitlesInput);
+    if (titles.length === 0) {
+      return;
+    }
+
+    setSubtaskCreateLoading(true);
+    try {
+      await onCreateSubtasks(item.id, titles);
+      setSubtaskTitlesInput("");
+    } finally {
+      setSubtaskCreateLoading(false);
+    }
+  };
+
   return (
     <section className="detail-drawer">
       <div className="detail-drawer-header">
@@ -4802,6 +4838,29 @@ function DetailDrawer(props: {
           <div className="detail-static">
             {item.assigneeName ? `@${item.assigneeName}` : "未割当"} / {item.priority}
           </div>
+        </div>
+
+        <div className="detail-field detail-field-wide detail-subtask-add">
+          <span>{projectCopy.subtaskAddLabel}</span>
+          <div className="detail-static">
+            <strong>{projectCopy.subtaskAddTitle}</strong>
+            <span>{projectCopy.subtaskAddHelp}</span>
+          </div>
+          <textarea
+            aria-label={projectCopy.subtaskAddLabel}
+            value={subtaskTitlesInput}
+            onChange={(event) => setSubtaskTitlesInput(event.target.value)}
+            placeholder={projectCopy.subtaskAddPlaceholder}
+            rows={3}
+            disabled={subtaskCreateLoading}
+          />
+          <button
+            type="button"
+            onClick={() => void handleCreateSubtasks()}
+            disabled={subtaskCreateLoading || parseBulkTaskTitles(subtaskTitlesInput).length === 0}
+          >
+            {projectCopy.subtaskAddButton}
+          </button>
         </div>
 
         <div className="detail-field detail-field-wide">
